@@ -123,8 +123,6 @@ async function loadCloudPlayers(){
   // When logged in, the cloud database is authoritative for real profiles.
   players=[...cloud,...players.filter(p=>p.demo)];
   savePlayers();renderAll();
-  if(document.querySelector("#page-market.active")) await loadMarketData();
-  if(document.querySelector("#page-teams.active")) await loadTeamsData();
 }
 const originalPlayerSubmit=$("#playerForm").onsubmit;
 $("#playerForm").addEventListener("submit",async()=>{
@@ -234,20 +232,20 @@ async function loadTeamsData(){
     $("#teamIncomingInvites").innerHTML='<div class="market-empty">Os convites aparecerão aqui quando o Supabase estiver conectado.</div>';
     return;
   }
-  const [teamsRes,membersRes]=await Promise.all([
+  const requests=[
     supabaseClient.from("teams").select("id,name,tag,capacity,captain_player_id,created_at").order("created_at",{ascending:false}),
-    supabaseClient.from("team_members").select("team_id,player_id,role")
-  ]);
-  if(teamsRes.error||membersRes.error){
-    $("#teamsList").innerHTML=`<div class="market-empty"><b>Não foi possível carregar as equipes</b>${safe((teamsRes.error||membersRes.error).message)}</div>`;
+    supabaseClient.from("team_members").select("team_id,player_id,role"),
+    currentUser
+      ? supabaseClient.from("team_invites").select("id,team_id,invited_player_id,invited_by_player_id,status,created_at").order("created_at",{ascending:false})
+      : Promise.resolve({data:[],error:null})
+  ];
+  const [teamsRes,membersRes,invitesRes]=await Promise.all(requests);
+  if(teamsRes.error||membersRes.error||invitesRes.error){
+    const err=teamsRes.error||membersRes.error||invitesRes.error;
+    $("#teamsList").innerHTML=`<div class="market-empty"><b>Não foi possível carregar as equipes</b>${safe(err.message)}</div>`;
     return;
   }
-  cloudTeams=teamsRes.data||[];teamMembers=membersRes.data||[];
-  teamInvites=[];
-  if(currentUser){
-    const inv=await supabaseClient.from("team_invites").select("id,team_id,invited_player_id,invited_by_player_id,status,created_at").order("created_at",{ascending:false});
-    if(inv.error){toast("Erro ao carregar convites: "+inv.error.message)}else teamInvites=inv.data||[];
-  }
+  cloudTeams=teamsRes.data||[];teamMembers=membersRes.data||[];teamInvites=invitesRes.data||[];
   renderTeams();
 }
 function renderTeams(){
