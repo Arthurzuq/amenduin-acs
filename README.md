@@ -1,85 +1,35 @@
-# Amenduin Competitive System (ACS) — MVP + Supabase scaffold
+# Amenduin ACS 3.3 — Administração
 
-## O que já funciona no navegador
-- Navegação: Visão geral, Jogadores, Rankings, Equipes e Mercado.
-- Cadastro e edição de perfis.
-- Pesquisa, filtro por função e ordenação.
-- Página detalhada do jogador.
-- Ranking demonstrativo.
-- Salvamento local em `localStorage`.
-- Layout responsivo.
+Atualização incremental para o ACS 3.2. Inclui exclusão de equipes pelo capitão, remoção dos perfis demonstrativos locais, painel administrativo e estatísticas oficiais protegidas no Supabase.
 
-## Preparação para autenticação e banco online
-O projeto inclui:
-- `supabase-config.js`: local para inserir URL e chave publicável do Supabase.
-- `supabase-schema.sql`: tabelas iniciais, índices e políticas RLS.
-- Fluxo de login/cadastro por e-mail e senha.
-- Leitura e gravação básica de perfis online após autenticação.
+## Arquivos
+- `index.html`, `styles.css`, `app.js`: frontend atualizado.
+- `acs-3.3-admin-migration.sql`: migração incremental do banco.
+- `supabase-config.js`: mantenha o arquivo do seu projeto, com a Project URL e a publishable/anon key atuais.
 
-### Como ativar Supabase
-1. Crie um projeto gratuito em https://supabase.com/.
-2. No painel do projeto, abra **SQL Editor** e execute todo o conteúdo de `supabase-schema.sql`.
-3. Em **Project Settings → API**, copie o Project URL e a chave **publishable** (ou anon legacy).
-4. Cole os valores em `supabase-config.js`:
-   ```js
-   window.ACS_SUPABASE_URL = "https://SEU-PROJETO.supabase.co";
-   window.ACS_SUPABASE_ANON_KEY = "SUA_CHAVE_PUBLICAVEL";
-   ```
-5. Publique o site em um host estático HTTPS, por exemplo Cloudflare Pages ou GitHub Pages.
-6. Em Supabase → Authentication → URL Configuration, configure a URL do site publicado como Site URL e adicione-a às Redirect URLs.
-7. Teste criar conta, confirmar e-mail (se habilitado), entrar e criar perfil.
+## Instalação
+1. Faça backup/export do projeto Supabase antes da migração.
+2. No Supabase, abra SQL Editor e execute `acs-3.3-admin-migration.sql` uma única vez. Ela pressupõe que as migrations ACS 3.0, 3.1 e 3.2 já foram aplicadas.
+3. Extraia este ZIP e envie os arquivos da pasta `amenduin_acs` ao repositório GitHub, substituindo os arquivos antigos.
+4. **Não substitua `supabase-config.js`** pelo arquivo de exemplo do ZIP se ele estiver preenchido no seu site. Preserve a URL e a chave pública do seu projeto.
+5. Aguarde o GitHub Pages publicar e atualize o site com Ctrl+F5.
+6. Entre na conta que será a administradora, abra Administração e informe o código de ativação abaixo.
 
-## Segurança e limites desta etapa
-- Nunca coloque a chave `service_role` no frontend.
-- O SQL permite que qualquer visitante veja perfis e dados públicos da liga.
-- Um usuário autenticado só pode inserir/editar o próprio perfil (associado a `auth.uid()`).
-- Não há permissões administrativas completas ainda. Estatísticas oficiais, avaliações, partidas, equipes e decisões de transferência não podem ser gravadas pelo frontend nesta versão.
-- O app ainda mantém os perfis de demonstração no navegador para fins de visualização.
-- A sincronização online básica ainda precisa ser testada no seu projeto Supabase e pode exigir pequenos ajustes conforme as configurações de autenticação.
+## Código de ativação inicial
+O código de cinco dígitos foi fornecido separadamente na conversa, não neste arquivo. Ele é de uso único para o projeto Supabase. A migração armazena somente um hash com salt, invalida o código após o primeiro uso e bloqueia novas tentativas por 24 horas depois de cinco erros. Ative-o somente depois de entrar na conta correta. Não publique o código em repositórios, mensagens ou prints.
 
-## Próxima etapa recomendada
-Implementar painel administrativo seguro com papéis de organizador e administrador, cadastro de campeonatos/partidas e registro de estatísticas oficiais. O provisionamento desses papéis deve ocorrer por ambiente confiável, não pelo próprio usuário.
+**Limite de segurança:** um PIN de cinco dígitos é uma credencial fraca. O fluxo foi limitado a uso único e tentativas globais, mas o painel administrativo também depende da autenticação por e-mail/senha do Supabase. Para uma operação de alto risco, substitua o PIN por provisionamento administrativo fora do frontend e autenticação forte.
 
-## ACS 3.0 — Mercado de jogadores
+## O que muda
+- Perfis fictícios `demo-*` são removidos do armazenamento local deste navegador e deixam de ser incluídos na listagem.
+- Jogadores reais cadastrados no Supabase continuam preservados.
+- O capitão pode excluir a própria equipe. Todos os integrantes retornam a `Sem equipe`; os convites e a equipe são removidos.
+- Apenas a conta com papel `admin` pode gravar estatísticas oficiais, por meio de função SQL protegida. Jogadores comuns não recebem permissão direta de escrita na tabela de estatísticas.
+- O painel permite editar Rating AM, K/D, ADR, HS%, Win Rate, partidas, MVPs, kills, deaths, first kills, first deaths e clutches.
+- Cada alteração nas estatísticas gera um registro de auditoria no banco.
 
-A versão 3 adiciona consulta pública dos perfis sincronizados e propostas de transferência entre jogadores. Para ativar o Mercado, abra `acs-3.0-market-migration.sql`, copie todo o conteúdo e execute uma vez no SQL Editor do Supabase. Esse arquivo é uma migração separada; não é necessário executar novamente o `supabase-schema.sql` original.
-
-Como funciona:
-- O jogador precisa ter uma conta autenticada e um perfil ACS vinculado a essa conta.
-- O perfil pode ser marcado como `Disponível`, `Negociável` ou `Livre` para aparecer no Mercado.
-- O jogador que envia a proposta escolhe um perfil da própria conta e escreve uma mensagem.
-- Apenas o dono do perfil destinatário pode aceitar ou recusar. O autor pode cancelar a própria proposta.
-- Ao aceitar, se o jogador proponente estiver vinculado a uma equipe diferente de `Sem equipe`, o perfil destinatário passa para essa equipe e o sistema registra a movimentação na tabela `transfers`.
-
-Importante: após atualizar os arquivos no GitHub, aguarde o GitHub Pages publicar a nova versão. Não altere nem publique a chave `service_role`; o frontend usa somente a Publishable/anon key.
-
-
-### Atualização do site publicado
-
-1. Extraia este ZIP no computador.
-2. No repositório do GitHub, substitua os arquivos antigos pelos arquivos desta pasta (incluindo `index.html`, `app.js`, `styles.css` e `supabase-config.js`).
-3. Faça o commit das alterações. O GitHub Pages publicará a atualização automaticamente.
-4. No Supabase, execute `acs-3.0-market-migration.sql` uma única vez.
-5. Abra o site, entre com uma conta que tenha perfil de jogador e teste o Mercado com uma segunda conta.
-
-O código foi validado quanto à sintaxe JavaScript (`node --check`) e à estrutura HTML. A integração real depende da execução da migração e de testes no projeto Supabase do organizador.
-
-## ACS 3.1 — equipes e convites
-
-A versão 3.1 adiciona criação de equipes por qualquer jogador com perfil vinculado, convites para outros jogadores, aceite/recusa de convites, lista pública de elencos e remoção de integrantes pelo capitão.
-
-### Atualização do Supabase
-1. Abra o projeto no Supabase e entre em **SQL Editor**.
-2. Crie uma nova query e cole o conteúdo de `acs-3.1-teams-migration.sql`.
-3. Execute uma vez. Não execute novamente o schema inicial nem as migrations anteriores.
-4. Preserve seu `supabase-config.js` atual, com a URL e a chave pública do seu projeto.
-
-### Como usar
-- Entre na sua conta e crie/vincule seu perfil de jogador.
-- Abra **Equipes** e crie uma equipe. O criador vira capitão.
-- O capitão seleciona um jogador sem equipe no seletor do elenco e envia um convite.
-- O convidado entra em **Equipes > Convites recebidos** e aceita ou recusa.
-- O aceite adiciona o jogador ao elenco e atualiza a equipe exibida no perfil.
-- O capitão pode remover integrantes. O capitão não pode remover a si mesmo.
-
-A capacidade da equipe é escolhida na criação (3, 5 ou 6). Um jogador só pode estar em uma equipe por vez. Ações de equipe são validadas no banco por funções RPC com `SECURITY DEFINER`; as tabelas não permitem escrita direta pelo navegador.
+## Observações
+- Os perfis demonstrativos eram dados locais do frontend; a migração não apaga contas nem perfis reais do banco.
+- A atualização não cria partidas automaticamente nem calcula estatísticas a partir de placares. O administrador registra os agregados atuais no painel.
+- Não coloque a `service_role` key no frontend. Use apenas a publishable/anon key.
+- A integração precisa ser validada no projeto Supabase real após a migração.

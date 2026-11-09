@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0b0e14">
-  <title>ACS | Liga Amenduin</title>
+  <title>ACS 3.3 | Liga Amenduin</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -24,6 +24,7 @@
         <a href="#" class="nav-link" data-page="rankings"><span>▤</span> Rankings</a>
         <a href="#" class="nav-link" data-page="teams"><span>⬡</span> Equipes</a>
         <a href="#" class="nav-link" data-page="market"><span>⇄</span> Mercado</a>
+        <a href="#" class="nav-link" data-page="admin" style="display:none"><span>⚙</span> Administração</a>
       </nav>
       <div class="sidebar-bottom">
         <div class="season-card"><span class="live-dot"></span><div><b>ACS ONLINE</b><small>Temporada em preparação</small></div></div>
@@ -36,7 +37,7 @@
         <button class="mobile-menu" id="mobileMenu" aria-label="Abrir menu">☰</button>
         <div class="breadcrumb">LIGA AMENDUIN <span>/</span> <b id="crumb">VISÃO GERAL</b></div>
         <div class="top-actions">
-          <span class="demo-pill">VERSÃO DEMONSTRAÇÃO</span>
+          <span class="demo-pill">ACS ONLINE</span>
           <button class="btn btn-ghost btn-small" id="authButton">Entrar</button><button class="btn btn-primary btn-small" id="newPlayerTop">＋ Criar perfil</button>
         </div>
       </header>
@@ -83,7 +84,7 @@
             <div class="quick-foot"><span>01</span> PERFIL <i></i><span>02</span> ESTATÍSTICAS <i></i><span>03</span> HISTÓRICO</div>
           </section>
         </div>
-        <div class="notice"><b>ⓘ Ambiente de demonstração</b><span>Os perfis iniciais são exemplos fictícios. Nesta versão, os dados ficam salvos somente neste navegador. Ainda não há contas, sincronização online ou estatísticas oficiais.</span></div>
+        <div class="notice"><b>ⓘ Dados oficiais</b><span>Esta plataforma exibe perfis cadastrados por jogadores. Estatísticas competitivas oficiais são publicadas exclusivamente pela administração.</span></div>
       </section>
 
       <section class="page" id="page-players">
@@ -94,7 +95,7 @@
 
       <section class="page" id="page-rankings">
         <div class="page-title-row"><div><span class="eyebrow">PERFORMANCE / LEADERBOARD</span><h1>RANKINGS</h1><p>Classificações baseadas nos dados disponíveis.</p></div></div>
-        <div class="notice"><b>Ranking demonstrativo</b><span>As posições são calculadas com os dados de exemplo e os perfis cadastrados. O Rating AM ainda é informativo e não representa uma avaliação oficial.</span></div>
+        <div class="notice"><b>Ranking oficial</b><span>As classificações usam as estatísticas registradas pela administração da Liga Amenduin. Jogadores sem avaliação aparecem sem Rating AM.</span></div>
         <div class="panel ranking-panel"><div class="panel-head"><div><span class="eyebrow">GERAL</span><h3>Rating AM</h3></div><span class="muted small">0–100 pontos</span></div><div id="rankingList"></div></div>
       </section>
 
@@ -113,6 +114,34 @@
           <section class="panel"><div class="panel-head"><div><span class="eyebrow">YOUR INVITATIONS</span><h3>Convites recebidos</h3></div></div><div id="teamIncomingInvites" class="offer-list"><div class="market-empty">Entre na sua conta para consultar convites.</div></div></section>
         </div>
         <section class="panel teams-panel"><div class="panel-head"><div><span class="eyebrow">ACTIVE ROSTERS</span><h3>Equipes cadastradas</h3></div><span class="muted small" id="teamCount">0 equipes</span></div><div id="teamsList" class="teams-list"><div class="market-empty">Carregando equipes...</div></div></section>
+      </section>
+
+
+      <section class="page" id="page-admin">
+        <div class="page-title-row"><div><span class="eyebrow">ACS CONTROL / ADMINISTRATION</span><h1>ADMINISTRAÇÃO</h1><p>Gerencie as estatísticas competitivas oficiais dos jogadores.</p></div></div>
+        <div class="market-help">Somente a conta que ativar o código administrativo de uso único terá permissão para alterar estatísticas. Jogadores comuns não podem editar estes dados.</div>
+        <section class="panel" id="adminActivationPanel"><div class="panel-head"><div><span class="eyebrow">SECURE ACCESS</span><h3>Ativar administrador</h3></div></div>
+          <form id="adminActivateForm" class="admin-activate-form"><label class="field">CÓDIGO DE ATIVAÇÃO (5 DÍGITOS)<input id="adminCode" inputmode="numeric" pattern="[0-9]{5}" maxlength="5" required placeholder="•••••"></label><button class="btn btn-primary" id="adminActivateButton" type="submit">Ativar painel</button></form>
+          <p class="form-note">O código só pode ser usado uma vez em todo o projeto. Após a ativação, ele é invalidado.</p>
+        </section>
+        <section class="panel" id="adminWorkspace" style="display:none"><div class="panel-head"><div><span class="eyebrow">PLAYER DATA</span><h3>Editar estatísticas oficiais</h3></div></div>
+          <label class="field">JOGADOR<select id="adminPlayerSelect"><option value="">Selecione um jogador</option></select></label>
+          <form id="adminStatsForm" class="admin-stats-form" style="display:none">
+            <label class="field">RATING AM (0–100)<input id="stat_rating_am" type="number" min="0" max="100" step="0.01"></label>
+            <label class="field">K/D<input id="stat_kd" type="number" min="0" step="0.001"></label>
+            <label class="field">ADR<input id="stat_adr" type="number" min="0" step="0.01"></label>
+            <label class="field">HEADSHOT %<input id="stat_headshot_pct" type="number" min="0" max="100" step="0.01"></label>
+            <label class="field">WIN RATE %<input id="stat_win_rate" type="number" min="0" max="100" step="0.01"></label>
+            <label class="field">PARTIDAS<input id="stat_matches" type="number" min="0" step="1"></label>
+            <label class="field">MVPS<input id="stat_mvps" type="number" min="0" step="1"></label>
+            <label class="field">KILLS<input id="stat_kills" type="number" min="0" step="1"></label>
+            <label class="field">DEATHS<input id="stat_deaths" type="number" min="0" step="1"></label>
+            <label class="field">FIRST KILLS<input id="stat_first_kills" type="number" min="0" step="1"></label>
+            <label class="field">FIRST DEATHS<input id="stat_first_deaths" type="number" min="0" step="1"></label>
+            <label class="field">CLUTCHES<input id="stat_clutches" type="number" min="0" step="1"></label>
+            <div class="admin-save-row"><button class="btn btn-primary" type="submit">Salvar estatísticas</button></div>
+          </form>
+        </section>
       </section>
 
       <section class="page" id="page-market">
