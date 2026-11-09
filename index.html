@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b0e14">
+  <title>ACS | Liga Amenduin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#" data-page="home">
+        <div class="brand-mark">A</div>
+        <div><strong>AMENDUIN</strong><span>COMPETITIVE SYSTEM</span></div>
+      </a>
+      <div class="side-label">PLATAFORMA</div>
+      <nav class="side-nav">
+        <a href="#" class="nav-link active" data-page="home"><span>◈</span> Visão geral</a>
+        <a href="#" class="nav-link" data-page="players"><span>♙</span> Jogadores</a>
+        <a href="#" class="nav-link" data-page="rankings"><span>▤</span> Rankings</a>
+        <a href="#" class="nav-link" data-page="teams"><span>⬡</span> Equipes</a>
+        <a href="#" class="nav-link" data-page="market"><span>⇄</span> Mercado</a>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="season-card"><span class="live-dot"></span><div><b>ACS ONLINE</b><small>Temporada em preparação</small></div></div>
+        <p class="sidebar-note">Uma plataforma comunitária da Liga Amenduin.</p>
+      </div>
+    </aside>
+
+    <main class="main-area">
+      <header class="topbar">
+        <button class="mobile-menu" id="mobileMenu" aria-label="Abrir menu">☰</button>
+        <div class="breadcrumb">LIGA AMENDUIN <span>/</span> <b id="crumb">VISÃO GERAL</b></div>
+        <div class="top-actions">
+          <span class="demo-pill">VERSÃO DEMONSTRAÇÃO</span>
+          <button class="btn btn-ghost btn-small" id="authButton">Entrar</button><button class="btn btn-primary btn-small" id="newPlayerTop">＋ Criar perfil</button>
+        </div>
+      </header>
+
+      <section class="page active" id="page-home">
+        <div class="hero">
+          <div class="hero-copy">
+            <div class="eyebrow"><span class="live-dot"></span> O HUB COMPETITIVO DA LIGA</div>
+            <h1>SEU JOGO.<br><em>SUA HISTÓRIA.</em></h1>
+            <p>Identidade competitiva, estatísticas e histórico dos jogadores da Liga Amenduin em um só lugar.</p>
+            <div class="hero-actions">
+              <button class="btn btn-primary" id="createFromHero">Criar meu perfil <span>↗</span></button>
+              <button class="btn btn-ghost" data-goto="players">Explorar jogadores</button>
+            </div>
+          </div>
+          <div class="hero-art">
+            <div class="hero-ring ring-one"></div><div class="hero-ring ring-two"></div>
+            <div class="hero-monogram">AM<span>.</span></div>
+            <div class="hero-caption">COMPETE · IMPROVE · REPEAT</div>
+            <div class="hero-index">ACS / 001</div>
+          </div>
+        </div>
+
+        <div class="section-heading">
+          <div><span class="eyebrow">PANORAMA</span><h2>O ecossistema Amenduin</h2></div>
+          <span class="muted small">Dados salvos neste navegador</span>
+        </div>
+        <div class="stat-grid">
+          <article class="stat-card"><span class="stat-icon">♙</span><span class="stat-label">JOGADORES CADASTRADOS</span><strong id="totalPlayers">0</strong><small>Perfis na plataforma</small></article>
+          <article class="stat-card"><span class="stat-icon">⬡</span><span class="stat-label">EQUIPES ATIVAS</span><strong id="totalTeams">0</strong><small>Equipes registradas</small></article>
+          <article class="stat-card"><span class="stat-icon">◷</span><span class="stat-label">PARTIDAS REGISTRADAS</span><strong id="totalMatches">0</strong><small>Histórico competitivo</small></article>
+          <article class="stat-card accent-card"><span class="stat-icon">✦</span><span class="stat-label">PERFIS EM DESTAQUE</span><strong id="featuredCount">0</strong><small>Jogadores com Rating AM</small></article>
+        </div>
+
+        <div class="content-grid">
+          <section class="panel">
+            <div class="panel-head"><div><span class="eyebrow">COMUNIDADE</span><h3>Jogadores em destaque</h3></div><button class="text-button" data-goto="players">Ver todos →</button></div>
+            <div id="featuredPlayers" class="featured-list"></div>
+          </section>
+          <section class="panel quick-panel">
+            <span class="eyebrow">COMECE POR AQUI</span><h3>Construa sua identidade competitiva.</h3>
+            <p>Crie seu perfil, escolha sua função e acompanhe sua trajetória dentro da Liga Amenduin.</p>
+            <button class="btn btn-primary full" id="createFromPanel">＋ Criar perfil de jogador</button>
+            <div class="quick-foot"><span>01</span> PERFIL <i></i><span>02</span> ESTATÍSTICAS <i></i><span>03</span> HISTÓRICO</div>
+          </section>
+        </div>
+        <div class="notice"><b>ⓘ Ambiente de demonstração</b><span>Os perfis iniciais são exemplos fictícios. Nesta versão, os dados ficam salvos somente neste navegador. Ainda não há contas, sincronização online ou estatísticas oficiais.</span></div>
+      </section>
+
+      <section class="page" id="page-players">
+        <div class="page-title-row"><div><span class="eyebrow">DATABASE / PLAYERS</span><h1>JOGADORES</h1><p>Explore os perfis competitivos da Liga Amenduin.</p></div><button class="btn btn-primary" id="newPlayerList">＋ Novo jogador</button></div>
+        <div class="toolbar"><div class="search-box"><span>⌕</span><input id="playerSearch" placeholder="Buscar por nickname ou equipe..."></div><select id="roleFilter"><option value="">Todas as funções</option><option>AWPer</option><option>Rifler</option><option>Support</option><option>Lurker</option><option>Entry-Fragger</option><option>IGL</option></select><select id="sortPlayers"><option value="name">Nome (A–Z)</option><option value="rating">Maior Rating AM</option><option value="kd">Maior K/D</option></select></div>
+        <div id="playersGrid" class="players-grid"></div>
+      </section>
+
+      <section class="page" id="page-rankings">
+        <div class="page-title-row"><div><span class="eyebrow">PERFORMANCE / LEADERBOARD</span><h1>RANKINGS</h1><p>Classificações baseadas nos dados disponíveis.</p></div></div>
+        <div class="notice"><b>Ranking demonstrativo</b><span>As posições são calculadas com os dados de exemplo e os perfis cadastrados. O Rating AM ainda é informativo e não representa uma avaliação oficial.</span></div>
+        <div class="panel ranking-panel"><div class="panel-head"><div><span class="eyebrow">GERAL</span><h3>Rating AM</h3></div><span class="muted small">0–100 pontos</span></div><div id="rankingList"></div></div>
+      </section>
+
+      <section class="page" id="page-teams">
+        <div class="page-title-row"><div><span class="eyebrow">ORGANIZATION / ROSTERS</span><h1>EQUIPES</h1><p>Consulte as equipes associadas aos jogadores.</p></div></div>
+        <div class="empty-state"><div class="empty-symbol">⬡</div><h3>Gestão de equipes em preparação</h3><p>O cadastro de equipes, elencos e histórico de lineups será adicionado em uma próxima etapa.</p></div>
+      </section>
+
+      <section class="page" id="page-market">
+        <div class="page-title-row"><div><span class="eyebrow">ROSTER MOVES / TRANSFERS</span><h1>MERCADO</h1><p>Movimentações simbólicas de jogadores, sem dinheiro envolvido.</p></div></div>
+        <div class="market-banner"><div><span class="eyebrow">TRANSFER MARKET</span><h2>O próximo capítulo da sua carreira.</h2><p>O mercado permitirá indicar disponibilidade, encontrar jogadores livres e registrar propostas de troca entre equipes.</p></div><div class="market-symbol">⇄</div></div>
+        <div class="empty-state"><div class="empty-symbol">⇄</div><h3>Mercado em desenvolvimento</h3><p>Por enquanto, o status de mercado pode ser definido no perfil. As propostas e transferências serão implementadas depois.</p><button class="btn btn-ghost" data-goto="players">Explorar jogadores</button></div>
+      </section>
+
+      <footer><span>© LIGA AMENDUIN · ACS</span><span>BUILT FOR COMPETITION <b>◆</b></span></footer>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="profileModal">
+    <div class="modal">
+      <div class="modal-head"><div><span class="eyebrow">PLAYER REGISTRATION</span><h2 id="modalTitle">CRIAR PERFIL</h2></div><button class="icon-button" id="closeModal" aria-label="Fechar">×</button></div>
+      <form id="playerForm">
+        <input type="hidden" id="editId">
+        <div class="form-grid">
+          <label class="field span-2">NICKNAME *<input id="nickname" required maxlength="24" placeholder="Ex.: amenduin_player"></label>
+          <label class="field">STEAM ID / URL<input id="steam" placeholder="Steam profile URL"></label>
+          <label class="field">PAÍS<select id="country"><option>Brasil</option><option>Portugal</option><option>Argentina</option><option>Outro</option></select></label>
+          <label class="field">FUNÇÃO PRINCIPAL *<select id="mainRole" required><option value="">Selecione uma função</option><option>AWPer</option><option>Rifler</option><option>Support</option><option>Lurker</option><option>Entry-Fragger</option><option>IGL</option></select></label>
+          <label class="field">FUNÇÃO SECUNDÁRIA<select id="secondaryRole"><option value="">Nenhuma</option><option>AWPer</option><option>Rifler</option><option>Support</option><option>Lurker</option><option>Entry-Fragger</option><option>IGL</option></select></label>
+          <label class="field">EQUIPE ATUAL<input id="team" placeholder="Sem equipe"></label>
+          <label class="field">STATUS NO MERCADO<select id="marketStatus"><option>Intocável</option><option>Negociável</option><option>Disponível</option><option>Livre</option></select></label>
+          <label class="field span-2">BIOGRAFIA<textarea id="bio" rows="3" maxlength="240" placeholder="Conte um pouco sobre seu estilo de jogo..."></textarea></label>
+        </div>
+        <div class="form-note">* Campos obrigatórios. Estatísticas oficiais só poderão ser registradas pela organização em uma versão futura.</div>
+        <div class="modal-actions"><button type="button" class="btn btn-ghost" id="cancelModal">Cancelar</button><button type="submit" class="btn btn-primary">Salvar perfil ↗</button></div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="detailModal">
+    <div class="modal detail-modal"><div id="detailContent"></div></div>
+  </div>
+
+  <div class="modal-backdrop" id="authModal">
+    <div class="modal auth-modal">
+      <div class="modal-head"><div><span class="eyebrow">PLAYER ACCESS / ACS</span><h2 id="authTitle">ENTRAR NA CONTA</h2></div><button class="icon-button" id="closeAuth" aria-label="Fechar">×</button></div>
+      <form id="authForm">
+        <label class="field">E-MAIL<input id="authEmail" type="email" required placeholder="voce@email.com"></label>
+        <label class="field" style="margin-top:13px">SENHA<input id="authPassword" type="password" required minlength="6" placeholder="Mínimo de 6 caracteres"></label>
+        <p class="form-note" id="authHint">Use sua conta para acessar a plataforma. No modo de demonstração, configure o Supabase para ativar autenticação online.</p>
+        <div class="modal-actions"><button type="button" class="btn btn-ghost" id="toggleAuthMode">Criar conta</button><button type="submit" class="btn btn-primary" id="authSubmit">Entrar ↗</button></div>
+      </form>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
