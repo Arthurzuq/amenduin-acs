@@ -22,6 +22,7 @@
         <a href="#" class="nav-link active" data-page="home"><span>◈</span> Visão geral</a>
         <a href="#" class="nav-link" data-page="players"><span>♙</span> Jogadores</a>
         <a href="#" class="nav-link" data-page="rankings"><span>▤</span> Rankings</a>
+        <a href="#" class="nav-link" data-page="matches"><span>◷</span> Partidas</a>
         <a href="#" class="nav-link" data-page="teams"><span>⬡</span> Equipes</a>
         <a href="#" class="nav-link" data-page="market"><span>⇄</span> Mercado</a>
         <a href="#" class="nav-link" data-page="admin" style="display:none"><span>⚙</span> Administração</a>
@@ -117,6 +118,12 @@
       </section>
 
 
+      <section class="page" id="page-matches">
+        <div class="page-title-row"><div><span class="eyebrow">OFFICIAL COMPETITION DATA</span><h1>PARTIDAS</h1><p>Resultados oficiais e desempenho registrado por confronto.</p></div><button class="btn btn-ghost" id="refreshMatches">↻ Atualizar</button></div>
+        <div class="market-help">Os resultados e estatísticas são públicos. Somente administradores podem cadastrar ou excluir partidas. O Rating AM é recalculado a partir das partidas registradas.</div>
+        <section class="panel"><div class="panel-head"><div><span class="eyebrow">MATCH ARCHIVE</span><h3>Histórico de partidas</h3></div><span class="muted small" id="matchCount">0 partidas</span></div><div id="matchesList" class="matches-list"><div class="market-empty">Carregando partidas...</div></div></section>
+      </section>
+
       <section class="page" id="page-admin">
         <div class="page-title-row"><div><span class="eyebrow">ACS CONTROL / ADMINISTRATION</span><h1>ADMINISTRAÇÃO</h1><p>Gerencie as estatísticas competitivas oficiais dos jogadores.</p></div></div>
         <div class="market-help">Somente a conta que ativar o código administrativo de uso único terá permissão para alterar estatísticas. Jogadores comuns não podem editar estes dados.</div>
@@ -140,6 +147,23 @@
             <label class="field">FIRST DEATHS<input id="stat_first_deaths" type="number" min="0" step="1"></label>
             <label class="field">CLUTCHES<input id="stat_clutches" type="number" min="0" step="1"></label>
             <div class="admin-save-row"><button class="btn btn-primary" type="submit">Salvar estatísticas</button></div>
+          </form>
+        </section>
+        <section class="panel admin-match-panel" id="adminMatchPanel" style="display:none"><div class="panel-head"><div><span class="eyebrow">MATCH OPERATIONS</span><h3>Registrar partida oficial</h3></div></div>
+          <form id="adminMatchForm" class="admin-match-form">
+            <div class="form-grid">
+              <label class="field">EQUIPE A<input id="matchTeamA" maxlength="40" required placeholder="Nome da equipe A"></label>
+              <label class="field">EQUIPE B<input id="matchTeamB" maxlength="40" required placeholder="Nome da equipe B"></label>
+              <label class="field">PLACAR A<input id="matchScoreA" type="number" min="0" max="100" required></label>
+              <label class="field">PLACAR B<input id="matchScoreB" type="number" min="0" max="100" required></label>
+              <label class="field">MAPA<input id="matchMap" maxlength="40" placeholder="Ex.: Mirage"></label>
+              <label class="field">FORMATO<select id="matchBestOf"><option value="1">MD1</option><option value="3">MD3</option><option value="5">MD5</option></select></label>
+              <label class="field span-2">DATA/HORA<input id="matchPlayedAt" type="datetime-local"></label>
+              <label class="field span-2">OBSERVAÇÕES<textarea id="matchNotes" rows="2" maxlength="500"></textarea></label>
+            </div>
+            <div class="match-player-heading"><h4>Estatísticas dos jogadores</h4><p>Selecione o lado de cada jogador e informe os números daquela partida. Jogadores sem participação devem ficar fora do registro.</p></div>
+            <div id="matchPlayerRows" class="match-player-rows"></div>
+            <div class="admin-save-row"><button class="btn btn-primary" type="submit" id="saveMatchButton">Registrar partida e atualizar rankings</button></div>
           </form>
         </section>
       </section>

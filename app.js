@@ -14,7 +14,7 @@ const initials = n => (n||"?").slice(0,2).toUpperCase();
 const safe = s => String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const roleShort = r => r==="Entry-Fragger"?"ENTRY":r==="Support"?"SUPPORT":r==="AWPer"?"AWPER":r==="Lurker"?"LURKER":r==="Rifler"?"RIFLER":"IGL";
 function toast(msg){const t=$("#toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2600)}
-function go(page){$$(".page").forEach(p=>p.classList.toggle("active",p.id===`page-${page}`));$$(".nav-link").forEach(a=>a.classList.toggle("active",a.dataset.page===page));$("#crumb").textContent=({home:"VISÃO GERAL",players:"JOGADORES",rankings:"RANKINGS",teams:"EQUIPES",market:"MERCADO"})[page]||page.toUpperCase();$(".sidebar").classList.remove("open");if(page==="players")renderPlayers();if(page==="rankings")renderRanking();if(page==="market")loadMarketData();if(page==="teams")loadTeamsData();window.scrollTo(0,0)}
+function go(page){$$(".page").forEach(p=>p.classList.toggle("active",p.id===`page-${page}`));$$(".nav-link").forEach(a=>a.classList.toggle("active",a.dataset.page===page));$("#crumb").textContent=({home:"VISÃO GERAL",players:"JOGADORES",rankings:"RANKINGS",matches:"PARTIDAS",teams:"EQUIPES",market:"MERCADO"})[page]||page.toUpperCase();$(".sidebar").classList.remove("open");if(page==="players")renderPlayers();if(page==="rankings")renderRanking();if(page==="matches")loadMatches();if(page==="market")loadMarketData();if(page==="teams")loadTeamsData();window.scrollTo(0,0)}
 $$("[data-page]").forEach(a=>a.addEventListener("click",e=>{e.preventDefault();go(a.dataset.page)}));
 $$("[data-goto]").forEach(b=>b.addEventListener("click",()=>go(b.dataset.goto)));
 $("#mobileMenu").addEventListener("click",()=>$(".sidebar").classList.toggle("open"));
@@ -131,7 +131,8 @@ async function loadCloudPlayers(){
     rating:st.rating_am??null,kd:st.kd??null,adr:st.adr??null,hs:st.headshot_pct??null,win:st.win_rate??null,
     matches:st.matches??0,mvps:st.mvps??0,kills:st.kills??0,deaths:st.deaths??0,
     firstKills:st.first_kills??0,firstDeaths:st.first_deaths??0,clutches:st.clutches??0};});
-  savePlayers();renderAll();if(isAdmin)renderAdminPanel();
+  savePlayers();renderAll();if(isAdmin){renderAdminPanel();renderMatchPlayerRows();}
+  const matchAdmin=document.querySelector("#adminMatchPanel");if(matchAdmin)matchAdmin.style.display=isAdmin?"block":"none";
 }
 const originalPlayerSubmit=$("#playerForm").onsubmit;
 $("#playerForm").addEventListener("submit",async()=>{
@@ -328,13 +329,20 @@ $("#refreshTeams")?.addEventListener("click",async()=>{await loadCloudPlayers();
 
 // ---- ACS 3.3: painel administrativo e estatísticas oficiais ----
 async function refreshAdminStatus(){
-  if(!supabaseClient||!currentUser){isAdmin=false;updateAuthButton();return;}
+  if(!supabaseClient||!currentUser){isAdmin=false;updateAuthButton();
+    const adminLink=document.querySelector('[data-page="admin"]');if(adminLink)adminLink.style.display="none";
+    if($("#adminActivationPanel"))$("#adminActivationPanel").style.display="block";
+    if($("#adminWorkspace"))$("#adminWorkspace").style.display="none";
+    if($("#adminMatchPanel"))$("#adminMatchPanel").style.display="none";
+    return;
+  }
   const {data,error}=await supabaseClient.rpc("acs_is_admin");
   isAdmin=!error&&data===true;updateAuthButton();
   const link=document.querySelector('[data-page="admin"]');if(link)link.style.display="flex";
   $("#adminActivationPanel").style.display=isAdmin?"none":"block";
   $("#adminWorkspace").style.display=isAdmin?"block":"none";
-  if(isAdmin)renderAdminPanel();
+  $("#adminMatchPanel").style.display=isAdmin?"block":"none";
+  if(isAdmin){renderAdminPanel();renderMatchPlayerRows();}
 }
 function renderAdminPanel(){
   if(!isAdmin)return;
@@ -353,7 +361,7 @@ $("#adminActivateForm")?.addEventListener("submit",async e=>{
   const btn=$("#adminActivateButton");btn.disabled=true;
   const {data,error}=await supabaseClient.rpc("acs_claim_admin",{p_code:code});btn.disabled=false;
   if(error||data!==true){toast(error?"Não foi possível ativar o painel: "+error.message:"Código incorreto. Confira os cinco dígitos.");return;}
-  isAdmin=true;$("#adminCode").value="";$("#adminActivationPanel").style.display="none";$("#adminWorkspace").style.display="block";updateAuthButton();renderAdminPanel();toast("Acesso administrativo ativado.");
+  isAdmin=true;$("#adminCode").value="";$("#adminActivationPanel").style.display="none";$("#adminWorkspace").style.display="block";$("#adminMatchPanel").style.display="block";updateAuthButton();renderAdminPanel();renderMatchPlayerRows();toast("Acesso administrativo ativado.");
 });
 $("#adminPlayerSelect")?.addEventListener("change",renderAdminPanel);
 $("#adminStatsForm")?.addEventListener("submit",async e=>{
@@ -369,5 +377,67 @@ const adminNav=document.querySelector('[data-page="admin"]');if(adminNav)adminNa
   if(!currentUser){toast("Entre na sua conta para acessar a administração.");return;}
   $("#adminActivationPanel").style.display=isAdmin?"none":"block";
   $("#adminWorkspace").style.display=isAdmin?"block":"none";
-  if(isAdmin)renderAdminPanel();
+  if(isAdmin){renderAdminPanel();renderMatchPlayerRows();}
+  $("#adminMatchPanel").style.display=isAdmin?"block":"none";
+});
+
+
+// ---- ACS 4.0: registro de partidas oficiais e recálculo competitivo ----
+function renderMatchPlayerRows(){
+  const host=$("#matchPlayerRows");if(!host||!isAdmin)return;
+  host.innerHTML=players.length?players.map(p=>`<div class="match-player-row" data-match-player="${safe(p.id)}">
+    <div class="match-player-name"><b>${safe(p.nickname)}</b><small>${safe(p.mainRole)} · ${safe(p.team||"Sem equipe")}</small></div>
+    <label class="field">LADO<select data-match-key="team_side"><option value="">Não participou</option><option value="A">Equipe A</option><option value="B">Equipe B</option></select></label>
+    <label class="field">K<input data-match-key="kills" type="number" min="0" max="300" value="0"></label>
+    <label class="field">D<input data-match-key="deaths" type="number" min="0" max="300" value="0"></label>
+    <label class="field">A<input data-match-key="assists" type="number" min="0" max="300" value="0"></label>
+    <label class="field">ADR<input data-match-key="adr" type="number" min="0" max="500" step="0.01" placeholder="—"></label>
+    <label class="field">HS%<input data-match-key="headshot_pct" type="number" min="0" max="100" step="0.01" placeholder="—"></label>
+    <label class="field">MVP<input data-match-key="mvps" type="number" min="0" max="10" value="0"></label>
+    <label class="field">FK<input data-match-key="first_kills" type="number" min="0" max="30" value="0"></label>
+    <label class="field">FD<input data-match-key="first_deaths" type="number" min="0" max="30" value="0"></label>
+    <label class="field">CLUTCH<input data-match-key="clutches_won" type="number" min="0" max="20" value="0"></label>
+  </div>`).join(""):`<div class="market-empty">Cadastre jogadores antes de registrar uma partida.</div>`;
+}
+async function loadMatches(){
+  const host=$("#matchesList");if(!host)return;
+  if(!supabaseClient){host.innerHTML='<div class="market-empty">Conecte o Supabase para consultar o histórico oficial.</div>';return;}
+  host.innerHTML='<div class="market-empty">Carregando partidas...</div>';
+  const {data,error}=await supabaseClient.from("matches").select("id,played_at,map_name,team_a_name,team_b_name,team_a_score,team_b_score,status,best_of,notes,player_match_stats(player_id,kills,deaths,assists,mvps,team_side,players(nickname))").order("played_at",{ascending:false}).limit(100);
+  if(error){host.innerHTML=`<div class="market-empty">Não foi possível carregar partidas: ${safe(error.message)}</div>`;return;}
+  const matches=data||[];$("#matchCount").textContent=`${matches.length} partida${matches.length===1?"":"s"}`;
+  host.innerHTML=matches.length?matches.map(m=>{
+    const date=m.played_at?new Date(m.played_at).toLocaleString("pt-BR"):"Data não informada";
+    const winner=m.team_a_score>m.team_b_score?"A": "B";
+    const stats=(m.player_match_stats||[]).map(s=>`<span>${safe(s.players?.nickname||"Jogador")} · ${s.kills}/${s.deaths}/${s.assists}</span>`).join("");
+    return `<article class="match-card"><div class="match-card-top"><small>${safe(date)} · ${safe(m.map_name||"Mapa não informado")} · MD${m.best_of||1}</small>${isAdmin?`<button class="btn btn-danger btn-small" data-delete-match="${safe(m.id)}">Excluir</button>`:""}</div><div class="match-score"><b class="${winner==="A"?"match-winner":""}">${safe(m.team_a_name)}</b><strong>${m.team_a_score} : ${m.team_b_score}</strong><b class="${winner==="B"?"match-winner":""}">${safe(m.team_b_name)}</b></div><div class="match-participants">${stats||"Sem estatísticas individuais registradas."}</div>${m.notes?`<p class="detail-bio">${safe(m.notes)}</p>`:""}</article>`;
+  }).join(""):'<div class="empty-state"><h3>Nenhuma partida registrada</h3><p>Quando a administração cadastrar o primeiro confronto, ele aparecerá aqui.</p></div>';
+  $$('[data-delete-match]').forEach(btn=>btn.addEventListener('click',async()=>{
+    if(!confirm("Excluir esta partida? As estatísticas dos jogadores serão recalculadas sem este confronto."))return;
+    const {error}=await supabaseClient.rpc("acs_admin_delete_match",{p_match_id:btn.dataset.deleteMatch});
+    if(error){toast("Não foi possível excluir a partida: "+error.message);return;}
+    toast("Partida excluída e estatísticas recalculadas.");await loadMatches();await loadCloudPlayers();
+  }));
+}
+$("#refreshMatches")?.addEventListener("click",loadMatches);
+$("#adminMatchForm")?.addEventListener("submit",async e=>{
+  e.preventDefault();if(!supabaseClient||!isAdmin){toast("Somente administradores podem registrar partidas.");return;}
+  const teamA=$("#matchTeamA").value.trim(),teamB=$("#matchTeamB").value.trim();
+  const scoreA=Number($("#matchScoreA").value),scoreB=Number($("#matchScoreB").value);
+  if(!teamA||!teamB||teamA.toLowerCase()===teamB.toLowerCase()){toast("Informe duas equipes diferentes.");return;}
+  if(scoreA===scoreB){toast("Uma partida oficial precisa ter um vencedor.");return;}
+  const playerStats=[];
+  $$("#matchPlayerRows [data-match-player]").forEach(row=>{
+    const get=k=>row.querySelector(`[data-match-key="${k}"]`).value;
+    const side=get("team_side");if(!side)return;
+    const number=k=>{const v=get(k);return v===""?null:Number(v);};
+    playerStats.push({player_id:row.dataset.matchPlayer,team_side:side,kills:number("kills"),deaths:number("deaths"),assists:number("assists"),adr:number("adr"),headshot_pct:number("headshot_pct"),mvps:number("mvps"),first_kills:number("first_kills"),first_deaths:number("first_deaths"),clutches_won:number("clutches_won")});
+  });
+  if(!playerStats.length){toast("Selecione o lado de pelo menos um jogador.");return;}
+  const button=$("#saveMatchButton");button.disabled=true;
+  const match={team_a_name:teamA,team_b_name:teamB,team_a_score:scoreA,team_b_score:scoreB,map_name:$("#matchMap").value.trim(),best_of:Number($("#matchBestOf").value),played_at:$("#matchPlayedAt").value?new Date($("#matchPlayedAt").value).toISOString():null,notes:$("#matchNotes").value.trim()};
+  const {data,error}=await supabaseClient.rpc("acs_admin_record_match",{p_match:match,p_player_stats:playerStats});button.disabled=false;
+  if(error){toast("Não foi possível registrar a partida: "+error.message);return;}
+  e.target.reset();renderMatchPlayerRows();toast("Partida registrada. Estatísticas e Rating AM recalculados.");
+  await loadCloudPlayers();await loadMatches();renderAdminPanel();
 });
