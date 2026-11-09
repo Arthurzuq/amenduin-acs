@@ -99,14 +99,30 @@
       </section>
 
       <section class="page" id="page-teams">
-        <div class="page-title-row"><div><span class="eyebrow">ORGANIZATION / ROSTERS</span><h1>EQUIPES</h1><p>Consulte as equipes associadas aos jogadores.</p></div></div>
-        <div class="empty-state"><div class="empty-symbol">⬡</div><h3>Gestão de equipes em preparação</h3><p>O cadastro de equipes, elencos e histórico de lineups será adicionado em uma próxima etapa.</p></div>
+        <div class="page-title-row"><div><span class="eyebrow">ORGANIZATION / ROSTERS</span><h1>EQUIPES</h1><p>Crie sua equipe, monte seu elenco e convide outros jogadores.</p></div><button class="btn btn-ghost" id="refreshTeams">↻ Atualizar</button></div>
+        <div class="market-help" id="teamsAccountHint">Entre na sua conta e tenha um perfil de jogador vinculado para criar equipes ou aceitar convites.</div>
+        <div class="teams-layout">
+          <section class="panel" id="teamCreatePanel"><div class="panel-head"><div><span class="eyebrow">TEAM MANAGEMENT</span><h3>Criar equipe</h3></div></div>
+            <form id="teamCreateForm" class="team-create-form">
+              <label class="field">NOME DA EQUIPE<input id="newTeamName" maxlength="40" required placeholder="Ex.: Amenduin Five"></label>
+              <label class="field">TAG<input id="newTeamTag" maxlength="6" placeholder="Ex.: AM5"></label>
+              <label class="field">LIMITE DE JOGADORES<select id="newTeamCapacity"><option value="3">3 jogadores</option><option value="5" selected>5 jogadores</option><option value="6">6 jogadores</option></select></label>
+              <button class="btn btn-primary" id="createTeamButton" type="submit">＋ Criar equipe</button>
+            </form>
+          </section>
+          <section class="panel"><div class="panel-head"><div><span class="eyebrow">YOUR INVITATIONS</span><h3>Convites recebidos</h3></div></div><div id="teamIncomingInvites" class="offer-list"><div class="market-empty">Entre na sua conta para consultar convites.</div></div></section>
+        </div>
+        <section class="panel teams-panel"><div class="panel-head"><div><span class="eyebrow">ACTIVE ROSTERS</span><h3>Equipes cadastradas</h3></div><span class="muted small" id="teamCount">0 equipes</span></div><div id="teamsList" class="teams-list"><div class="market-empty">Carregando equipes...</div></div></section>
       </section>
 
       <section class="page" id="page-market">
-        <div class="page-title-row"><div><span class="eyebrow">ROSTER MOVES / TRANSFERS</span><h1>MERCADO</h1><p>Movimentações simbólicas de jogadores, sem dinheiro envolvido.</p></div></div>
-        <div class="market-banner"><div><span class="eyebrow">TRANSFER MARKET</span><h2>O próximo capítulo da sua carreira.</h2><p>O mercado permitirá indicar disponibilidade, encontrar jogadores livres e registrar propostas de troca entre equipes.</p></div><div class="market-symbol">⇄</div></div>
-        <div class="empty-state"><div class="empty-symbol">⇄</div><h3>Mercado em desenvolvimento</h3><p>Por enquanto, o status de mercado pode ser definido no perfil. As propostas e transferências serão implementadas depois.</p><button class="btn btn-ghost" data-goto="players">Explorar jogadores</button></div>
+        <div class="page-title-row"><div><span class="eyebrow">ROSTER MOVES / TRANSFERS</span><h1>MERCADO</h1><p>Movimentações simbólicas de jogadores, sem dinheiro envolvido.</p></div><button class="btn btn-ghost" id="refreshMarket">↻ Atualizar</button></div>
+        <div class="market-banner"><div><span class="eyebrow">TRANSFER MARKET</span><h2>O próximo capítulo da sua carreira.</h2><p>Encontre jogadores disponíveis e envie propostas para reforçar sua equipe. As negociações são registradas no ACS e não envolvem dinheiro.</p></div><div class="market-symbol">⇄</div></div>
+        <div class="market-help" id="marketAccountHint">Entre na sua conta e tenha um perfil de jogador vinculado para enviar propostas. Você pode consultar os jogadores públicos sem fazer login.</div>
+        <div class="market-columns">
+          <section class="panel"><div class="panel-head"><div><span class="eyebrow">PLAYER POOL</span><h3>Jogadores disponíveis</h3></div><span class="muted small" id="marketCount">0 jogadores</span></div><div id="marketPlayers" class="market-player-list"></div></section>
+          <section class="panel"><div class="panel-head"><div><span class="eyebrow">NEGOTIATIONS</span><h3>Minhas propostas</h3></div></div><div id="myOffers" class="offer-list"></div></section>
+        </div>
       </section>
 
       <footer><span>© LIGA AMENDUIN · ACS</span><span>BUILT FOR COMPETITION <b>◆</b></span></footer>
@@ -147,6 +163,14 @@
         <p class="form-note" id="authHint">Use sua conta para acessar a plataforma. No modo de demonstração, configure o Supabase para ativar autenticação online.</p>
         <div class="modal-actions"><button type="button" class="btn btn-ghost" id="toggleAuthMode">Criar conta</button><button type="submit" class="btn btn-primary" id="authSubmit">Entrar ↗</button></div>
       </form>
+    </div>
+  </div>
+
+
+  <div class="modal-backdrop" id="offerModal">
+    <div class="modal">
+      <div class="modal-head"><div><span class="eyebrow">TRANSFER MARKET / OFFER</span><h2>ENVIAR PROPOSTA</h2></div><button class="icon-button" id="closeOffer" aria-label="Fechar">×</button></div>
+      <form id="offerForm"><input type="hidden" id="offerTargetId"><p class="detail-bio" id="offerTargetName"></p><label class="field">MENSAGEM DA PROPOSTA<textarea id="offerMessage" rows="4" maxlength="500" placeholder="Apresente sua equipe e explique por que gostaria de contar com este jogador..."></textarea></label><p class="form-note">A proposta será enviada ao jogador. Ele poderá aceitar ou recusar. Nenhuma transferência acontece sem a confirmação dele.</p><div class="modal-actions"><button type="button" class="btn btn-ghost" id="cancelOffer">Cancelar</button><button type="submit" class="btn btn-primary" id="sendOfferButton">Enviar proposta ↗</button></div></form>
     </div>
   </div>
 
