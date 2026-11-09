@@ -73,7 +73,7 @@ function updateAuthButton(){
   b.textContent=currentUser?(currentUser.email.split("@")[0]):"Entrar";
   b.classList.toggle("user-pill",!!currentUser);
   b.title=currentUser?"Clique para sair":"Entrar ou criar conta";
-  const adminLink=document.querySelector('[data-page="admin"]');if(adminLink)adminLink.style.display=isAdmin?"flex":"none";
+  const adminLink=document.querySelector('[data-page="admin"]');if(adminLink)adminLink.style.display=currentUser?"flex":"none";
 }
 $("#authButton")?.addEventListener("click",async()=>{
   if(currentUser && supabaseClient){
@@ -331,8 +331,10 @@ async function refreshAdminStatus(){
   if(!supabaseClient||!currentUser){isAdmin=false;updateAuthButton();return;}
   const {data,error}=await supabaseClient.rpc("acs_is_admin");
   isAdmin=!error&&data===true;updateAuthButton();
-  const link=document.querySelector('[data-page="admin"]');if(link)link.style.display=isAdmin?"flex":"none";
-  if(isAdmin){$("#adminActivationPanel").style.display="none";$("#adminWorkspace").style.display="block";renderAdminPanel();}
+  const link=document.querySelector('[data-page="admin"]');if(link)link.style.display="flex";
+  $("#adminActivationPanel").style.display=isAdmin?"none":"block";
+  $("#adminWorkspace").style.display=isAdmin?"block":"none";
+  if(isAdmin)renderAdminPanel();
 }
 function renderAdminPanel(){
   if(!isAdmin)return;
@@ -364,6 +366,8 @@ $("#adminStatsForm")?.addEventListener("submit",async e=>{
   toast("Estatísticas oficiais atualizadas.");await loadCloudPlayers();renderAdminPanel();
 });
 const adminNav=document.querySelector('[data-page="admin"]');if(adminNav)adminNav.addEventListener("click",()=>{
-  if(!isAdmin){toast("Acesso restrito à administração.");return;}
-  $("#adminActivationPanel").style.display="none";$("#adminWorkspace").style.display="block";renderAdminPanel();
+  if(!currentUser){toast("Entre na sua conta para acessar a administração.");return;}
+  $("#adminActivationPanel").style.display=isAdmin?"none":"block";
+  $("#adminWorkspace").style.display=isAdmin?"block":"none";
+  if(isAdmin)renderAdminPanel();
 });

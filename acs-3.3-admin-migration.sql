@@ -152,7 +152,7 @@ create or replace function public.acs_log_stats_change()
 returns trigger language plpgsql security definer set search_path = public, auth as $$
 begin
   insert into public.acs_admin_audit_log(player_id,admin_user_id,action,old_values,new_values)
-  values (new.player_id,auth.uid(),tg_op,case when tg_op='UPDATE' then to_jsonb(old) else null end,to_jsonb(new));
+  values (new.player_id,auth.uid(),lower(tg_op),case when tg_op='UPDATE' then to_jsonb(old) else null end,to_jsonb(new));
   return new;
 end; $$;
 drop trigger if exists trg_acs_log_stats_change on public.player_competitive_stats;
