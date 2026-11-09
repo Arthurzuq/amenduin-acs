@@ -43,3 +43,13 @@ O sistema exige placar com vencedor e ao menos um jogador participante. K/D/A e 
 - O Rating AM é uma fórmula inicial transparente, não um modelo calibrado. Ajuste pesos e normalizações após acumular dados.
 - O campo de data/hora é salvo no fuso do navegador convertido para UTC.
 - A validação final deve ser feita no projeto Supabase real. O pacote foi verificado estaticamente; não temos acesso ao banco do usuário para executar a migration ou simular permissões reais.
+
+
+## ACS 4.1 — Partidas públicas e registro corrigido
+
+1. Execute `acs-4.1-matches-public-migration.sql` no Supabase SQL Editor.
+2. Substitua os arquivos do site pelos arquivos desta pasta, preservando seu `supabase-config.js`.
+3. A seção **Partidas** agora contém o formulário de registro (visível somente para administradores), o histórico público e uma tabela pública de estatísticas.
+4. Jogadores comuns podem consultar resultados e estatísticas, mas não registrar nem excluir partidas.
+
+A migration é incremental e reaplicável. Não execute novamente `supabase-schema.sql`.
