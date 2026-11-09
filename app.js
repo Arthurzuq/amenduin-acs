@@ -14,7 +14,7 @@ const initials = n => (n||"?").slice(0,2).toUpperCase();
 const safe = s => String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const roleShort = r => r==="Entry-Fragger"?"ENTRY":r==="Support"?"SUPPORT":r==="AWPer"?"AWPER":r==="Lurker"?"LURKER":r==="Rifler"?"RIFLER":"IGL";
 function toast(msg){const t=$("#toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2600)}
-function go(page){$$(".page").forEach(p=>p.classList.toggle("active",p.id===`page-${page}`));$$(".nav-link").forEach(a=>a.classList.toggle("active",a.dataset.page===page));$("#crumb").textContent=({home:"VISÃO GERAL",players:"JOGADORES",rankings:"RANKINGS",matches:"PARTIDAS",teams:"EQUIPES",market:"MERCADO"})[page]||page.toUpperCase();$(".sidebar").classList.remove("open");if(page==="players")renderPlayers();if(page==="rankings")renderRanking();if(page==="matches"){loadMatches();renderPublicStats();if(isAdmin){renderMatchPlayerRows();$("#matchesAdminPanel").style.display="block";}}if(page==="market")loadMarketData();if(page==="teams")loadTeamsData();window.scrollTo(0,0)}
+function go(page){$$(".page").forEach(p=>p.classList.toggle("active",p.id===`page-${page}`));$$(".nav-link").forEach(a=>a.classList.toggle("active",a.dataset.page===page));$("#crumb").textContent=({home:"VISÃO GERAL",players:"JOGADORES",rankings:"RANKINGS",matches:"PARTIDAS",teams:"EQUIPES",market:"MERCADO"})[page]||page.toUpperCase();$(".sidebar").classList.remove("open");if(page==="players")renderPlayers();if(page==="rankings")renderRanking();if(page==="matches"){loadMatches();renderPublicStats();if(isAdmin){renderMatchPlayerRows();renderMapEditors();$("#matchesAdminPanel").style.display="block";loadTeamsData();}}if(page==="market")loadMarketData();if(page==="teams")loadTeamsData();window.scrollTo(0,0)}
 $$("[data-page]").forEach(a=>a.addEventListener("click",e=>{e.preventDefault();go(a.dataset.page)}));
 $$("[data-goto]").forEach(b=>b.addEventListener("click",()=>go(b.dataset.goto)));
 $("#mobileMenu").addEventListener("click",()=>$(".sidebar").classList.toggle("open"));
@@ -131,7 +131,7 @@ async function loadCloudPlayers(){
     rating:st.rating_am??null,kd:st.kd??null,adr:st.adr??null,hs:st.headshot_pct??null,win:st.win_rate??null,
     matches:st.matches??0,mvps:st.mvps??0,kills:st.kills??0,deaths:st.deaths??0,
     firstKills:st.first_kills??0,firstDeaths:st.first_deaths??0,clutches:st.clutches??0};});
-  savePlayers();renderAll();renderPublicStats();if(isAdmin){renderAdminPanel();renderMatchPlayerRows();}
+  savePlayers();renderAll();renderPublicStats();if(isAdmin){renderAdminPanel();renderMatchPlayerRows();renderMapEditors();renderMatchTeamSelectors();}
   const matchAdmin=document.querySelector("#matchesAdminPanel");if(matchAdmin)matchAdmin.style.display=isAdmin?"block":"none";
 }
 const originalPlayerSubmit=$("#playerForm").onsubmit;
@@ -256,7 +256,7 @@ async function loadTeamsData(){
     return;
   }
   cloudTeams=teamsRes.data||[];teamMembers=membersRes.data||[];teamInvites=invitesRes.data||[];
-  renderTeams();
+  renderTeams();renderMatchTeamSelectors();loadTeamRankings();
 }
 function renderTeams(){
   const own=currentPlayerProfile(), membership=myTeamMembership();
@@ -297,6 +297,24 @@ function renderTeams(){
     toast("Convite enviado!");await loadTeamsData();
   }));
 }
+function renderMatchTeamSelectors(){
+  ["#matchTeamA","#matchTeamB"].forEach((sel,index)=>{const el=$(sel);if(!el)return;const old=el.value;el.innerHTML='<option value="">Selecione a equipe...</option>'+cloudTeams.map(t=>`<option value="${safe(t.id)}">${safe(t.name)}${t.tag?" · "+safe(t.tag):""}</option>`).join("");if(cloudTeams.some(t=>t.id===old))el.value=old;});
+}
+async function loadTeamRankings(){
+ const host=$("#teamRankingList");if(!host||!supabaseClient)return;
+ const [rankRes,mapRes]=await Promise.all([supabaseClient.from("acs_team_rankings").select("team_id,name,tag,matches,wins,losses,draws,win_rate,map_diff,rating_am").order("rating_am",{ascending:false}),supabaseClient.from("acs_team_map_stats").select("team_id,map_name,matches,wins,win_rate,round_diff")]);
+ if(rankRes.error){host.innerHTML=`<div class="market-empty">Não foi possível carregar o ranking: ${safe(rankRes.error.message)}</div>`;return;}
+ const maps=mapRes.data||[],rows=(rankRes.data||[]).filter(t=>t.matches>0);
+ host.innerHTML=rows.length?`<div class="public-stats-table-wrap"><table class="public-stats-table"><thead><tr><th>#</th><th>Equipe</th><th>Rating AM</th><th>J</th><th>V</th><th>D</th><th>E</th><th>Win rate</th><th>Mapa forte</th><th>Mapa fraco</th></tr></thead><tbody>${rows.map((t,i)=>{const own=maps.filter(m=>m.team_id===t.team_id&&m.matches>=2).sort((a,b)=>b.win_rate-a.win_rate);const strong=own[0],weak=own[own.length-1];return `<tr><td>${i+1}</td><td><b>${safe(t.name)}</b><small>${safe(t.tag||"")}</small></td><td>${Number(t.rating_am).toFixed(2)}</td><td>${t.matches}</td><td>${t.wins}</td><td>${t.losses}</td><td>${t.draws||0}</td><td>${Number(t.win_rate).toFixed(1)}%</td><td>${strong?`${safe(strong.map_name)} · ${Number(strong.win_rate).toFixed(0)}%`:"—"}</td><td>${weak?`${safe(weak.map_name)} · ${Number(weak.win_rate).toFixed(0)}%`:"—"}</td></tr>`}).join("")}</tbody></table></div>`:'<div class="market-empty">Ainda não há equipes com partidas oficiais registradas. O ranking será calculado automaticamente após os primeiros confrontos.</div>';
+}
+const ACS_MAPS=["Ancient","Anubis","Dust II","Inferno","Mirage","Nuke","Overpass","Train","Vertigo","Cache","Cobblestone","Outro"];
+function renderMapEditors(){
+ const host=$("#matchMapsEditor");if(!host)return;const format=Number($("#matchBestOf")?.value||1);const count=format===3?Number($("#matchMapCount")?.value||3):format;const wrap=$("#matchMapCountWrap");if(wrap)wrap.style.display=format===3?"block":"none";
+ host.innerHTML=Array.from({length:count},(_,i)=>`<article class="panel" style="padding:14px;margin:10px 0"><h4>MAPA ${i+1}</h4><div class="form-grid"><label class="field">MAPA<select data-map-key="map_name" required>${ACS_MAPS.map(m=>`<option value="${m}">${m}</option>`).join("")}</select></label><label class="field">LADO INICIAL DA EQUIPE A<select data-map-key="team_a_start_side"><option value="TR">TR</option><option value="CT">CT</option></select></label><label class="field">1º TEMPO — EQUIPE A<input data-map-key="a_first_half" type="number" min="0" max="12" value="6" required></label><label class="field">1º TEMPO — EQUIPE B<input data-map-key="b_first_half" type="number" min="0" max="12" value="6" required></label><label class="field">2º TEMPO — EQUIPE A<input data-map-key="a_second_half" type="number" min="0" max="12" value="6" required></label><label class="field">2º TEMPO — EQUIPE B<input data-map-key="b_second_half" type="number" min="0" max="12" value="6" required></label></div><details style="margin-top:10px"><summary>Prorrogação (preencher somente em 12–12)</summary><p class="form-note">Informe os rounds totais de TR e CT conquistados por cada equipe em todas as prorrogações MR3 disputadas. Ex.: uma prorrogação encerrada em 4–2 tem 4/2 rounds para cada equipe, distribuídos conforme os lados.</p><div class="form-grid"><label class="field">A — TR<input data-map-key="a_ot_tr" type="number" min="0" value="0"></label><label class="field">A — CT<input data-map-key="a_ot_ct" type="number" min="0" value="0"></label><label class="field">B — TR<input data-map-key="b_ot_tr" type="number" min="0" value="0"></label><label class="field">B — CT<input data-map-key="b_ot_ct" type="number" min="0" value="0"></label></div></details><p class="form-note" data-map-preview>Placar final calculado: —</p></article>`).join("");
+ host.querySelectorAll("article").forEach(card=>card.querySelectorAll("input,select").forEach(el=>el.addEventListener("input",()=>{const val=k=>Number(card.querySelector(`[data-map-key="${k}"]`)?.value||0);const a=val("a_first_half")+val("a_second_half")+val("a_ot_tr")+val("a_ot_ct"),b=val("b_first_half")+val("b_second_half")+val("b_ot_tr")+val("b_ot_ct");card.querySelector("[data-map-preview]").textContent=`Placar final calculado: ${a} × ${b}`;})));
+}
+$("#matchBestOf")?.addEventListener("change",renderMapEditors);$("#matchMapCount")?.addEventListener("change",renderMapEditors);
+
 $("#teamCreateForm")?.addEventListener("submit",async e=>{
   e.preventDefault();if(!supabaseClient||!currentUser){toast("Entre na sua conta para criar uma equipe.");return;}
   if(!currentPlayerProfile()){toast("Crie seu perfil de jogador antes de criar uma equipe.");return;}
@@ -342,7 +360,7 @@ async function refreshAdminStatus(){
   $("#adminActivationPanel").style.display=isAdmin?"none":"block";
   $("#adminWorkspace").style.display=isAdmin?"block":"none";
   $("#matchesAdminPanel").style.display=isAdmin?"block":"none";
-  if(isAdmin){renderAdminPanel();renderMatchPlayerRows();}
+  if(isAdmin){renderAdminPanel();renderMatchPlayerRows();renderMapEditors();renderMatchTeamSelectors();}
 }
 function renderAdminPanel(){
   if(!isAdmin)return;
@@ -361,7 +379,7 @@ $("#adminActivateForm")?.addEventListener("submit",async e=>{
   const btn=$("#adminActivateButton");btn.disabled=true;
   const {data,error}=await supabaseClient.rpc("acs_claim_admin",{p_code:code});btn.disabled=false;
   if(error||data!==true){toast(error?"Não foi possível ativar o painel: "+error.message:"Código incorreto. Confira os cinco dígitos.");return;}
-  isAdmin=true;$("#adminCode").value="";$("#adminActivationPanel").style.display="none";$("#adminWorkspace").style.display="block";$("#matchesAdminPanel").style.display="block";updateAuthButton();renderAdminPanel();renderMatchPlayerRows();toast("Acesso administrativo ativado.");
+  isAdmin=true;$("#adminCode").value="";$("#adminActivationPanel").style.display="none";$("#adminWorkspace").style.display="block";$("#matchesAdminPanel").style.display="block";updateAuthButton();renderAdminPanel();renderMatchPlayerRows();renderMapEditors();renderMatchTeamSelectors();toast("Acesso administrativo ativado.");
 });
 $("#adminPlayerSelect")?.addEventListener("change",renderAdminPanel);
 $("#adminStatsForm")?.addEventListener("submit",async e=>{
@@ -377,7 +395,7 @@ const adminNav=document.querySelector('[data-page="admin"]');if(adminNav)adminNa
   if(!currentUser){toast("Entre na sua conta para acessar a administração.");return;}
   $("#adminActivationPanel").style.display=isAdmin?"none":"block";
   $("#adminWorkspace").style.display=isAdmin?"block":"none";
-  if(isAdmin){renderAdminPanel();renderMatchPlayerRows();}
+  if(isAdmin){renderAdminPanel();renderMatchPlayerRows();renderMapEditors();renderMatchTeamSelectors();}
   $("#matchesAdminPanel").style.display=isAdmin?"block":"none";
 });
 
@@ -387,7 +405,7 @@ function renderMatchPlayerRows(){
   const host=$("#matchPlayerRows");if(!host||!isAdmin)return;
   host.innerHTML=players.length?players.map(p=>`<div class="match-player-row" data-match-player="${safe(p.id)}">
     <div class="match-player-name"><b>${safe(p.nickname)}</b><small>${safe(p.mainRole)} · ${safe(p.team||"Sem equipe")}</small></div>
-    <label class="field">LADO<select data-match-key="team_side"><option value="">Não participou</option><option value="A">Equipe A</option><option value="B">Equipe B</option></select></label>
+    <label class="field">EQUIPE<select data-match-key="team_side"><option value="">Não participou</option><option value="A">Equipe A</option><option value="B">Equipe B</option></select></label>
     <label class="field">K<input data-match-key="kills" type="number" min="0" max="300" value="0"></label>
     <label class="field">D<input data-match-key="deaths" type="number" min="0" max="300" value="0"></label>
     <label class="field">A<input data-match-key="assists" type="number" min="0" max="300" value="0"></label>
@@ -404,19 +422,22 @@ function renderPublicStats(){
   const ranked=[...players].filter(p=>p.matches>0||p.rating!=null).sort((a,b)=>(b.rating??-1)-(a.rating??-1));
   host.innerHTML=ranked.length?`<div class="public-stats-table-wrap"><table class="public-stats-table"><thead><tr><th>#</th><th>Jogador</th><th>Rating AM</th><th>Partidas</th><th>K/D</th><th>ADR</th><th>HS%</th><th>Win rate</th></tr></thead><tbody>${ranked.map((p,i)=>`<tr><td>${i+1}</td><td><b>${safe(p.nickname)}</b><small>${safe(p.mainRole||"")}</small></td><td>${p.rating==null?"—":Number(p.rating).toFixed(2)}</td><td>${p.matches||0}</td><td>${p.kd==null?"—":Number(p.kd).toFixed(2)}</td><td>${p.adr==null?"—":Number(p.adr).toFixed(1)}</td><td>${p.hs==null?"—":Number(p.hs).toFixed(1)+"%"}</td><td>${p.win==null?"—":Number(p.win).toFixed(1)+"%"}</td></tr>`).join("")}</tbody></table></div>`:'<div class="market-empty">Ainda não existem estatísticas oficiais. Elas aparecerão aqui após o registro das primeiras partidas.</div>';
 }
+async function loadPlayerSideStats(){const host=$("#playerSideStats");if(!host||!supabaseClient)return;const {data,error}=await supabaseClient.from("player_side_round_stats").select("player_id,side,rounds_won,rounds_played");if(error){host.innerHTML=`<div class="market-empty">Estatísticas por lado indisponíveis. Execute a migration ACS 4.2.</div>`;return;}const agg={};(data||[]).forEach(r=>{agg[r.player_id]??={TR:[0,0],CT:[0,0]};agg[r.player_id][r.side][0]+=r.rounds_won;agg[r.player_id][r.side][1]+=r.rounds_played;});const rows=Object.entries(agg).map(([id,v])=>({p:players.find(p=>p.id===id),tr:v.TR[1]?100*v.TR[0]/v.TR[1]:null,ct:v.CT[1]?100*v.CT[0]/v.CT[1]:null})).filter(x=>x.p).sort((a,b)=>((b.tr||0)+(b.ct||0))-((a.tr||0)+(a.ct||0)));host.innerHTML=rows.length?`<div class="public-stats-table-wrap"><table class="public-stats-table"><thead><tr><th>Jogador</th><th>Win TR</th><th>Win CT</th></tr></thead><tbody>${rows.map(x=>`<tr><td><b>${safe(x.p.nickname)}</b></td><td>${x.tr==null?"—":x.tr.toFixed(1)+"%"}</td><td>${x.ct==null?"—":x.ct.toFixed(1)+"%"}</td></tr>`).join("")}</tbody></table></div>`:'<div class="market-empty">As taxas por lado aparecerão após as primeiras partidas registradas nesta versão.</div>';}
 async function loadMatches(){
   const host=$("#matchesList");if(!host)return;
   renderPublicStats();
   if(!supabaseClient){host.innerHTML='<div class="market-empty">Conecte o Supabase para consultar o histórico oficial.</div>';return;}
   host.innerHTML='<div class="market-empty">Carregando partidas...</div>';
-  const {data,error}=await supabaseClient.from("matches").select("id,played_at,map_name,team_a_name,team_b_name,team_a_score,team_b_score,status,best_of,notes,player_match_stats(player_id,kills,deaths,assists,adr,headshot_pct,mvps,first_kills,first_deaths,clutches_won,team_side,players(nickname))").eq("status","completed").order("played_at",{ascending:false}).limit(100);
+  const {data,error}=await supabaseClient.from("matches").select("id,played_at,map_name,team_a_name,team_b_name,team_a_score,team_b_score,status,best_of,notes,player_match_stats(player_id,kills,deaths,assists,adr,headshot_pct,mvps,first_kills,first_deaths,clutches_won,team_side,players(nickname)),match_maps(map_number,map_name,team_a_score,team_b_score,team_a_start_side,a_first_half,b_first_half,a_second_half,b_second_half,a_ot_tr,a_ot_ct,b_ot_tr,b_ot_ct)").eq("status","completed").order("played_at",{ascending:false}).limit(100);
   if(error){host.innerHTML=`<div class="market-empty">Não foi possível carregar partidas: ${safe(error.message)}</div>`;return;}
+  await loadPlayerSideStats();
   const matches=data||[];$("#matchCount").textContent=`${matches.length} partida${matches.length===1?"":"s"}`;
   host.innerHTML=matches.length?matches.map(m=>{
     const date=m.played_at?new Date(m.played_at).toLocaleString("pt-BR"):"Data não informada";
-    const winner=m.team_a_score>m.team_b_score?"A":"B";
+    const winner=m.team_a_score>m.team_b_score?"A":m.team_b_score>m.team_a_score?"B":"D";
     const stats=(m.player_match_stats||[]).map(s=>`<div class="match-stat-line"><b>${safe(s.players?.nickname||"Jogador")}</b><span>${s.kills}/${s.deaths}/${s.assists} K/D/A</span><small>${s.team_side==="A"?safe(m.team_a_name):safe(m.team_b_name)} · ADR ${s.adr??"—"} · HS ${s.headshot_pct==null?"—":s.headshot_pct+"%"} · MVP ${s.mvps||0}</small></div>`).join("");
-    return `<article class="match-card"><div class="match-card-top"><small>${safe(date)} · ${safe(m.map_name||"Mapa não informado")} · MD${m.best_of||1}</small>${isAdmin?`<button class="btn btn-danger btn-small" data-delete-match="${safe(m.id)}">Excluir</button>`:""}</div><div class="match-score"><b class="${winner==="A"?"match-winner":""}">${safe(m.team_a_name)}</b><strong>${m.team_a_score} : ${m.team_b_score}</strong><b class="${winner==="B"?"match-winner":""}">${safe(m.team_b_name)}</b></div><div class="match-participants match-participants-detailed">${stats||"Sem estatísticas individuais registradas."}</div>${m.notes?`<p class="detail-bio">${safe(m.notes)}</p>`:""}</article>`;
+    const maps=(m.match_maps||[]).map(mm=>`<div class="match-score"><b>${safe(mm.map_name)}</b><strong>${mm.team_a_score} : ${mm.team_b_score}</strong><small>${mm.team_a_start_side} start · 1º ${mm.a_first_half}-${mm.b_first_half} · 2º ${mm.a_second_half}-${mm.b_second_half}${(mm.a_ot_tr+mm.a_ot_ct+mm.b_ot_tr+mm.b_ot_ct)>0?` · OT ${mm.a_ot_tr+mm.a_ot_ct}-${mm.b_ot_tr+mm.b_ot_ct}`:""}</small></div>`).join("");
+    return `<article class="match-card"><div class="match-card-top"><small>${safe(date)} · MD${m.best_of||1}</small>${isAdmin?`<button class="btn btn-danger btn-small" data-delete-match="${safe(m.id)}">Excluir</button>`:""}</div><div class="match-score"><b class="${winner==="A"?"match-winner":""}">${safe(m.team_a_name)}</b><strong>${m.team_a_score} : ${m.team_b_score} ${m.match_maps?.length?"mapas":"rounds"}${winner==="D"?" · EMPATE":""}</strong><b class="${winner==="B"?"match-winner":""}">${safe(m.team_b_name)}</b></div>${maps}<div class="match-participants match-participants-detailed">${stats||"Sem estatísticas individuais registradas."}</div>${m.notes?`<p class="detail-bio">${safe(m.notes)}</p>`:""}</article>`;
   }).join(""):'<div class="empty-state"><h3>Nenhuma partida registrada</h3><p>Quando a administração cadastrar o primeiro confronto, ele aparecerá aqui.</p></div>';
   $$('[data-delete-match]').forEach(btn=>btn.addEventListener('click',async()=>{
     if(!confirm("Excluir esta partida? As estatísticas dos jogadores serão recalculadas sem este confronto."))return;
@@ -427,27 +448,16 @@ async function loadMatches(){
 }
 $("#refreshMatches")?.addEventListener("click",loadMatches);
 $("#adminMatchForm")?.addEventListener("submit",async e=>{
-  e.preventDefault();if(!supabaseClient||!isAdmin){toast("Somente administradores podem registrar partidas.");return;}
-  const teamA=$("#matchTeamA").value.trim(),teamB=$("#matchTeamB").value.trim();
-  const scoreA=Number($("#matchScoreA").value),scoreB=Number($("#matchScoreB").value);
-  if(!teamA||!teamB||teamA.toLowerCase()===teamB.toLowerCase()){toast("Informe duas equipes diferentes.");return;}
-  if(scoreA===scoreB){toast("Uma partida oficial precisa ter um vencedor.");return;}
-  const playerStats=[];
-  $$("#matchPlayerRows [data-match-player]").forEach(row=>{
-    const get=k=>row.querySelector(`[data-match-key="${k}"]`).value;
-    const side=get("team_side");if(!side)return;
-    const number=k=>{const v=get(k);return v===""?null:Number(v);};
-    playerStats.push({player_id:row.dataset.matchPlayer,team_side:side,kills:number("kills"),deaths:number("deaths"),assists:number("assists"),adr:number("adr"),headshot_pct:number("headshot_pct"),mvps:number("mvps"),first_kills:number("first_kills"),first_deaths:number("first_deaths"),clutches_won:number("clutches_won")});
-  });
-  if(!playerStats.length){toast("Selecione o lado de pelo menos um jogador.");return;}
-  const button=$("#saveMatchButton");button.disabled=true;
-  const match={team_a_name:teamA,team_b_name:teamB,team_a_score:scoreA,team_b_score:scoreB,map_name:$("#matchMap").value.trim(),best_of:Number($("#matchBestOf").value),played_at:$("#matchPlayedAt").value?new Date($("#matchPlayedAt").value).toISOString():null,notes:$("#matchNotes").value.trim()};
-  button.disabled=true;button.textContent="Salvando partida...";
-  let result;
-  try{result=await supabaseClient.rpc("acs_admin_record_match",{p_match:match,p_player_stats:playerStats});}
-  catch(err){result={error:err};}
-  button.disabled=false;button.textContent="Registrar partida e atualizar rankings";
-  if(result?.error){toast("Não foi possível registrar: "+(result.error.message||"erro inesperado")+". Confira se a migration ACS 4.1 foi executada.");return;}
-  e.target.reset();renderMatchPlayerRows();toast("Partida registrada. Estatísticas e Rating AM recalculados.");
-  await loadCloudPlayers();await loadMatches();renderAdminPanel();
+ e.preventDefault();if(!supabaseClient||!isAdmin){toast("Somente administradores podem registrar partidas.");return;}
+ const teamA=$("#matchTeamA").value,teamB=$("#matchTeamB").value,bestOf=Number($("#matchBestOf").value);
+ if(!teamA||!teamB||teamA===teamB){toast("Selecione duas equipes diferentes.");return;}
+ const maps=[...$$("#matchMapsEditor > article")].map(card=>{const get=k=>card.querySelector(`[data-map-key="${k}"]`).value;const num=k=>Number(get(k)||0);return {map_name:get("map_name"),team_a_start_side:get("team_a_start_side"),a_first_half:num("a_first_half"),b_first_half:num("b_first_half"),a_second_half:num("a_second_half"),b_second_half:num("b_second_half"),a_ot_tr:num("a_ot_tr"),a_ot_ct:num("a_ot_ct"),b_ot_tr:num("b_ot_tr"),b_ot_ct:num("b_ot_ct")};});
+ const playerStats=[];$$("#matchPlayerRows [data-match-player]").forEach(row=>{const get=k=>row.querySelector(`[data-match-key="${k}"]`).value;const side=get("team_side");if(!side)return;const number=k=>{const v=get(k);return v===""?null:Number(v);};playerStats.push({player_id:row.dataset.matchPlayer,team_side:side,kills:number("kills"),deaths:number("deaths"),assists:number("assists"),adr:number("adr"),headshot_pct:number("headshot_pct"),mvps:number("mvps"),first_kills:number("first_kills"),first_deaths:number("first_deaths"),clutches_won:number("clutches_won")});});
+ if(!playerStats.length){toast("Selecione os jogadores participantes e suas equipes.");return;}
+ const button=$("#saveMatchButton");button.disabled=true;button.textContent="Salvando série...";
+ const match={team_a_id:teamA,team_b_id:teamB,best_of:bestOf,played_at:$("#matchPlayedAt").value?new Date($("#matchPlayedAt").value).toISOString():null,notes:$("#matchNotes").value.trim()};
+ let result;try{result=await supabaseClient.rpc("acs_admin_record_series",{p_match:match,p_maps:maps,p_player_stats:playerStats});}catch(err){result={error:err};}
+ button.disabled=false;button.textContent="Registrar série e atualizar rankings";
+ if(result?.error){toast("Não foi possível registrar: "+(result.error.message||"erro inesperado")+". Confira se a migration ACS 4.2 foi executada.");return;}
+ e.target.reset();$("#matchMapCount").value="3";renderMapEditors();renderMatchPlayerRows();toast("Série registrada. Estatísticas e rankings atualizados.");await loadCloudPlayers();await loadMatches();await loadTeamsData();renderAdminPanel();
 });

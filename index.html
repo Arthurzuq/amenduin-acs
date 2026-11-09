@@ -114,30 +114,29 @@
           </section>
           <section class="panel"><div class="panel-head"><div><span class="eyebrow">YOUR INVITATIONS</span><h3>Convites recebidos</h3></div></div><div id="teamIncomingInvites" class="offer-list"><div class="market-empty">Entre na sua conta para consultar convites.</div></div></section>
         </div>
-        <section class="panel teams-panel"><div class="panel-head"><div><span class="eyebrow">ACTIVE ROSTERS</span><h3>Equipes cadastradas</h3></div><span class="muted small" id="teamCount">0 equipes</span></div><div id="teamsList" class="teams-list"><div class="market-empty">Carregando equipes...</div></div></section>
+        <section class="panel teams-panel"><div class="panel-head"><div><span class="eyebrow">ACTIVE ROSTERS</span><h3>Equipes cadastradas</h3></div><span class="muted small" id="teamCount">0 equipes</span></div><div id="teamsList" class="teams-list"><div class="market-empty">Carregando equipes...</div></div></section><section class="panel"><div class="panel-head"><div><span class="eyebrow">TEAM PERFORMANCE</span><h3>Ranking de equipes</h3></div><span class="muted small">Rating AM · desempenho médio</span></div><div id="teamRankingList" class="public-stats-list">Carregando ranking...</div></section>
       </section>
 
 
       <section class="page" id="page-matches">
         <div class="page-title-row"><div><span class="eyebrow">OFFICIAL COMPETITION DATA</span><h1>PARTIDAS</h1><p>Resultados oficiais e desempenho registrado por confronto.</p></div><button class="btn btn-ghost" id="refreshMatches">↻ Atualizar</button></div>
         <div class="market-help">Os resultados e estatísticas são públicos. Somente administradores podem cadastrar ou excluir partidas. O Rating AM é recalculado a partir das partidas registradas.</div>
-        <section class="panel stats-public-panel"><div class="panel-head"><div><span class="eyebrow">PLAYER PERFORMANCE</span><h3>Estatísticas dos jogadores</h3></div><span class="muted small">Dados oficiais</span></div><div id="publicStatsList" class="public-stats-list"><div class="market-empty">Carregando estatísticas...</div></div></section>
+        <section class="panel stats-public-panel"><div class="panel-head"><div><span class="eyebrow">PLAYER PERFORMANCE</span><h3>Estatísticas dos jogadores</h3></div><span class="muted small">Dados oficiais</span></div><div id="publicStatsList" class="public-stats-list"><div class="market-empty">Carregando estatísticas...</div></div><div class="detail-section"><h3>Vitórias por lado</h3><div id="playerSideStats" class="public-stats-list">Carregando...</div></div></section>
         <section class="panel admin-match-panel" id="matchesAdminPanel" style="display:none"><div class="panel-head"><div><span class="eyebrow">ADMIN / MATCH OPERATIONS</span><h3>Registrar partida oficial</h3></div><span class="badge-admin">ADMINISTRADOR</span></div>
           <p class="form-note">Esta área só aparece para administradores. Os resultados salvos aqui ficam públicos para todos os jogadores.</p>
           <form id="adminMatchForm" class="admin-match-form">
             <div class="form-grid">
-              <label class="field">EQUIPE A<input id="matchTeamA" maxlength="40" required placeholder="Nome da equipe A"></label>
-              <label class="field">EQUIPE B<input id="matchTeamB" maxlength="40" required placeholder="Nome da equipe B"></label>
-              <label class="field">PLACAR A<input id="matchScoreA" type="number" min="0" max="100" required></label>
-              <label class="field">PLACAR B<input id="matchScoreB" type="number" min="0" max="100" required></label>
-              <label class="field">MAPA<input id="matchMap" maxlength="40" placeholder="Ex.: Mirage"></label>
-              <label class="field">FORMATO<select id="matchBestOf"><option value="1">MD1</option><option value="3">MD3</option><option value="5">MD5</option></select></label>
-              <label class="field span-2">DATA/HORA<input id="matchPlayedAt" type="datetime-local"></label>
+              <label class="field">EQUIPE A<select id="matchTeamA" required><option value="">Selecione a equipe A...</option></select></label>
+              <label class="field">EQUIPE B<select id="matchTeamB" required><option value="">Selecione a equipe B...</option></select></label>
+              <label class="field">FORMATO<select id="matchBestOf"><option value="1">MD1</option><option value="2">MD2</option><option value="3">MD3</option></select></label><label class="field" id="matchMapCountWrap" style="display:none">MAPAS DISPUTADOS<select id="matchMapCount"><option value="2">2 mapas (2–0)</option><option value="3" selected>3 mapas (2–1)</option></select></label>
+              <label class="field">DATA/HORA<input id="matchPlayedAt" type="datetime-local"></label>
               <label class="field span-2">OBSERVAÇÕES<textarea id="matchNotes" rows="2" maxlength="500"></textarea></label>
             </div>
-            <div class="match-player-heading"><h4>Estatísticas dos jogadores</h4><p>Selecione quem participou, indique o lado e informe os números da partida.</p></div>
+            <div class="match-player-heading"><h4>Mapas e placares</h4><p>Informe os rounds vencidos por cada equipe em cada tempo. O segundo tempo já considera a troca de lados. Em 12–12, preencha a prorrogação MR3 por lado; informe os rounds totais de todas as séries de overtime.</p></div>
+            <div id="matchMapsEditor" class="match-player-rows"></div>
+            <div class="match-player-heading"><h4>Estatísticas dos jogadores</h4><p>Selecione quem participou e a equipe representada no confronto.</p></div>
             <div id="matchPlayerRows" class="match-player-rows"></div>
-            <div class="admin-save-row"><button class="btn btn-primary" type="submit" id="saveMatchButton">Registrar partida e atualizar rankings</button></div>
+            <div class="admin-save-row"><button class="btn btn-primary" type="submit" id="saveMatchButton">Registrar série e atualizar rankings</button></div>
           </form>
         </section>
         <section class="panel"><div class="panel-head"><div><span class="eyebrow">MATCH ARCHIVE</span><h3>Histórico de partidas</h3></div><span class="muted small" id="matchCount">0 partidas</span></div><div id="matchesList" class="matches-list"><div class="market-empty">Carregando partidas...</div></div></section>
