@@ -108,7 +108,7 @@
             <form id="teamCreateForm" class="team-create-form">
               <label class="field">NOME DA EQUIPE<input id="newTeamName" maxlength="40" required placeholder="Ex.: Amenduin Five"></label>
               <label class="field">TAG<input id="newTeamTag" maxlength="6" placeholder="Ex.: AM5"></label>
-              <label class="field">LIMITE DE JOGADORES<select id="newTeamCapacity"><option value="3">3 jogadores</option><option value="5" selected>5 jogadores</option><option value="6">6 jogadores</option></select></label>
+              <p class="form-note">O elenco não tem limite fixo de jogadores. Adicione quantos integrantes forem necessários.</p>
               <button class="btn btn-primary" id="createTeamButton" type="submit">＋ Criar equipe</button>
             </form>
           </section>
@@ -121,20 +121,20 @@
       <section class="page" id="page-matches">
         <div class="page-title-row"><div><span class="eyebrow">OFFICIAL COMPETITION DATA</span><h1>PARTIDAS</h1><p>Resultados oficiais e desempenho registrado por confronto.</p></div><button class="btn btn-ghost" id="refreshMatches">↻ Atualizar</button></div>
         <div class="market-help">Os resultados e estatísticas são públicos. Somente administradores podem cadastrar ou excluir partidas. O Rating AM é recalculado a partir das partidas registradas.</div>
-        <section class="panel stats-public-panel"><div class="panel-head"><div><span class="eyebrow">PLAYER PERFORMANCE</span><h3>Estatísticas dos jogadores</h3></div><span class="muted small">Dados oficiais</span></div><div id="publicStatsList" class="public-stats-list"><div class="market-empty">Carregando estatísticas...</div></div><div class="detail-section"><h3>Vitórias por lado</h3><div id="playerSideStats" class="public-stats-list">Carregando...</div></div></section>
+        <section class="panel stats-public-panel"><div class="panel-head"><div><span class="eyebrow">PLAYER PERFORMANCE</span><h3>Estatísticas dos jogadores</h3></div><span class="muted small">Dados oficiais</span></div><div id="publicStatsList" class="public-stats-list"><div class="market-empty">Carregando estatísticas...</div></div><div class="detail-section"><h3>Vitórias por lado</h3><div id="playerSideStats" class="public-stats-list">Carregando...</div></div><div class="detail-section"><h3>Desempenho por mapa</h3><p class="form-note">Cada linha representa o desempenho de um jogador em um mapa específico.</p><div id="playerMapStats" class="public-stats-list">Carregando...</div></div></section>
         <section class="panel admin-match-panel" id="matchesAdminPanel" style="display:none"><div class="panel-head"><div><span class="eyebrow">ADMIN / MATCH OPERATIONS</span><h3>Registrar partida oficial</h3></div><span class="badge-admin">ADMINISTRADOR</span></div>
           <p class="form-note">Esta área só aparece para administradores. Os resultados salvos aqui ficam públicos para todos os jogadores.</p>
           <form id="adminMatchForm" class="admin-match-form">
             <div class="form-grid">
               <label class="field">EQUIPE A<select id="matchTeamA" required><option value="">Selecione a equipe A...</option></select></label>
               <label class="field">EQUIPE B<select id="matchTeamB" required><option value="">Selecione a equipe B...</option></select></label>
-              <label class="field">FORMATO<select id="matchBestOf"><option value="1">MD1</option><option value="2">MD2</option><option value="3">MD3</option></select></label><label class="field" id="matchMapCountWrap" style="display:none">MAPAS DISPUTADOS<select id="matchMapCount"><option value="2">2 mapas (2–0)</option><option value="3" selected>3 mapas (2–1)</option></select></label>
+              <label class="field">FORMATO<select id="matchBestOf"><option value="1">MD1</option><option value="3">MD3</option><option value="5">MD5</option></select></label><label class="field" id="matchMapCountWrap" style="display:none">MAPAS DISPUTADOS<select id="matchMapCount"><option value="3" selected>3 mapas</option><option value="4">4 mapas</option><option value="5">5 mapas</option></select></label>
               <label class="field">DATA/HORA<input id="matchPlayedAt" type="datetime-local"></label>
               <label class="field span-2">OBSERVAÇÕES<textarea id="matchNotes" rows="2" maxlength="500"></textarea></label>
             </div>
             <div class="match-player-heading"><h4>Mapas e placares</h4><p>Informe os rounds vencidos por cada equipe em cada tempo. O segundo tempo já considera a troca de lados. Em 12–12, preencha a prorrogação MR3 por lado; informe os rounds totais de todas as séries de overtime.</p></div>
             <div id="matchMapsEditor" class="match-player-rows"></div>
-            <div class="match-player-heading"><h4>Estatísticas dos jogadores</h4><p>Selecione quem participou e a equipe representada no confronto.</p></div>
+            <div class="match-player-heading"><h4>Estatísticas dos jogadores</h4><p>Defina a equipe e o status de cada jogador. Para cada mapa, registre K/D/A, ADR, HS%, MVP, first kills, first deaths e clutches. Jogadores que não jogaram não entram nas estatísticas.</p></div>
             <div id="matchPlayerRows" class="match-player-rows"></div>
             <div class="admin-save-row"><button class="btn btn-primary" type="submit" id="saveMatchButton">Registrar série e atualizar rankings</button></div>
           </form>

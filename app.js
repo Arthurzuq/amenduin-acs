@@ -202,6 +202,7 @@ function openOffer(targetId){
   if(!currentUser){$("#authModal").classList.add("open");return;}
   const own=currentPlayerProfile(),target=players.find(p=>p.id===targetId);
   if(!own){toast("Crie seu perfil de jogador antes de enviar propostas.");return;}
+  if(!own.team||own.team==="Sem equipe"){toast("Entre em uma equipe antes de enviar propostas de transferência.");return;}
   if(!target||target.id===own.id){toast("Esse jogador não pode receber esta proposta.");return;}
   $("#offerTargetId").value=target.id;$("#offerTargetName").textContent=`Proposta destinada a ${target.nickname} (${target.team||"Sem equipe"}). Sua equipe: ${own.team||"Sem equipe"}.`;
   $("#offerMessage").value="";$("#offerModal").classList.add("open");
@@ -222,10 +223,17 @@ $("#offerForm")?.addEventListener("submit",async e=>{
 });
 async function updateOffer(id,action){
   const status={accept:"accepted",reject:"rejected",cancel:"cancelled"}[action];if(!status||!supabaseClient)return;
-  const {error}=await supabaseClient.from("transfer_offers").update({status,decided_at:new Date().toISOString()}).eq("id",id).eq("status","pending");
+  let error=null;
+  if(action==="accept"){
+    const result=await supabaseClient.rpc("acs_accept_transfer_offer",{p_offer_id:id});
+    error=result.error;
+  }else{
+    const result=await supabaseClient.from("transfer_offers").update({status,decided_at:new Date().toISOString()}).eq("id",id).eq("status","pending");
+    error=result.error;
+  }
   if(error){toast("Não foi possível atualizar a proposta: "+error.message);return;}
-  toast(action==="accept"?"Proposta aceita.":action==="reject"?"Proposta recusada.":"Proposta cancelada.");
-  await loadCloudPlayers();await loadMarketData();
+  toast(action==="accept"?"Proposta aceita. Jogador adicionado ao elenco.":action==="reject"?"Proposta recusada.":"Proposta cancelada.");
+  await loadCloudPlayers();await loadMarketData();await loadTeamsData();
 }
 $("#refreshMarket")?.addEventListener("click",async()=>{await loadCloudPlayers();await loadMarketData();toast("Mercado atualizado.")});
 
@@ -246,7 +254,7 @@ async function loadTeamsData(){
     return;
   }
   const requests=[
-    supabaseClient.from("teams").select("id,name,tag,capacity,captain_player_id,created_at").order("created_at",{ascending:false}),
+    supabaseClient.from("teams").select("id,name,tag,captain_player_id,created_at").order("created_at",{ascending:false}),
     supabaseClient.from("team_members").select("team_id,player_id,role"),
     currentUser
       ? supabaseClient.from("team_invites").select("id,team_id,invited_player_id,invited_by_player_id,status,created_at").order("created_at",{ascending:false})
@@ -287,8 +295,8 @@ function renderTeams(){
       const player=players.find(p=>p.id===m.player_id);
       return `<div class="team-member"><div><b>${safe(player?.nickname||"Jogador")}</b><small>${m.role==="captain"?"CAPITÃO":"INTEGRANTE"} · ${safe(player?.mainRole||"")}</small></div>${isCaptain&&m.role!=="captain"?`<button class="btn btn-ghost btn-small" data-team-remove="${m.player_id}">Remover</button>`:""}</div>`;
     }).join("");
-    const inviteForm=isCaptain&&members.length<team.capacity?`<form class="team-invite-form" data-team-invite-form="${team.id}"><select required name="player"><option value="">Selecionar jogador livre...</option>${available.map(p=>`<option value="${p.id}">${safe(p.nickname)} · ${safe(p.mainRole)}</option>`).join("")}</select><button class="btn btn-primary btn-small" type="submit" ${available.length?"":"disabled"}>Convidar</button></form>`:"";
-    return `<article class="team-card"><div class="team-card-head"><div><span class="eyebrow">${safe(team.tag||"ACS TEAM")}</span><h3>${safe(team.name)}</h3><p>Capitão: ${safe(captain?.nickname||"Não informado")}</p></div><span class="team-capacity">${members.length}/${team.capacity}</span></div><div class="team-roster">${memberHtml||'<p class="muted small">Nenhum integrante listado.</p>'}</div>${inviteForm}${isCaptain&&pending.length?`<p class="form-note">${pending.length} convite(s) aguardando resposta.</p>`:""}${(isCaptain||isAdmin)?`<div class="team-delete-row"><button class="btn btn-danger btn-small" data-team-delete="${team.id}">${isAdmin?"Excluir equipe (admin)":"Excluir equipe"}</button></div>`:""}</article>`;
+    const inviteForm=isCaptain?`<form class="team-invite-form" data-team-invite-form="${team.id}"><select required name="player"><option value="">Selecionar jogador livre...</option>${available.map(p=>`<option value="${p.id}">${safe(p.nickname)} · ${safe(p.mainRole)}</option>`).join("")}</select><button class="btn btn-primary btn-small" type="submit" ${available.length?"":"disabled"}>Convidar</button></form>`:"";
+    return `<article class="team-card"><div class="team-card-head"><div><span class="eyebrow">${safe(team.tag||"ACS TEAM")}</span><h3>${safe(team.name)}</h3><p>Capitão: ${safe(captain?.nickname||"Não informado")}</p></div><span class="team-capacity">${members.length} jogador${members.length===1?"":"es"}</span></div><div class="team-roster">${memberHtml||'<p class="muted small">Nenhum integrante listado.</p>'}</div>${inviteForm}${isCaptain&&pending.length?`<p class="form-note">${pending.length} convite(s) aguardando resposta.</p>`:""}${(isCaptain||isAdmin)?`<div class="team-delete-row"><button class="btn btn-danger btn-small" data-team-delete="${team.id}">${isAdmin?"Excluir equipe (admin)":"Excluir equipe"}</button></div>`:""}</article>`;
   }).join(""):'<div class="market-empty"><b>Nenhuma equipe criada</b>Seja o primeiro a montar seu elenco e chamar outros jogadores.</div>';
   $("#teamCreateForm")?.querySelector("button[type=submit]")?.toggleAttribute("disabled",!currentUser||!own||!!membership);
   $$('[data-team-invite-response]').forEach(b=>b.addEventListener("click",()=>respondTeamInvite(b.dataset.teamInviteId,b.dataset.teamInviteResponse)));
@@ -313,17 +321,17 @@ async function loadTeamRankings(){
 }
 const ACS_MAPS=["Ancient","Anubis","Dust II","Inferno","Mirage","Nuke","Overpass","Train","Vertigo","Cache","Cobblestone","Outro"];
 function renderMapEditors(){
- const host=$("#matchMapsEditor");if(!host)return;const format=Number($("#matchBestOf")?.value||1);const count=format===3?Number($("#matchMapCount")?.value||3):format;const wrap=$("#matchMapCountWrap");if(wrap)wrap.style.display=format===3?"block":"none";
+ const host=$("#matchMapsEditor");if(!host)return;const format=Number($("#matchBestOf")?.value||1);const wrap=$("#matchMapCountWrap");if(wrap){wrap.style.display=format===1?"none":"block";const sel=$("#matchMapCount");const old=Number(sel.value);const opts=format===3?[2,3]:[3,4,5];sel.innerHTML=opts.map(n=>`<option value="${n}">${n} mapas</option>`).join("");sel.value=opts.includes(old)?String(old):String(format===3?3:5);}const count=format===1?1:Number($("#matchMapCount")?.value||(format===3?3:5));
  host.innerHTML=Array.from({length:count},(_,i)=>`<article class="panel" style="padding:14px;margin:10px 0"><h4>MAPA ${i+1}</h4><div class="form-grid"><label class="field">MAPA<select data-map-key="map_name" required>${ACS_MAPS.map(m=>`<option value="${m}">${m}</option>`).join("")}</select></label><label class="field">LADO INICIAL DA EQUIPE A<select data-map-key="team_a_start_side"><option value="TR">TR</option><option value="CT">CT</option></select></label><label class="field">1º TEMPO — EQUIPE A<input data-map-key="a_first_half" type="number" min="0" max="12" value="6" required></label><label class="field">1º TEMPO — EQUIPE B<input data-map-key="b_first_half" type="number" min="0" max="12" value="6" required></label><label class="field">2º TEMPO — EQUIPE A<input data-map-key="a_second_half" type="number" min="0" max="12" value="6" required></label><label class="field">2º TEMPO — EQUIPE B<input data-map-key="b_second_half" type="number" min="0" max="12" value="6" required></label></div><details style="margin-top:10px"><summary>Prorrogação (preencher somente em 12–12)</summary><p class="form-note">Informe os rounds totais de TR e CT conquistados por cada equipe em todas as prorrogações MR3 disputadas. Ex.: uma prorrogação encerrada em 4–2 tem 4/2 rounds para cada equipe, distribuídos conforme os lados.</p><div class="form-grid"><label class="field">A — TR<input data-map-key="a_ot_tr" type="number" min="0" value="0"></label><label class="field">A — CT<input data-map-key="a_ot_ct" type="number" min="0" value="0"></label><label class="field">B — TR<input data-map-key="b_ot_tr" type="number" min="0" value="0"></label><label class="field">B — CT<input data-map-key="b_ot_ct" type="number" min="0" value="0"></label></div></details><p class="form-note" data-map-preview>Placar final calculado: —</p></article>`).join("");
  host.querySelectorAll("article").forEach(card=>card.querySelectorAll("input,select").forEach(el=>el.addEventListener("input",()=>{const val=k=>Number(card.querySelector(`[data-map-key="${k}"]`)?.value||0);const a=val("a_first_half")+val("a_second_half")+val("a_ot_tr")+val("a_ot_ct"),b=val("b_first_half")+val("b_second_half")+val("b_ot_tr")+val("b_ot_ct");card.querySelector("[data-map-preview]").textContent=`Placar final calculado: ${a} × ${b}`;})));
 }
-$("#matchBestOf")?.addEventListener("change",renderMapEditors);$("#matchMapCount")?.addEventListener("change",renderMapEditors);
+$("#matchBestOf")?.addEventListener("change",()=>{renderMapEditors();renderMatchPlayerRows();});$("#matchMapCount")?.addEventListener("change",()=>{renderMapEditors();renderMatchPlayerRows();});
 
 $("#teamCreateForm")?.addEventListener("submit",async e=>{
   e.preventDefault();if(!supabaseClient||!currentUser){toast("Entre na sua conta para criar uma equipe.");return;}
   if(!currentPlayerProfile()){toast("Crie seu perfil de jogador antes de criar uma equipe.");return;}
   const button=$("#createTeamButton");button.disabled=true;
-  const {error}=await supabaseClient.rpc("acs_create_team",{p_name:$("#newTeamName").value.trim(),p_tag:$("#newTeamTag").value.trim()||null,p_capacity:Number($("#newTeamCapacity").value)});
+  const {error}=await supabaseClient.rpc("acs_create_team",{p_name:$("#newTeamName").value.trim(),p_tag:$("#newTeamTag").value.trim()||null,p_capacity:null});
   button.disabled=false;
   if(error){toast("Não foi possível criar a equipe: "+error.message);return;}
   e.target.reset();toast("Equipe criada. Você é o capitão!");await loadCloudPlayers();await loadTeamsData();
@@ -408,18 +416,22 @@ const adminNav=document.querySelector('[data-page="admin"]');if(adminNav)adminNa
 // ---- ACS 4.0: registro de partidas oficiais e recálculo competitivo ----
 function renderMatchPlayerRows(){
   const host=$("#matchPlayerRows");if(!host||!isAdmin)return;
+  const mapCount=Number($("#matchBestOf")?.value||1)===1?1:Number($("#matchMapCount")?.value||($("#matchBestOf")?.value==="3"?3:5));
   host.innerHTML=players.length?players.map(p=>`<div class="match-player-row" data-match-player="${safe(p.id)}">
     <div class="match-player-name"><b>${safe(p.nickname)}</b><small>${safe(p.mainRole)} · ${safe(p.team||"Sem equipe")}</small></div>
-    <label class="field">EQUIPE<select data-match-key="team_side"><option value="">Não participou</option><option value="A">Equipe A</option><option value="B">Equipe B</option></select></label>
-    <label class="field">K<input data-match-key="kills" type="number" min="0" max="300" value="0"></label>
-    <label class="field">D<input data-match-key="deaths" type="number" min="0" max="300" value="0"></label>
-    <label class="field">A<input data-match-key="assists" type="number" min="0" max="300" value="0"></label>
-    <label class="field">ADR<input data-match-key="adr" type="number" min="0" max="500" step="0.01" placeholder="—"></label>
-    <label class="field">HS%<input data-match-key="headshot_pct" type="number" min="0" max="100" step="0.01" placeholder="—"></label>
-    <label class="field">MVP<input data-match-key="mvps" type="number" min="0" max="10" value="0"></label>
-    <label class="field">FK<input data-match-key="first_kills" type="number" min="0" max="30" value="0"></label>
-    <label class="field">FD<input data-match-key="first_deaths" type="number" min="0" max="30" value="0"></label>
-    <label class="field">CLUTCH<input data-match-key="clutches_won" type="number" min="0" max="20" value="0"></label>
+    <label class="field">EQUIPE<select data-match-key="team_side"><option value="">Não convocado</option><option value="A">Equipe A</option><option value="B">Equipe B</option></select></label>
+    <label class="field">STATUS<select data-match-key="participation_status"><option value="not_played">Não jogou</option><option value="starter" selected>Titular</option><option value="reserve">Reserva</option></select></label>
+    <div class="match-player-map-stats">${Array.from({length:mapCount},(_,i)=>`<details class="match-map-player" ${mapCount===1?"open":""}><summary>Mapa ${i+1} — estatísticas individuais</summary><div class="form-grid">
+      <label class="field">K<input data-map-stat="${i+1}" data-stat-key="kills" type="number" min="0" max="300" value="0"></label>
+      <label class="field">D<input data-map-stat="${i+1}" data-stat-key="deaths" type="number" min="0" max="300" value="0"></label>
+      <label class="field">A<input data-map-stat="${i+1}" data-stat-key="assists" type="number" min="0" max="300" value="0"></label>
+      <label class="field">ADR<input data-map-stat="${i+1}" data-stat-key="adr" type="number" min="0" max="500" step="0.01" placeholder="—"></label>
+      <label class="field">HS%<input data-map-stat="${i+1}" data-stat-key="headshot_pct" type="number" min="0" max="100" step="0.01" placeholder="—"></label>
+      <label class="field">MVP<input data-map-stat="${i+1}" data-stat-key="mvps" type="number" min="0" max="10" value="0"></label>
+      <label class="field">FK<input data-map-stat="${i+1}" data-stat-key="first_kills" type="number" min="0" max="30" value="0"></label>
+      <label class="field">FD<input data-map-stat="${i+1}" data-stat-key="first_deaths" type="number" min="0" max="30" value="0"></label>
+      <label class="field">CLUTCH<input data-map-stat="${i+1}" data-stat-key="clutches_won" type="number" min="0" max="20" value="0"></label>
+    </div></details>`).join("")}</div>
   </div>`).join(""):`<div class="market-empty">Cadastre jogadores antes de registrar uma partida.</div>`;
 }
 function renderPublicStats(){
@@ -428,6 +440,7 @@ function renderPublicStats(){
   host.innerHTML=ranked.length?`<div class="public-stats-table-wrap"><table class="public-stats-table"><thead><tr><th>#</th><th>Jogador</th><th>Rating AM</th><th>Partidas</th><th>K/D</th><th>ADR</th><th>HS%</th><th>Win rate</th></tr></thead><tbody>${ranked.map((p,i)=>`<tr><td>${i+1}</td><td><b>${safe(p.nickname)}</b><small>${safe(p.mainRole||"")}</small></td><td>${p.rating==null?"—":Number(p.rating).toFixed(2)}</td><td>${p.matches||0}</td><td>${p.kd==null?"—":Number(p.kd).toFixed(2)}</td><td>${p.adr==null?"—":Number(p.adr).toFixed(1)}</td><td>${p.hs==null?"—":Number(p.hs).toFixed(1)+"%"}</td><td>${p.win==null?"—":Number(p.win).toFixed(1)+"%"}</td></tr>`).join("")}</tbody></table></div>`:'<div class="market-empty">Ainda não existem estatísticas oficiais. Elas aparecerão aqui após o registro das primeiras partidas.</div>';
 }
 async function loadPlayerSideStats(){const host=$("#playerSideStats");if(!host||!supabaseClient)return;const {data,error}=await supabaseClient.from("player_side_round_stats").select("player_id,side,rounds_won,rounds_played");if(error){host.innerHTML=`<div class="market-empty">Estatísticas por lado indisponíveis. Execute a migration ACS 4.2.</div>`;return;}const agg={};(data||[]).forEach(r=>{agg[r.player_id]??={TR:[0,0],CT:[0,0]};agg[r.player_id][r.side][0]+=r.rounds_won;agg[r.player_id][r.side][1]+=r.rounds_played;});const rows=Object.entries(agg).map(([id,v])=>({p:players.find(p=>p.id===id),tr:v.TR[1]?100*v.TR[0]/v.TR[1]:null,ct:v.CT[1]?100*v.CT[0]/v.CT[1]:null})).filter(x=>x.p).sort((a,b)=>((b.tr||0)+(b.ct||0))-((a.tr||0)+(a.ct||0)));host.innerHTML=rows.length?`<div class="public-stats-table-wrap"><table class="public-stats-table"><thead><tr><th>Jogador</th><th>Win TR</th><th>Win CT</th></tr></thead><tbody>${rows.map(x=>`<tr><td><b>${safe(x.p.nickname)}</b></td><td>${x.tr==null?"—":x.tr.toFixed(1)+"%"}</td><td>${x.ct==null?"—":x.ct.toFixed(1)+"%"}</td></tr>`).join("")}</tbody></table></div>`:'<div class="market-empty">As taxas por lado aparecerão após as primeiras partidas registradas nesta versão.</div>';}
+async function loadPlayerMapStats(){const host=$("#playerMapStats");if(!host||!supabaseClient)return;const {data,error}=await supabaseClient.from("acs_player_map_stats").select("player_id,map_name,matches,kills,deaths,assists,adr,headshot_pct,mvps").order("map_name");if(error){host.innerHTML='<div class="market-empty">Estatísticas por mapa ainda indisponíveis. Execute a migration ACS 4.3.</div>';return;}const rows=(data||[]).filter(r=>players.some(p=>p.id===r.player_id));host.innerHTML=rows.length?`<div class="public-stats-table-wrap"><table class="public-stats-table"><thead><tr><th>Jogador</th><th>Mapa</th><th>Partidas</th><th>K/D/A</th><th>ADR médio</th><th>HS médio</th><th>MVP</th></tr></thead><tbody>${rows.map(r=>`<tr><td><b>${safe(players.find(p=>p.id===r.player_id)?.nickname||"Jogador")}</b></td><td>${safe(r.map_name)}</td><td>${r.matches}</td><td>${r.kills}/${r.deaths}/${r.assists}</td><td>${r.adr==null?"—":Number(r.adr).toFixed(1)}</td><td>${r.headshot_pct==null?"—":Number(r.headshot_pct).toFixed(1)+"%"}</td><td>${r.mvps}</td></tr>`).join("")}</tbody></table></div>`:'<div class="market-empty">As estatísticas por mapa aparecerão depois das primeiras partidas registradas nesta versão.</div>';}
 async function loadMatches(){
   const host=$("#matchesList");if(!host)return;
   renderPublicStats();
@@ -436,13 +449,15 @@ async function loadMatches(){
   const {data,error}=await supabaseClient.from("matches").select("id,played_at,map_name,team_a_name,team_b_name,team_a_score,team_b_score,status,best_of,notes,player_match_stats(player_id,kills,deaths,assists,adr,headshot_pct,mvps,first_kills,first_deaths,clutches_won,team_side,players(nickname)),match_maps(map_number,map_name,team_a_score,team_b_score,team_a_start_side,a_first_half,b_first_half,a_second_half,b_second_half,a_ot_tr,a_ot_ct,b_ot_tr,b_ot_ct)").eq("status","completed").order("played_at",{ascending:false}).limit(100);
   if(error){host.innerHTML=`<div class="market-empty">Não foi possível carregar partidas: ${safe(error.message)}</div>`;return;}
   await loadPlayerSideStats();
+  await loadPlayerMapStats();
   const matches=data||[];$("#matchCount").textContent=`${matches.length} partida${matches.length===1?"":"s"}`;
   host.innerHTML=matches.length?matches.map(m=>{
     const date=m.played_at?new Date(m.played_at).toLocaleString("pt-BR"):"Data não informada";
     const winner=m.team_a_score>m.team_b_score?"A":m.team_b_score>m.team_a_score?"B":"D";
-    const stats=(m.player_match_stats||[]).map(s=>`<div class="match-stat-line"><b>${safe(s.players?.nickname||"Jogador")}</b><span>${s.kills}/${s.deaths}/${s.assists} K/D/A</span><small>${s.team_side==="A"?safe(m.team_a_name):safe(m.team_b_name)} · ADR ${s.adr??"—"} · HS ${s.headshot_pct==null?"—":s.headshot_pct+"%"} · MVP ${s.mvps||0}</small></div>`).join("");
-    const maps=(m.match_maps||[]).map(mm=>`<div class="match-score"><b>${safe(mm.map_name)}</b><strong>${mm.team_a_score} : ${mm.team_b_score}</strong><small>${mm.team_a_start_side} start · 1º ${mm.a_first_half}-${mm.b_first_half} · 2º ${mm.a_second_half}-${mm.b_second_half}${(mm.a_ot_tr+mm.a_ot_ct+mm.b_ot_tr+mm.b_ot_ct)>0?` · OT ${mm.a_ot_tr+mm.a_ot_ct}-${mm.b_ot_tr+mm.b_ot_ct}`:""}</small></div>`).join("");
-    return `<article class="match-card"><div class="match-card-top"><small>${safe(date)} · MD${m.best_of||1}</small>${isAdmin?`<button class="btn btn-danger btn-small" data-delete-match="${safe(m.id)}">Excluir</button>`:""}</div><div class="match-score"><b class="${winner==="A"?"match-winner":""}">${safe(m.team_a_name)}</b><strong>${m.team_a_score} : ${m.team_b_score} ${m.match_maps?.length?"mapas":"rounds"}${winner==="D"?" · EMPATE":""}</strong><b class="${winner==="B"?"match-winner":""}">${safe(m.team_b_name)}</b></div>${maps}<div class="match-participants match-participants-detailed">${stats||"Sem estatísticas individuais registradas."}</div>${m.notes?`<p class="detail-bio">${safe(m.notes)}</p>`:""}</article>`;
+    const ordered=(m.match_maps||[]).slice().sort((a,b)=>a.map_number-b.map_number);
+    const dotsA=ordered.map(mm=>`<i class="match-map-dot ${mm.team_a_score>mm.team_b_score?"is-won":""}" title="${safe(mm.map_name)}"></i>`).join("");
+    const dotsB=ordered.map(mm=>`<i class="match-map-dot ${mm.team_b_score>mm.team_a_score?"is-won":""}" title="${safe(mm.map_name)}"></i>`).join("");
+    return `<article class="match-card match-card-compact"><div class="match-card-top"><small>${safe(date)} · MD${m.best_of||1}</small>${isAdmin?`<button class="btn btn-danger btn-small" data-delete-match="${safe(m.id)}">Excluir</button>`:""}</div><div class="match-score"><b class="${winner==="A"?"match-winner":""}">${safe(m.team_a_name)}</b><strong>${m.team_a_score} : ${m.team_b_score}</strong><b class="${winner==="B"?"match-winner":""}">${safe(m.team_b_name)}</b></div>${(m.best_of||1)>1?`<div class="match-map-tracks"><div><small>A</small>${dotsA}</div><div><small>B</small>${dotsB}</div></div>`:""}</article>`;
   }).join(""):'<div class="empty-state"><h3>Nenhuma partida registrada</h3><p>Quando a administração cadastrar o primeiro confronto, ele aparecerá aqui.</p></div>';
   $$('[data-delete-match]').forEach(btn=>btn.addEventListener('click',async()=>{
     if(!confirm("Excluir esta partida? As estatísticas dos jogadores serão recalculadas sem este confronto."))return;
@@ -457,7 +472,7 @@ $("#adminMatchForm")?.addEventListener("submit",async e=>{
  const teamA=$("#matchTeamA").value,teamB=$("#matchTeamB").value,bestOf=Number($("#matchBestOf").value);
  if(!teamA||!teamB||teamA===teamB){toast("Selecione duas equipes diferentes.");return;}
  const maps=[...$$("#matchMapsEditor > article")].map(card=>{const get=k=>card.querySelector(`[data-map-key="${k}"]`).value;const num=k=>Number(get(k)||0);return {map_name:get("map_name"),team_a_start_side:get("team_a_start_side"),a_first_half:num("a_first_half"),b_first_half:num("b_first_half"),a_second_half:num("a_second_half"),b_second_half:num("b_second_half"),a_ot_tr:num("a_ot_tr"),a_ot_ct:num("a_ot_ct"),b_ot_tr:num("b_ot_tr"),b_ot_ct:num("b_ot_ct")};});
- const playerStats=[];$$("#matchPlayerRows [data-match-player]").forEach(row=>{const get=k=>row.querySelector(`[data-match-key="${k}"]`).value;const side=get("team_side");if(!side)return;const number=k=>{const v=get(k);return v===""?null:Number(v);};playerStats.push({player_id:row.dataset.matchPlayer,team_side:side,kills:number("kills"),deaths:number("deaths"),assists:number("assists"),adr:number("adr"),headshot_pct:number("headshot_pct"),mvps:number("mvps"),first_kills:number("first_kills"),first_deaths:number("first_deaths"),clutches_won:number("clutches_won")});});
+ const playerStats=[];$$("#matchPlayerRows [data-match-player]").forEach(row=>{const get=k=>row.querySelector(`[data-match-key="${k}"]`).value;const side=get("team_side"),status=get("participation_status");if(!side)return;const mapStats=[...row.querySelectorAll("[data-map-stat]")].reduce((all,input)=>{const n=Number(input.dataset.mapStat);all[n]??={map_number:n};const key=input.dataset.statKey;all[n][key]=input.value===""?null:Number(input.value);return all;},{});const arr=Object.values(mapStats);const sum=k=>arr.reduce((s,x)=>s+(Number(x[k])||0),0);const avg=k=>{const vals=arr.map(x=>x[k]).filter(v=>v!==null&&v!==undefined);return vals.length?vals.reduce((a,b)=>a+Number(b),0)/vals.length:null;};playerStats.push({player_id:row.dataset.matchPlayer,team_side:side,participation_status:status,kills:sum("kills"),deaths:sum("deaths"),assists:sum("assists"),adr:avg("adr"),headshot_pct:avg("headshot_pct"),mvps:sum("mvps"),first_kills:sum("first_kills"),first_deaths:sum("first_deaths"),clutches_won:sum("clutches_won"),map_stats:arr});});
  if(!playerStats.length){toast("Selecione os jogadores participantes e suas equipes.");return;}
  const button=$("#saveMatchButton");button.disabled=true;button.textContent="Salvando série...";
  const match={team_a_id:teamA,team_b_id:teamB,best_of:bestOf,played_at:$("#matchPlayedAt").value?new Date($("#matchPlayedAt").value).toISOString():null,notes:$("#matchNotes").value.trim()};

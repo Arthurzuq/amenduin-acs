@@ -77,3 +77,29 @@ O ranking de equipes usa 75% de taxa de vitórias em séries e 25% de diferencia
 - Migration `acs-4.2.1-correcao-equipes-mercado.sql`: cria/atualiza `transfer_offers`, corrige a permissão de exclusão administrativa, limpa nomes de equipes sem vínculo real e atualiza o cache do Supabase.
 
 **Atualização:** substitua os arquivos do site pelos arquivos deste pacote, mas mantenha o seu `supabase-config.js` atual. Depois execute o arquivo SQL 4.2.1 inteiro no Supabase. Não execute novamente `supabase-schema.sql` nem migrations antigas.
+
+## ACS 4.3 — Transferências, MD1/MD3/MD5 e estatísticas por mapa
+
+Esta atualização é incremental sobre ACS 4.2.1.
+
+### Alterações
+
+- Aceitar uma proposta de transferência agora move o jogador para `team_members` da equipe do jogador que enviou a proposta. O nome da equipe e o registro de transferência também são atualizados na mesma operação do banco.
+- Um jogador precisa pertencer a uma equipe para enviar uma proposta de transferência. Capitães precisam transferir a liderança antes de sair da equipe.
+- Removido o limite artificial de integrantes por equipe. Convites podem ser enviados sem capacidade máxima configurada.
+- Formatos de partida disponíveis: MD1, MD3 e MD5. MD2 foi removido.
+- O registro da partida permite definir, por jogador, equipe, titular/reserva/não jogou.
+- K/D/A, ADR, HS%, MVP, first kills/deaths e clutches são registrados separadamente para cada jogador em cada mapa. A tabela pública **Desempenho por mapa** agrega os números por jogador e mapa.
+- O histórico público de partidas foi simplificado para mostrar equipes, placar da série e bolinhas por mapa: cada equipe tem sua linha, e o mapa vencido aparece com bolinha branca.
+
+### Instalação ACS 4.3
+
+1. Faça backup do Supabase antes de executar a migration.
+2. No SQL Editor, abra uma consulta nova e execute **o arquivo inteiro** `acs-4.3-transferencia-md5-stats-mapa.sql`.
+3. Substitua os arquivos do site pelos desta pasta.
+4. Preserve o seu `supabase-config.js` atual. Ele não deve ser substituído por arquivo de configuração de exemplo.
+5. Publique o site e atualize o navegador com Ctrl+F5.
+
+Não execute novamente `supabase-schema.sql` nem migrations anteriores. Execute somente a migration 4.3 nesta atualização.
+
+A migration foi revisada estaticamente, mas não foi executada no banco Supabase real. Faça a instalação em uma janela de manutenção/backup e confirme o resultado antes de registrar partidas oficiais.
