@@ -68,3 +68,12 @@ O formulário oferece MD1, MD2 e MD3: MD1 exige um mapa; MD2 exige dois mapas e 
 O ranking de equipes usa 75% de taxa de vitórias em séries e 25% de diferencial médio de mapas vencidos. Mapas fortes/fracos só são destacados após pelo menos duas aparições naquele mapa, evitando destacar um mapa com amostra de uma única partida.
 
 **Importante:** a migration foi preparada para o schema ACS 4.1 e o JavaScript foi validado com `node --check`. Não foi possível executar a migration no projeto Supabase real do usuário nesta sessão. Faça primeiro a migration e teste com uma série de teste antes de cadastrar resultados oficiais.
+
+
+## ACS 4.2.1 — correções
+- Removido o campo de equipe do cadastro/edição de perfil. A equipe passa a ser definida por equipe criada e vínculo real no elenco.
+- O contador da página inicial passa a contar registros reais da tabela `teams`.
+- Administradores podem excluir qualquer equipe pela página Equipes; capitães continuam podendo excluir a própria equipe.
+- Migration `acs-4.2.1-correcao-equipes-mercado.sql`: cria/atualiza `transfer_offers`, corrige a permissão de exclusão administrativa, limpa nomes de equipes sem vínculo real e atualiza o cache do Supabase.
+
+**Atualização:** substitua os arquivos do site pelos arquivos deste pacote, mas mantenha o seu `supabase-config.js` atual. Depois execute o arquivo SQL 4.2.1 inteiro no Supabase. Não execute novamente `supabase-schema.sql` nem migrations antigas.

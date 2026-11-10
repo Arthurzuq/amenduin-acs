@@ -18,13 +18,13 @@ function go(page){$$(".page").forEach(p=>p.classList.toggle("active",p.id===`pag
 $$("[data-page]").forEach(a=>a.addEventListener("click",e=>{e.preventDefault();go(a.dataset.page)}));
 $$("[data-goto]").forEach(b=>b.addEventListener("click",()=>go(b.dataset.goto)));
 $("#mobileMenu").addEventListener("click",()=>$(".sidebar").classList.toggle("open"));
-function openForm(p=null){$("#playerForm").reset();$("#editId").value=p?.id||"";$("#modalTitle").textContent=p?"EDITAR PERFIL":"CRIAR PERFIL";if(p){$("#nickname").value=p.nickname;$("#steam").value=p.steam||"";$("#country").value=p.country||"Brasil";$("#mainRole").value=p.mainRole;$("#secondaryRole").value=p.secondaryRole||"";$("#team").value=p.team==="Sem equipe"?"":p.team;$("#marketStatus").value=p.marketStatus||"Disponível";$("#bio").value=p.bio||"";}$("#profileModal").classList.add("open")}
+function openForm(p=null){$("#playerForm").reset();$("#editId").value=p?.id||"";$("#modalTitle").textContent=p?"EDITAR PERFIL":"CRIAR PERFIL";if(p){$("#nickname").value=p.nickname;$("#steam").value=p.steam||"";$("#country").value=p.country||"Brasil";$("#mainRole").value=p.mainRole;$("#secondaryRole").value=p.secondaryRole||"";$("#marketStatus").value=p.marketStatus||"Disponível";$("#bio").value=p.bio||"";}$("#profileModal").classList.add("open")}
 function closeForm(){$("#profileModal").classList.remove("open")}
 ["#newPlayerTop","#createFromHero","#createFromPanel","#newPlayerList"].forEach(s=>$(s).addEventListener("click",()=>openForm()));
 $("#closeModal").addEventListener("click",closeForm);$("#cancelModal").addEventListener("click",closeForm);
 $("#profileModal").addEventListener("click",e=>{if(e.target.id==="profileModal")closeForm()});
 $("#playerForm").addEventListener("submit",e=>{e.preventDefault();const editId=$("#editId").value;const nickname=$("#nickname").value.trim();if(!nickname)return;const duplicate=players.find(p=>p.nickname.toLowerCase()===nickname.toLowerCase()&&p.id!==editId);if(duplicate){toast("Esse nickname já está cadastrado.");return}
-const existing=players.find(p=>p.id===editId);const p={...(existing||{}),id:editId||`p-${Date.now()}`,nickname,steam:$("#steam").value.trim(),country:$("#country").value,mainRole:$("#mainRole").value,secondaryRole:$("#secondaryRole").value,team:$("#team").value.trim()||"Sem equipe",marketStatus:$("#marketStatus").value,bio:$("#bio").value.trim(),rating:existing?.rating??null,kd:existing?.kd??null,adr:existing?.adr??null,hs:existing?.hs??null,win:existing?.win??null,matches:existing?.matches??0,mvps:existing?.mvps??0,kills:existing?.kills??0,deaths:existing?.deaths??0,firstKills:existing?.firstKills??0,firstDeaths:existing?.firstDeaths??0,clutches:existing?.clutches??0,teamHistory:existing?.teamHistory||[],demo:false};
+const existing=players.find(p=>p.id===editId);const p={...(existing||{}),id:editId||`p-${Date.now()}`,nickname,steam:$("#steam").value.trim(),country:$("#country").value,mainRole:$("#mainRole").value,secondaryRole:$("#secondaryRole").value,team:existing?.team||"Sem equipe",marketStatus:$("#marketStatus").value,bio:$("#bio").value.trim(),rating:existing?.rating??null,kd:existing?.kd??null,adr:existing?.adr??null,hs:existing?.hs??null,win:existing?.win??null,matches:existing?.matches??0,mvps:existing?.mvps??0,kills:existing?.kills??0,deaths:existing?.deaths??0,firstKills:existing?.firstKills??0,firstDeaths:existing?.firstDeaths??0,clutches:existing?.clutches??0,teamHistory:existing?.teamHistory||[],demo:false};
 if(existing){players=players.map(x=>x.id===editId?p:x)}else players.unshift(p);savePlayers();closeForm();renderAll();toast(existing?"Perfil atualizado.":"Perfil criado com sucesso!")});
 function playerCard(p){return `<article class="player-card" data-open="${safe(p.id)}"><div class="card-top"><div class="avatar">${safe(initials(p.nickname))}</div><div class="card-identity"><b>${safe(p.nickname)}</b><small>${safe(p.team||"Sem equipe")} · ${safe(p.country||"")}</small></div><span class="rating-mini">${p.rating??"—"}<small>RATING AM</small></span></div><span class="role-tag">${safe(roleShort(p.mainRole))}</span><div class="card-stats"><div><strong>${p.kd??"N/A"}</strong><small>K/D</small></div><div><strong>${p.adr??"N/A"}</strong><small>ADR</small></div><div><strong>${p.win==null?"N/A":p.win+"%"}</strong><small>WIN RATE</small></div></div></article>`}
 function bindPlayerCards(){ $$("[data-open]").forEach(el=>el.addEventListener("click",()=>openDetail(el.dataset.open)))}
@@ -33,7 +33,7 @@ function renderPlayers(){const q=$("#playerSearch").value.toLowerCase();const ro
 function openDetail(id){const p=players.find(x=>x.id===id);if(!p)return;$("#detailContent").innerHTML=`<div class="modal-head"><span class="eyebrow">PLAYER PROFILE / ACS</span><button class="icon-button" id="closeDetail">×</button></div><div class="detail-hero"><div class="avatar">${safe(initials(p.nickname))}</div><div><h2>${safe(p.nickname)}</h2><p>${safe(p.team||"Sem equipe")} · ${safe(p.country||"Brasil")}</p><span class="role-tag">${safe(p.mainRole)}${p.secondaryRole?" / "+safe(p.secondaryRole):""}</span></div><div class="detail-rating">${p.rating??"—"}<small>RATING AM</small></div></div><div class="detail-section"><h3>Estatísticas gerais</h3><div class="detail-stats">${stat("PARTIDAS",p.matches??0)}${stat("K/D",p.kd??"N/A")}${stat("ADR",p.adr??"N/A")}${stat("HS%",p.hs==null?"N/A":p.hs+"%")}${stat("WIN RATE",p.win==null?"N/A":p.win+"%")}${stat("MVPs",p.mvps??0)}${stat("FIRST KILLS",p.firstKills??"N/A")}${stat("CLUTCHES",p.clutches??"N/A")}</div></div><div class="detail-section"><h3>Perfil competitivo</h3><p class="detail-bio">${safe(p.bio||"Este jogador ainda não adicionou uma biografia.")}</p><p class="detail-bio"><b>Status no mercado:</b> ${safe(p.marketStatus||"Não informado")}</p><p class="detail-bio"><b>Steam:</b> ${p.steam?`<a href="${safe(p.steam)}" target="_blank" rel="noopener" style="color:#8cc3ff">Abrir perfil Steam ↗</a>`:"Não informado"}</p></div><div class="detail-section"><h3>Histórico competitivo</h3><p class="detail-bio">${"Estatísticas oficiais são atualizadas pela administração da Liga Amenduin."}</p></div><div class="detail-actions">${(currentUser&&p.userId===currentUser.id)?'<button class="btn btn-primary" id="editPlayer">Editar perfil</button>':""}</div>`;$("#detailModal").classList.add("open");$("#closeDetail").addEventListener("click",()=>$("#detailModal").classList.remove("open"));$("#editPlayer")?.addEventListener("click",()=>{const current=players.find(x=>x.id===id);$("#detailModal").classList.remove("open");openForm(current)})}
 function stat(label,value){return `<div class="detail-stat"><b>${safe(value)}</b><small>${label}</small></div>`}
 $("#detailModal").addEventListener("click",e=>{if(e.target.id==="detailModal")$("#detailModal").classList.remove("open")});
-function renderHome(){const real=players;$("#totalPlayers").textContent=players.length;$("#totalTeams").textContent=new Set(players.map(p=>p.team).filter(t=>t&&t!=="Sem equipe")).size;$("#totalMatches").textContent=players.reduce((n,p)=>n+(p.matches||0),0);$("#featuredCount").textContent=players.filter(p=>p.rating!=null).length;const list=[...players].sort((a,b)=>(b.rating??-1)-(a.rating??-1)).slice(0,4);$("#featuredPlayers").innerHTML=list.length?list.map(p=>`<div class="player-row" data-open="${safe(p.id)}"><div class="avatar">${safe(initials(p.nickname))}</div><div class="player-main"><b>${safe(p.nickname)}</b><small>${safe(p.mainRole)} · ${safe(p.team)}</small></div><div class="rating-mini">${p.rating??"—"}<small>RATING AM</small></div></div>`).join(""):`<p class="muted">Ainda não há jogadores cadastrados.</p>`;bindPlayerCards()}
+function renderHome(){const real=players;$("#totalPlayers").textContent=players.length;$("#totalTeams").textContent=0;$("#totalMatches").textContent=players.reduce((n,p)=>n+(p.matches||0),0);$("#featuredCount").textContent=players.filter(p=>p.rating!=null).length;const list=[...players].sort((a,b)=>(b.rating??-1)-(a.rating??-1)).slice(0,4);$("#featuredPlayers").innerHTML=list.length?list.map(p=>`<div class="player-row" data-open="${safe(p.id)}"><div class="avatar">${safe(initials(p.nickname))}</div><div class="player-main"><b>${safe(p.nickname)}</b><small>${safe(p.mainRole)} · ${safe(p.team)}</small></div><div class="rating-mini">${p.rating??"—"}<small>RATING AM</small></div></div>`).join(""):`<p class="muted">Ainda não há jogadores cadastrados.</p>`;bindPlayerCards()}
 function renderRanking(){const list=[...players].filter(p=>p.rating!=null).sort((a,b)=>b.rating-a.rating);$("#rankingList").innerHTML=list.length?list.map((p,i)=>`<div class="rank-row"><div class="rank-number">#${String(i+1).padStart(2,"0")}</div><div><b>${safe(p.nickname)}</b><div class="rank-bar"><i style="width:${Math.max(0,Math.min(100,p.rating))}%"></i></div></div><div class="muted small">${safe(p.mainRole)}</div><div class="rank-value">${p.rating}</div></div>`).join(""):`<div class="empty-state"><h3>Sem dados suficientes</h3><p>Os rankings aparecerão quando houver jogadores com avaliações registradas.</p></div>`}
 function renderAll(){renderHome();renderPlayers();renderRanking()}
 renderAll();
@@ -57,11 +57,13 @@ async function initCloudAuth(){
   currentUser = session?.user || null;
   updateAuthButton();
   await loadCloudPlayers();
+  await loadTeamsData();
   await refreshAdminStatus();
   supabaseClient.auth.onAuthStateChange(async (_event,session)=>{
     currentUser=session?.user||null;
     updateAuthButton();
     await loadCloudPlayers();
+    await loadTeamsData();
     await refreshAdminStatus();
     if(document.querySelector("#page-market.active")) await loadMarketData();
     if(document.querySelector("#page-teams.active")) await loadTeamsData();
@@ -108,6 +110,7 @@ $("#authForm")?.addEventListener("submit",async e=>{
     }else{
       currentUser=result.data.user;updateAuthButton();toast("Login realizado.");
       await loadCloudPlayers();
+      await loadTeamsData();
     }
     $("#authModal").classList.remove("open");
   }catch(err){toast(err.message||"Erro de autenticação.");}
@@ -142,7 +145,7 @@ $("#playerForm").addEventListener("submit",async()=>{
   const payload={
     user_id:currentUser.id,nickname,steam_url:$("#steam").value.trim()||null,
     country:$("#country").value,main_role:$("#mainRole").value,
-    secondary_role:$("#secondaryRole").value||null,team_name:$("#team").value.trim()||"Sem equipe",
+    secondary_role:$("#secondaryRole").value||null,
     market_status:$("#marketStatus").value,bio:$("#bio").value.trim()||null
   };
   const editId=$("#editId").value;
@@ -256,6 +259,7 @@ async function loadTeamsData(){
     return;
   }
   cloudTeams=teamsRes.data||[];teamMembers=membersRes.data||[];teamInvites=invitesRes.data||[];
+  $("#totalTeams").textContent=cloudTeams.length;
   renderTeams();renderMatchTeamSelectors();loadTeamRankings();
 }
 function renderTeams(){
@@ -284,7 +288,7 @@ function renderTeams(){
       return `<div class="team-member"><div><b>${safe(player?.nickname||"Jogador")}</b><small>${m.role==="captain"?"CAPITÃO":"INTEGRANTE"} · ${safe(player?.mainRole||"")}</small></div>${isCaptain&&m.role!=="captain"?`<button class="btn btn-ghost btn-small" data-team-remove="${m.player_id}">Remover</button>`:""}</div>`;
     }).join("");
     const inviteForm=isCaptain&&members.length<team.capacity?`<form class="team-invite-form" data-team-invite-form="${team.id}"><select required name="player"><option value="">Selecionar jogador livre...</option>${available.map(p=>`<option value="${p.id}">${safe(p.nickname)} · ${safe(p.mainRole)}</option>`).join("")}</select><button class="btn btn-primary btn-small" type="submit" ${available.length?"":"disabled"}>Convidar</button></form>`:"";
-    return `<article class="team-card"><div class="team-card-head"><div><span class="eyebrow">${safe(team.tag||"ACS TEAM")}</span><h3>${safe(team.name)}</h3><p>Capitão: ${safe(captain?.nickname||"Não informado")}</p></div><span class="team-capacity">${members.length}/${team.capacity}</span></div><div class="team-roster">${memberHtml||'<p class="muted small">Nenhum integrante listado.</p>'}</div>${inviteForm}${isCaptain&&pending.length?`<p class="form-note">${pending.length} convite(s) aguardando resposta.</p>`:""}${isCaptain?`<div class="team-delete-row"><button class="btn btn-danger btn-small" data-team-delete="${team.id}">Excluir equipe</button></div>`:""}</article>`;
+    return `<article class="team-card"><div class="team-card-head"><div><span class="eyebrow">${safe(team.tag||"ACS TEAM")}</span><h3>${safe(team.name)}</h3><p>Capitão: ${safe(captain?.nickname||"Não informado")}</p></div><span class="team-capacity">${members.length}/${team.capacity}</span></div><div class="team-roster">${memberHtml||'<p class="muted small">Nenhum integrante listado.</p>'}</div>${inviteForm}${isCaptain&&pending.length?`<p class="form-note">${pending.length} convite(s) aguardando resposta.</p>`:""}${(isCaptain||isAdmin)?`<div class="team-delete-row"><button class="btn btn-danger btn-small" data-team-delete="${team.id}">${isAdmin?"Excluir equipe (admin)":"Excluir equipe"}</button></div>`:""}</article>`;
   }).join(""):'<div class="market-empty"><b>Nenhuma equipe criada</b>Seja o primeiro a montar seu elenco e chamar outros jogadores.</div>';
   $("#teamCreateForm")?.querySelector("button[type=submit]")?.toggleAttribute("disabled",!currentUser||!own||!!membership);
   $$('[data-team-invite-response]').forEach(b=>b.addEventListener("click",()=>respondTeamInvite(b.dataset.teamInviteId,b.dataset.teamInviteResponse)));
@@ -337,7 +341,8 @@ async function removeTeamMember(playerId){
   toast("Jogador removido do elenco.");await loadCloudPlayers();await loadTeamsData();
 }
 async function deleteTeam(teamId){
-  if(!supabaseClient||!confirm("Excluir esta equipe? Todos os integrantes voltarão a ficar sem equipe. Esta ação não pode ser desfeita."))return;
+  if(!supabaseClient||(!isAdmin&&!confirm("Excluir esta equipe? Todos os integrantes voltarão a ficar sem equipe. Esta ação não pode ser desfeita.")))return;
+  if(isAdmin&&!confirm("ADMINISTRAÇÃO: excluir esta equipe e desvincular todos os integrantes? Esta ação não pode ser desfeita."))return;
   const {error}=await supabaseClient.rpc("acs_delete_team",{p_team_id:teamId});
   if(error){toast("Não foi possível excluir a equipe: "+error.message);return;}
   toast("Equipe excluída. Os jogadores estão sem equipe.");await loadCloudPlayers();await loadTeamsData();
