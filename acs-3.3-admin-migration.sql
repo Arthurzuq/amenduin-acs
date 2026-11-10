@@ -44,9 +44,20 @@ create table if not exists public.acs_admin_bootstrap (
   failed_attempts integer not null default 0,
   locked_until timestamptz
 );
-insert into public.acs_admin_bootstrap(singleton,pin_salt,pin_hash)
-values (true, 'd9b4fab4fea83dca6e60ba0996c2e858', 'c35f70f75701e5862ffd3c918e06ab3e8b2e3aceefebb52cf080dcd8499fc7f7')
-on conflict (singleton) do nothing;
+-- O PIN de ativação NÃO deve ficar salvo neste arquivo nem no GitHub.
+-- Antes de executar, troque TROQUE por 5 dígitos escolhidos por você (apenas no SQL Editor, sem fazer commit).
+do $$
+declare
+  v_pin  text := 'TROQUE';
+  v_salt text := replace(gen_random_uuid()::text, '-', '');
+begin
+  if v_pin !~ '^[0-9]{5}$' then
+    raise exception 'Defina um PIN de 5 dígitos no lugar de TROQUE antes de executar.';
+  end if;
+  insert into public.acs_admin_bootstrap(singleton,pin_salt,pin_hash)
+  values (true, v_salt, encode(digest(v_salt || v_pin, 'sha256'), 'hex'))
+  on conflict (singleton) do nothing;
+end $$;
 alter table public.acs_admin_bootstrap enable row level security;
 revoke all on public.acs_admin_bootstrap from anon, authenticated;
 

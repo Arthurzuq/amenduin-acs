@@ -14,10 +14,10 @@ alter table public.player_match_stats add column if not exists clutches_won inte
 
 alter table public.matches enable row level security;
 alter table public.player_match_stats enable row level security;
-drop policy if exists \"Public can view matches\" on public.matches;
-create policy \"Public can view matches\" on public.matches for select using (true);
-drop policy if exists \"Public can view match stats\" on public.player_match_stats;
-create policy \"Public can view match stats\" on public.player_match_stats for select using (true);
+drop policy if exists "Public can view matches" on public.matches;
+create policy "Public can view matches" on public.matches for select using (true);
+drop policy if exists "Public can view match stats" on public.player_match_stats;
+create policy "Public can view match stats" on public.player_match_stats for select using (true);
 grant select on public.matches, public.player_match_stats to anon, authenticated;
 revoke insert, update, delete on public.matches, public.player_match_stats from anon, authenticated;
 

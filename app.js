@@ -203,7 +203,7 @@ function openOffer(targetId){
   const own=currentPlayerProfile(),target=players.find(p=>p.id===targetId);
   if(!own){toast("Crie seu perfil de jogador antes de enviar propostas.");return;}
   if(!own.team||own.team==="Sem equipe"){toast("Entre em uma equipe antes de enviar propostas de transferência.");return;}
-  if(!target||target.id===own.id){toast("Esse jogador não pode receber esta proposta.");return;}
+  if(!target||target.id===own.id){toast("Esse jogador não pode receber esta proposta.");return;}if(target.team&&target.team===own.team){toast("Esse jogador já está na sua equipe.");return;}
   $("#offerTargetId").value=target.id;$("#offerTargetName").textContent=`Proposta destinada a ${target.nickname} (${target.team||"Sem equipe"}). Sua equipe: ${own.team||"Sem equipe"}.`;
   $("#offerMessage").value="";$("#offerModal").classList.add("open");
 }
@@ -440,7 +440,25 @@ function renderPublicStats(){
   host.innerHTML=ranked.length?`<div class="public-stats-table-wrap"><table class="public-stats-table"><thead><tr><th>#</th><th>Jogador</th><th>Rating AM</th><th>Partidas</th><th>K/D</th><th>ADR</th><th>HS%</th><th>Win rate</th></tr></thead><tbody>${ranked.map((p,i)=>`<tr><td>${i+1}</td><td><b>${safe(p.nickname)}</b><small>${safe(p.mainRole||"")}</small></td><td>${p.rating==null?"—":Number(p.rating).toFixed(2)}</td><td>${p.matches||0}</td><td>${p.kd==null?"—":Number(p.kd).toFixed(2)}</td><td>${p.adr==null?"—":Number(p.adr).toFixed(1)}</td><td>${p.hs==null?"—":Number(p.hs).toFixed(1)+"%"}</td><td>${p.win==null?"—":Number(p.win).toFixed(1)+"%"}</td></tr>`).join("")}</tbody></table></div>`:'<div class="market-empty">Ainda não existem estatísticas oficiais. Elas aparecerão aqui após o registro das primeiras partidas.</div>';
 }
 async function loadPlayerSideStats(){const host=$("#playerSideStats");if(!host||!supabaseClient)return;const {data,error}=await supabaseClient.from("player_side_round_stats").select("player_id,side,rounds_won,rounds_played");if(error){host.innerHTML=`<div class="market-empty">Estatísticas por lado indisponíveis. Execute a migration ACS 4.2.</div>`;return;}const agg={};(data||[]).forEach(r=>{agg[r.player_id]??={TR:[0,0],CT:[0,0]};agg[r.player_id][r.side][0]+=r.rounds_won;agg[r.player_id][r.side][1]+=r.rounds_played;});const rows=Object.entries(agg).map(([id,v])=>({p:players.find(p=>p.id===id),tr:v.TR[1]?100*v.TR[0]/v.TR[1]:null,ct:v.CT[1]?100*v.CT[0]/v.CT[1]:null})).filter(x=>x.p).sort((a,b)=>((b.tr||0)+(b.ct||0))-((a.tr||0)+(a.ct||0)));host.innerHTML=rows.length?`<div class="public-stats-table-wrap"><table class="public-stats-table"><thead><tr><th>Jogador</th><th>Win TR</th><th>Win CT</th></tr></thead><tbody>${rows.map(x=>`<tr><td><b>${safe(x.p.nickname)}</b></td><td>${x.tr==null?"—":x.tr.toFixed(1)+"%"}</td><td>${x.ct==null?"—":x.ct.toFixed(1)+"%"}</td></tr>`).join("")}</tbody></table></div>`:'<div class="market-empty">As taxas por lado aparecerão após as primeiras partidas registradas nesta versão.</div>';}
-async function loadPlayerMapStats(){const host=$("#playerMapStats");if(!host||!supabaseClient)return;const {data,error}=await supabaseClient.from("acs_player_map_stats").select("player_id,map_name,matches,kills,deaths,assists,adr,headshot_pct,mvps").order("map_name");if(error){host.innerHTML='<div class="market-empty">Estatísticas por mapa ainda indisponíveis. Execute a migration ACS 4.3.</div>';return;}const rows=(data||[]).filter(r=>players.some(p=>p.id===r.player_id));host.innerHTML=rows.length?`<div class="public-stats-table-wrap"><table class="public-stats-table"><thead><tr><th>Jogador</th><th>Mapa</th><th>Partidas</th><th>K/D/A</th><th>ADR médio</th><th>HS médio</th><th>MVP</th></tr></thead><tbody>${rows.map(r=>`<tr><td><b>${safe(players.find(p=>p.id===r.player_id)?.nickname||"Jogador")}</b></td><td>${safe(r.map_name)}</td><td>${r.matches}</td><td>${r.kills}/${r.deaths}/${r.assists}</td><td>${r.adr==null?"—":Number(r.adr).toFixed(1)}</td><td>${r.headshot_pct==null?"—":Number(r.headshot_pct).toFixed(1)+"%"}</td><td>${r.mvps}</td></tr>`).join("")}</tbody></table></div>`:'<div class="market-empty">As estatísticas por mapa aparecerão depois das primeiras partidas registradas nesta versão.</div>';}
+let playerMapRows=[];
+function renderPlayerMapStats(){
+  const host=$("#playerMapStats");if(!host)return;
+  const map=$("#playerMapFilter")?.value||"";
+  const kd=r=>r.deaths?r.kills/r.deaths:r.kills;
+  let rows=playerMapRows.filter(r=>!map||r.map_name===map);
+  rows.sort((a,b)=>map?kd(b)-kd(a):String(a.map_name||"").localeCompare(String(b.map_name||""))||kd(b)-kd(a));
+  host.innerHTML=rows.length?`<div class="public-stats-table-wrap"><table class="public-stats-table"><thead><tr><th>Jogador</th><th>Mapa</th><th>Partidas</th><th>K/D/A</th><th>K/D</th><th>ADR médio</th><th>HS médio</th><th>MVP</th></tr></thead><tbody>${rows.map(r=>`<tr><td><b>${safe(players.find(p=>p.id===r.player_id)?.nickname||"Jogador")}</b></td><td>${safe(r.map_name)}</td><td>${r.matches}</td><td>${r.kills}/${r.deaths}/${r.assists}</td><td>${kd(r).toFixed(2)}</td><td>${r.adr==null?"—":Number(r.adr).toFixed(1)}</td><td>${r.headshot_pct==null?"—":Number(r.headshot_pct).toFixed(1)+"%"}</td><td>${r.mvps}</td></tr>`).join("")}</tbody></table></div>`:'<div class="market-empty">As estatísticas por mapa aparecerão depois das primeiras partidas registradas nesta versão.</div>';
+}
+async function loadPlayerMapStats(){
+  const host=$("#playerMapStats");if(!host||!supabaseClient)return;
+  const {data,error}=await supabaseClient.from("acs_player_map_stats").select("player_id,map_name,matches,kills,deaths,assists,adr,headshot_pct,mvps").order("map_name");
+  if(error){host.innerHTML='<div class="market-empty">Estatísticas por mapa ainda indisponíveis. Execute a migration ACS 4.3.</div>';return;}
+  playerMapRows=(data||[]).filter(r=>players.some(p=>p.id===r.player_id));
+  const sel=$("#playerMapFilter");
+  if(sel){const keep=sel.value;const maps=[...new Set(playerMapRows.map(r=>r.map_name))].sort();sel.innerHTML='<option value="">Todos os mapas</option>'+maps.map(m=>`<option value="${safe(m)}">${safe(m)}</option>`).join("");sel.value=maps.includes(keep)?keep:"";}
+  renderPlayerMapStats();
+}
+$("#playerMapFilter")?.addEventListener("change",renderPlayerMapStats);
 async function loadMatches(){
   const host=$("#matchesList");if(!host)return;
   renderPublicStats();
@@ -457,7 +475,7 @@ async function loadMatches(){
     const ordered=(m.match_maps||[]).slice().sort((a,b)=>a.map_number-b.map_number);
     const dotsA=ordered.map(mm=>`<i class="match-map-dot ${mm.team_a_score>mm.team_b_score?"is-won":""}" title="${safe(mm.map_name)}"></i>`).join("");
     const dotsB=ordered.map(mm=>`<i class="match-map-dot ${mm.team_b_score>mm.team_a_score?"is-won":""}" title="${safe(mm.map_name)}"></i>`).join("");
-    return `<article class="match-card match-card-compact"><div class="match-card-top"><small>${safe(date)} · MD${m.best_of||1}</small>${isAdmin?`<button class="btn btn-danger btn-small" data-delete-match="${safe(m.id)}">Excluir</button>`:""}</div><div class="match-score"><b class="${winner==="A"?"match-winner":""}">${safe(m.team_a_name)}</b><strong>${m.team_a_score} : ${m.team_b_score}</strong><b class="${winner==="B"?"match-winner":""}">${safe(m.team_b_name)}</b></div>${(m.best_of||1)>1?`<div class="match-map-tracks"><div><small>A</small>${dotsA}</div><div><small>B</small>${dotsB}</div></div>`:""}</article>`;
+    return `<article class="match-card match-card-compact"><div class="match-card-top"><small>${safe(date)} · MD${m.best_of||1}</small>${isAdmin?`<button class="btn btn-danger btn-small" data-delete-match="${safe(m.id)}">Excluir</button>`:""}</div><div class="match-score"><b class="${winner==="A"?"match-winner":""}">${safe(m.team_a_name)}</b><strong>${m.team_a_score} : ${m.team_b_score}</strong><b class="${winner==="B"?"match-winner":""}">${safe(m.team_b_name)}</b></div>${(m.best_of||1)>1?`<div class="match-map-tracks"><div><small>${safe(m.team_a_name)}</small>${dotsA}</div><div><small>${safe(m.team_b_name)}</small>${dotsB}</div></div>`:""}</article>`;
   }).join(""):'<div class="empty-state"><h3>Nenhuma partida registrada</h3><p>Quando a administração cadastrar o primeiro confronto, ele aparecerá aqui.</p></div>';
   $$('[data-delete-match]').forEach(btn=>btn.addEventListener('click',async()=>{
     if(!confirm("Excluir esta partida? As estatísticas dos jogadores serão recalculadas sem este confronto."))return;
@@ -478,6 +496,6 @@ $("#adminMatchForm")?.addEventListener("submit",async e=>{
  const match={team_a_id:teamA,team_b_id:teamB,best_of:bestOf,played_at:$("#matchPlayedAt").value?new Date($("#matchPlayedAt").value).toISOString():null,notes:$("#matchNotes").value.trim()};
  let result;try{result=await supabaseClient.rpc("acs_admin_record_series",{p_match:match,p_maps:maps,p_player_stats:playerStats});}catch(err){result={error:err};}
  button.disabled=false;button.textContent="Registrar série e atualizar rankings";
- if(result?.error){toast("Não foi possível registrar: "+(result.error.message||"erro inesperado")+". Confira se a migration ACS 4.2 foi executada.");return;}
+ if(result?.error){toast("Não foi possível registrar: "+(result.error.message||"erro inesperado")+". Confira se as migrations ACS 4.3 e 4.3.1 foram executadas.");return;}
  e.target.reset();$("#matchMapCount").value="3";renderMapEditors();renderMatchPlayerRows();toast("Série registrada. Estatísticas e rankings atualizados.");await loadCloudPlayers();await loadMatches();await loadTeamsData();renderAdminPanel();
 });

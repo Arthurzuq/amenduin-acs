@@ -103,3 +103,18 @@ Esta atualização é incremental sobre ACS 4.2.1.
 Não execute novamente `supabase-schema.sql` nem migrations anteriores. Execute somente a migration 4.3 nesta atualização.
 
 A migration foi revisada estaticamente, mas não foi executada no banco Supabase real. Faça a instalação em uma janela de manutenção/backup e confirme o resultado antes de registrar partidas oficiais.
+
+
+## ACS 4.3.1 — Segurança, transferências e estatísticas por mapa
+
+Atualização incremental sobre a ACS 4.3. **Se você já aplicou a 4.3 e a 4.3.1 no Supabase, não precisa executar nenhuma delas de novo.**
+
+- Aceitar uma proposta só funciona pelo botão Aceitar (função `acs_accept_transfer_offer`). Gravar `accepted` direto na tabela é bloqueado.
+- As views públicas (`acs_player_map_stats`, `acs_team_rankings`, `acs_team_map_stats`) agora respeitam as políticas de acesso de quem consulta.
+- Visitantes só têm permissão de leitura nas tabelas públicas.
+- Histórico de partidas: cada equipe tem sua linha de bolinhas, com o nome da equipe. Bolinha branca = mapa vencido.
+- **Desempenho por mapa:** novo filtro por mapa e coluna K/D, para comparar quem rende mais em cada mapa.
+- Não é mais possível enviar proposta de transferência para jogador da sua própria equipe.
+- Os arquivos `acs-3.3` e `acs-4.1` foram corrigidos: o PIN de ativação não fica mais salvo no arquivo (defina o seu ao instalar do zero) e as aspas escapadas que quebravam o SQL foram removidas.
+
+Instalação em um projeto novo: execute as migrations em ordem (3.0, 3.1, 3.2, 3.3, 4.0, 4.1, 4.2, 4.2.1, 4.3, 4.3.1). Mantenha o seu `supabase-config.js` atual.

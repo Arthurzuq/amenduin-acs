@@ -22,3 +22,4 @@
 
 .match-map-tracks{display:flex;flex-direction:column;gap:5px;align-items:center;margin-top:10px}.match-map-tracks>div{display:flex;gap:7px}.match-map-dot{display:block;width:10px;height:10px;border-radius:50%;background:#777;border:1px solid #777}.match-map-dot.is-won{background:#fff;border-color:#fff}
 .match-map-tracks>div{align-items:center}.match-map-tracks small{font-size:9px;color:#9ca3af;margin-right:4px}
+.match-map-tracks>div{width:100%;max-width:340px;justify-content:flex-start}.match-map-tracks small{flex:0 0 120px;text-align:right;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
