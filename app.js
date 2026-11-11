@@ -323,55 +323,6 @@ async function loadTeamRankings(){
  const maps=mapRes.data||[],rows=(rankRes.data||[]).filter(t=>t.matches>0);
  host.innerHTML=rows.length?`<div class="public-stats-table-wrap"><table class="public-stats-table"><thead><tr><th>#</th><th>Equipe</th><th>Rating AM</th><th>J</th><th>V</th><th>D</th><th>E</th><th>Win rate</th><th>Mapa forte</th><th>Mapa fraco</th></tr></thead><tbody>${rows.map((t,i)=>{const own=maps.filter(m=>m.team_id===t.team_id&&m.matches>=2).sort((a,b)=>b.win_rate-a.win_rate);const strong=own[0],weak=own[own.length-1];return `<tr><td>${i+1}</td><td><b>${safe(t.name)}</b><small>${safe(t.tag||"")}</small></td><td>${Number(t.rating_am).toFixed(2)}</td><td>${t.matches}</td><td>${t.wins}</td><td>${t.losses}</td><td>${t.draws||0}</td><td>${Number(t.win_rate).toFixed(1)}%</td><td>${strong?`${safe(strong.map_name)} · ${Number(strong.win_rate).toFixed(0)}%`:"—"}</td><td>${weak?`${safe(weak.map_name)} · ${Number(weak.win_rate).toFixed(0)}%`:"—"}</td></tr>`}).join("")}</tbody></table></div>`:'<div class="market-empty">Ainda não há equipes com partidas oficiais registradas. O ranking será calculado automaticamente após os primeiros confrontos.</div>';
 }
-const ACS_MAPS=["Ancient","Anubis","Cache","Dust II","Inferno","Mirage","Nuke"];
-let matchRoster={A:[],B:[]};
-let matchRosterTeam={A:"",B:""};
-let matchGuestSeq=0;
-
-function matchTeamId(side){return $("#matchTeam"+side)?.value||"";}
-function matchTeamName(side){
-  const id=matchTeamId(side);
-  if(id==="custom")return $("#customTeam"+side+"Name")?.value.trim()||"Equipe "+side;
-  if(!id)return "Equipe "+side;
-  return cloudTeams.find(t=>t.id===id)?.name||$("#matchTeam"+side)?.selectedOptions?.[0]?.textContent||"Equipe "+side;
-}
-function matchControlSnapshot(){
-  const form=$("#adminMatchForm"),out={};
-  form?.querySelectorAll("[data-draft-key]").forEach(el=>{
-    out[el.dataset.draftKey]={value:el.value,checked:!!el.checked};
-  });
-  return out;
-}
-function restoreMatchControlSnapshot(values){
-  if(!values)return;
-  const form=$("#adminMatchForm");
-  form?.querySelectorAll("[data-draft-key]").forEach(el=>{
-    const saved=values[el.dataset.draftKey];
-    if(!saved)return;
-    if(el.type==="checkbox")el.checked=!!saved.checked;
-    else if(saved.value!==undefined)el.value=saved.value??"";
-  });
-}
-function syncCustomTeamFields(){
-  ["A","B"].forEach(side=>{
-    const wrap=$("#customTeam"+side+"Wrap");
-    if(wrap)wrap.style.display=matchTeamId(side)==="custom"?"flex":"none";
-  });
-}
-function resetMatchRosterSide(side){
-  const teamId=matchTeamId(side);
-  if(matchRosterTeam[side]===teamId)return;
-  matchRosterTeam[side]=teamId;
-  if(teamId&&teamId!=="custom"){
-    matchRoster[side]=teamMembers.filter(m=>m.team_id===teamId).map(m=>{
-      const p=players.find(x=>x.id===m.player_id);
-      return p?{key:"player-"+p.id,playerId:p.id,name:p.nickname,role:p.mainRole||"",guest:false,selected:false}:null;
-    }).filter(Boolean);
-  }else matchRoster[side]=[];
-}
-function selectedMatchRoster(side){
-  return (matchRoster[side]||[]).filter(p=>p.selected);
-}
 function renderPublicStats(){
   const host=$("#publicStatsList");if(!host)return;
   const ranked=[...players].filter(p=>p.matches>0||p.rating!=null).sort((a,b)=>(b.rating??-1)-(a.rating??-1));
