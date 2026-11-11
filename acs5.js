@@ -68,142 +68,168 @@
     return `<article class="player-card profile-${frame} bg-${bg}" data-open="${safe5(p.id)}"><div class="card-top"><div class="avatar">${avatar}</div><div class="card-identity"><b class="name-${name}">${safe5(p.nickname)}</b><small>${safe5(p.team || "Sem equipe")} · ${safe5(p.country || "")}</small></div><span class="rating-mini">${p.rating ?? "—"}<small>RATING AM</small></span></div><span class="role-tag ${roleClass ? `role-tag-${roleClass}` : ""}">${safe5(roleShort(p.mainRole))}</span><div class="card-stats"><div><strong>${p.kd ?? "N/A"}</strong><small>K/D</small></div><div><strong>${p.adr ?? "N/A"}</strong><small>ADR</small></div><div><strong>${p.win == null ? "N/A" : Number(p.win).toFixed(1) + "%"} </strong><small>WIN RATE</small></div></div></article>`;
   };
 
-  // Autosave híbrido: cópia local imediata e sincronização remota por administrador.
+  // Autosave: localStorage is written synchronously on every field change; Supabase receives a debounced copy.
   const draftKey = () => `acs5_match_draft_v1:${currentUser?.id || "admin"}`;
   let draftRestored = false;
   let draftRestoring = false;
   let draftSyncTimer = null;
   let draftSyncChain = Promise.resolve();
-  const draftFieldIds = ["matchTeamA","matchTeamB","matchBestOf","matchMapCount","customTeamAName","customTeamBName","matchPlayedAt","matchNotes","matchBracketNode"];
+  let draftRevision = 0;
+  const draftFieldIds = ["matchTeamA","matchTeamB","matchBestOf","customTeamAName","customTeamBName","matchPlayedAt","matchNotes","matchBracketNode"];
 
-  function saveMatchDraft() {
-    const form = $("#adminMatchForm");
-    if (!form || !isAdmin || draftRestoring) return;
-    const values = [...form.querySelectorAll("input,select,textarea")].map(el => ({ value: el.value, checked: el.checked }));
-    const fields = Object.fromEntries(draftFieldIds.map(id => [id, $("#"+id)?.value ?? ""]));
-    const snapshot = {
-      savedAt: new Date().toISOString(),
-      guestCount: $("#matchGuestRows")?.querySelectorAll("[data-match-guest]").length || 0,
-      vetoCount: $("#matchVetoRows")?.querySelectorAll(".veto-row").length || 0,
-      values, fields
+  function captureMatchDraft() {
+    const form=$("#adminMatchForm");
+    const controls={};
+    form?.querySelectorAll("[data-draft-key]").forEach(el=>{
+      controls[el.dataset.draftKey]={value:el.value,checked:!!el.checked};
+    });
+    const fields=Object.fromEntries(draftFieldIds.map(id=>[id,$("#"+id)?.value??""]));
+    return {
+      version:2,
+      savedAt:new Date().toISOString(),
+      revision:++draftRevision,
+      fields,
+      controls,
+      extra:window.ACS5_MATCH_ENTRY?.serializeDraft?.()||null
     };
+  }
+  function writeLocalDraft(snapshot) {
     try {
-      localStorage.setItem(draftKey(), JSON.stringify(snapshot));
-      const label = $("#acsAutosaveState");
-      if (label) label.textContent = "Rascunho salvo neste dispositivo; sincronizando com a nuvem...";
+      localStorage.setItem(draftKey(),JSON.stringify(snapshot));
+      // Migrate the old shared key only by reading it; new writes are per administrator.
     } catch (_) {}
-    if (!currentUser || !supabaseClient) return;
-    const ownerId = currentUser.id;
-    clearTimeout(draftSyncTimer);
-    draftSyncTimer = setTimeout(() => {
-      draftSyncChain = draftSyncChain.then(async () => {
-        if (!currentUser || currentUser.id !== ownerId || !isAdmin) return;
-        const { error } = await supabaseClient.from("match_drafts").upsert({
-          owner_user_id: ownerId, draft_name: "Partida em andamento",
-          payload: snapshot, current_step: 1, updated_at: new Date().toISOString()
-        }, { onConflict: "owner_user_id" });
-        const label = $("#acsAutosaveState");
-        if (label) label.textContent = error
-          ? "Rascunho local salvo; falha na nuvem: " + error.message
-          : "Rascunho salvo neste dispositivo e sincronizado com a nuvem.";
-      }).catch(error => {
-        const label = $("#acsAutosaveState");
-        if (label) label.textContent = "Rascunho local salvo; falha na nuvem: " + (error?.message || "erro inesperado");
-      });
-    }, 650);
   }
-
+  function updateDraftLabel(message) {
+    const label=$("#acsAutosaveState");
+    if(label)label.textContent=message;
+  }
+  async function syncDraftToCloud(snapshot) {
+    if(!currentUser||!supabaseClient||!isAdmin)return;
+    const ownerId=currentUser.id;
+    draftSyncChain=draftSyncChain.then(async()=>{
+      if(!currentUser||currentUser.id!==ownerId||!isAdmin)return;
+      const {error}=await supabaseClient.from("match_drafts").upsert({
+        owner_user_id:ownerId,
+        draft_name:"Partida em andamento",
+        payload:snapshot,
+        current_step:1,
+        updated_at:new Date().toISOString()
+      },{onConflict:"owner_user_id"});
+      updateDraftLabel(error
+        ?"Rascunho salvo neste dispositivo; falha ao sincronizar com a nuvem: "+error.message
+        :"Rascunho salvo neste dispositivo e sincronizado com a nuvem.");
+    }).catch(error=>{
+      updateDraftLabel("Rascunho salvo neste dispositivo; falha ao sincronizar com a nuvem: "+(error?.message||"erro inesperado"));
+    });
+    return draftSyncChain;
+  }
+  function saveMatchDraft() {
+    const form=$("#adminMatchForm");
+    if(!form||!isAdmin||draftRestoring)return;
+    const snapshot=captureMatchDraft();
+    writeLocalDraft(snapshot);
+    updateDraftLabel("Rascunho salvo neste dispositivo; sincronizando com a nuvem...");
+    if(!currentUser||!supabaseClient)return;
+    clearTimeout(draftSyncTimer);
+    draftSyncTimer=setTimeout(()=>{syncDraftToCloud(snapshot);},350);
+  }
+  async function flushMatchDraft() {
+    const form=$("#adminMatchForm");
+    if(!form||!isAdmin||draftRestoring)return;
+    clearTimeout(draftSyncTimer);
+    draftSyncTimer=null;
+    const snapshot=captureMatchDraft();
+    writeLocalDraft(snapshot);
+    if(currentUser&&supabaseClient)await syncDraftToCloud(snapshot);
+  }
   async function getLatestMatchDraft() {
-    let localDraft = null;
-    try { localDraft = JSON.parse(localStorage.getItem(draftKey()) || localStorage.getItem("acs5_match_draft_v1") || "null"); } catch (_) {}
-    let remoteDraft = null;
-    if (currentUser && supabaseClient) {
-      const { data, error } = await supabaseClient.from("match_drafts").select("payload,updated_at")
-        .eq("owner_user_id", currentUser.id).maybeSingle();
-      if (!error && data?.payload?.values?.length) remoteDraft = { ...data.payload, savedAt: data.payload.savedAt || data.updated_at };
-    }
-    const localTime = Date.parse(localDraft?.savedAt || "") || 0;
-    const remoteTime = Date.parse(remoteDraft?.savedAt || "") || 0;
-    const chosen = remoteTime > localTime ? remoteDraft : (localDraft || remoteDraft);
-    if (chosen && currentUser) { try { localStorage.setItem(draftKey(), JSON.stringify(chosen)); } catch (_) {} }
-    return { draft: chosen, source: remoteTime > localTime ? "nuvem" : "dispositivo" };
-  }
-
-  async function restoreMatchDraft() {
-    if (draftRestored || draftRestoring || !isAdmin) return;
-    const form = $("#adminMatchForm");
-    if (!form || !form.querySelectorAll("input,select,textarea").length) return;
-    draftRestoring = true;
+    let localDraft=null;
     try {
-      if (typeof loadTournamentMatchChoices === "function") await loadTournamentMatchChoices();
-      const { draft, source } = await getLatestMatchDraft();
-      if (!draft?.values?.length) { draftRestored = true; return; }
-      draftFieldIds.forEach(id => {
-        const el = $("#"+id);
-        if (el && draft.fields && Object.prototype.hasOwnProperty.call(draft.fields,id)) el.value = draft.fields[id] ?? "";
+      localDraft=JSON.parse(localStorage.getItem(draftKey())||localStorage.getItem("acs5_match_draft_v1")||"null");
+    } catch (_) {}
+    let remoteDraft=null;
+    if(currentUser&&supabaseClient) {
+      const {data,error}=await supabaseClient.from("match_drafts")
+        .select("payload,updated_at").eq("owner_user_id",currentUser.id).maybeSingle();
+      if(!error&&data?.payload)remoteDraft={...data.payload,savedAt:data.payload.savedAt||data.updated_at};
+    }
+    const localTime=Date.parse(localDraft?.savedAt||"")||0;
+    const remoteTime=Date.parse(remoteDraft?.savedAt||"")||0;
+    const chosen=remoteTime>localTime?remoteDraft:(localDraft||remoteDraft);
+    if(chosen)writeLocalDraft(chosen);
+    return {draft:chosen,source:remoteTime>localTime?"nuvem":"dispositivo"};
+  }
+  function applyDraftControls(values) {
+    if(!values)return;
+    $$("#adminMatchForm [data-draft-key]").forEach(el=>{
+      const saved=values[el.dataset.draftKey];
+      if(!saved)return;
+      if(el.type==="checkbox")el.checked=!!saved.checked;
+      else if(saved.value!==undefined)el.value=saved.value??"";
+    });
+  }
+  async function restoreMatchDraft() {
+    if(draftRestored||draftRestoring||!isAdmin)return;
+    const form=$("#adminMatchForm");
+    if(!form)return;
+    draftRestoring=true;
+    try {
+      if(typeof loadTournamentMatchChoices==="function")await loadTournamentMatchChoices();
+      const {draft,source}=await getLatestMatchDraft();
+      if(!draft){draftRestored=true;return;}
+      draftFieldIds.forEach(id=>{
+        const el=$("#"+id);
+        if(el&&draft.fields&&Object.prototype.hasOwnProperty.call(draft.fields,id))el.value=draft.fields[id]??"";
       });
-      renderMapEditors();
-      renderMatchPlayerRows();
-      if (typeof syncCustomTeamFields === "function") syncCustomTeamFields();
-      const guestHost = $("#matchGuestRows");
-      while (guestHost && guestHost.querySelectorAll("[data-match-guest]").length < Number(draft.guestCount || 0)) addGuestRow();
-      const vetoHost = $("#matchVetoRows");
-      const expectedVetoCount = Number(draft.vetoCount ?? 7);
-      while (vetoHost && vetoHost.querySelectorAll(".veto-row").length > expectedVetoCount) {
-        vetoHost.querySelector(".veto-row:last-child [data-remove-veto]")?.click();
-      }
-      while (vetoHost && vetoHost.querySelectorAll(".veto-row").length < expectedVetoCount) {
-        $("#addVetoAction")?.click();
-        if (vetoHost.querySelectorAll(".veto-row").length < expectedVetoCount && !$("#addVetoAction")) break;
-      }
-      const controls = [...form.querySelectorAll("input,select,textarea")];
-      draft.values.forEach((item,i) => {
-        if (controls[i]) { controls[i].value = item.value ?? ""; controls[i].checked = !!item.checked; }
-      });
-      draftRestored = true;
-      const label = $("#acsAutosaveState");
-      if (label) label.textContent = `Rascunho restaurado da ${source} (${draft.savedAt ? new Date(draft.savedAt).toLocaleString("pt-BR") : "data não informada"}).`;
-    } catch (_) {
-      draftRestored = true;
+      window.ACS5_MATCH_ENTRY?.restoreDraft?.(draft.extra);
+      window.ACS5_MATCH_ENTRY?.renderAll?.();
+      applyDraftControls(draft.controls);
+      window.ACS5_MATCH_ENTRY?.syncRosterFromControls?.();
+      window.ACS5_MATCH_ENTRY?.refreshMaps?.();
+      applyDraftControls(draft.controls);
+      window.ACS5_MATCH_ENTRY?.updatePreviews?.();
+      draftRestored=true;
+      updateDraftLabel(`Rascunho restaurado da ${source} (${draft.savedAt?new Date(draft.savedAt).toLocaleString("pt-BR"):"data não informada"}).`);
+    } catch(error) {
+      draftRestored=true;
+      updateDraftLabel("Não foi possível restaurar o rascunho: "+(error?.message||"erro inesperado"));
     } finally {
-      draftRestoring = false;
+      draftRestoring=false;
     }
   }
-
-  window.clearACS5MatchDraft = async function () {
+  window.clearACS5MatchDraft=async function(){
     clearTimeout(draftSyncTimer);
-    draftSyncTimer = null;
+    draftSyncTimer=null;
     await draftSyncChain;
     try {
       localStorage.removeItem(draftKey());
       localStorage.removeItem("acs5_match_draft_v1");
     } catch (_) {}
-    if (currentUser && supabaseClient) {
-      const { error } = await supabaseClient.from("match_drafts").delete().eq("owner_user_id", currentUser.id);
-      if (error) throw error;
+    if(currentUser&&supabaseClient){
+      const {error}=await supabaseClient.from("match_drafts").delete().eq("owner_user_id",currentUser.id);
+      if(error)throw error;
     }
   };
 
-  const matchForm = $("#adminMatchForm");
-  if (matchForm) {
-    const note = document.createElement("p");
-    note.id = "acsAutosaveState";
-    note.className = "acs-autosave-state";
-    note.textContent = "Rascunho salvo automaticamente neste dispositivo e na nuvem.";
+  const matchForm=$("#adminMatchForm");
+  if(matchForm) {
+    const note=document.createElement("p");
+    note.id="acsAutosaveState";
+    note.className="acs-autosave-state";
+    note.textContent="Rascunho salvo automaticamente neste dispositivo e sincronizado com a nuvem.";
     matchForm.prepend(note);
-    matchForm.addEventListener("input", saveMatchDraft);
-    matchForm.addEventListener("change", saveMatchDraft);
-    window.addEventListener("pagehide", saveMatchDraft);
+    matchForm.addEventListener("input",saveMatchDraft);
+    matchForm.addEventListener("change",saveMatchDraft);
+    document.addEventListener("visibilitychange",()=>{
+      if(document.visibilityState==="hidden")flushMatchDraft();
+    });
+    window.addEventListener("pagehide",()=>{flushMatchDraft();});
   }
-  const oldRefreshAdmin = refreshAdminStatus;
-  refreshAdminStatus = async function () {
+  const oldRefreshAdmin=refreshAdminStatus;
+  refreshAdminStatus=async function(){
     await oldRefreshAdmin();
     await restoreMatchDraft();
   };
-  const oldRenderMapEditors = renderMapEditors;
-  renderMapEditors = function () { oldRenderMapEditors(); };
-  const oldRenderMatchRows = renderMatchPlayerRows;
-  renderMatchPlayerRows = function () { oldRenderMatchRows(); };
 
   // Public recent matches on the home page.
   async function loadHomeRecentMatches() {
@@ -477,86 +503,13 @@
 
 
 
-  // When registered teams are selected, load their entire roster automatically.
-  // The operator only sets each roster member as starter, reserve or not playing.
-  const previousRosterRender = renderMatchPlayerRows;
-  renderMatchPlayerRows = function () {
-    previousRosterRender();
-    const teamA = $("#matchTeamA")?.value;
-    const teamB = $("#matchTeamB")?.value;
-    if (!teamA || !teamB || teamA === "custom" || teamB === "custom") return;
-    const rosterA = new Set(teamMembers.filter(m => m.team_id === teamA).map(m => m.player_id));
-    const rosterB = new Set(teamMembers.filter(m => m.team_id === teamB).map(m => m.player_id));
-    $$("#matchPlayerRows [data-match-player]").forEach(row => {
-      const id = row.dataset.matchPlayer;
-      const side = rosterA.has(id) ? "A" : rosterB.has(id) ? "B" : "";
-      row.style.display = side ? "grid" : "none";
-      const select = row.querySelector('[data-match-key="team_side"]');
-      if (select) { select.value = side; select.disabled = !!side; }
-    });
-  };
-  ["#matchTeamA", "#matchTeamB"].forEach(sel => $(sel)?.addEventListener("change", () => {
-    syncCustomTeamFields();
-    renderMatchPlayerRows();
-    saveMatchDraft();
-  }));
-
-  // Unregistered teams can be named directly; existing teams remain linked by UUID.
-  function syncCustomTeamFields() {
-    ["A", "B"].forEach(side => {
-      const select = $("#matchTeam" + side);
-      const wrap = $("#customTeam" + side + "Wrap");
-      if (wrap) wrap.style.display = select?.value === "custom" ? "block" : "none";
-    });
-  }
-  $("#matchTeamA")?.addEventListener("change", syncCustomTeamFields);
-  $("#matchTeamB")?.addEventListener("change", syncCustomTeamFields);
-
-  // Guest participants are persisted as snapshots and never create player profiles.
-  function addGuestRow() {
-    const host = $("#matchGuestRows");
-    if (!host) return;
-    const count = Number($("#matchBestOf")?.value || 1) === 1 ? 1 : Number($("#matchMapCount")?.value || 3);
-    const row = document.createElement("div");
-    row.className = "match-player-row";
-    row.dataset.matchGuest = "true";
-    row.innerHTML = `<div class="match-player-name"><b>Jogador convidado</b><small>Não será criado um perfil permanente</small></div>
-      <label class="field">NOME<input data-guest-name maxlength="60" required placeholder="Nickname do convidado"></label>
-      <label class="field">EQUIPE<select data-match-key="team_side"><option value="">Selecione</option><option value="A">Equipe A</option><option value="B">Equipe B</option></select></label>
-      <label class="field">STATUS<select data-match-key="participation_status"><option value="starter">Titular</option><option value="reserve">Reserva</option><option value="not_played">Não jogou</option></select></label>
-      <div class="match-player-map-stats">${Array.from({length:count},(_,i)=>`<details class="match-map-player" ${count===1?"open":""}><summary>Mapa ${i+1} — estatísticas individuais</summary><div class="form-grid">
-      <label class="field">K<input data-map-stat="${i+1}" data-stat-key="kills" type="number" min="0" value="0"></label><label class="field">D<input data-map-stat="${i+1}" data-stat-key="deaths" type="number" min="0" value="0"></label><label class="field">A<input data-map-stat="${i+1}" data-stat-key="assists" type="number" min="0" value="0"></label><label class="field">ADR<input data-map-stat="${i+1}" data-stat-key="adr" type="number" min="0" step="0.01"></label><label class="field">HS%<input data-map-stat="${i+1}" data-stat-key="headshot_pct" type="number" min="0" max="100" step="0.01"></label><label class="field">MVP<input data-map-stat="${i+1}" data-stat-key="mvps" type="number" min="0" value="0"></label><label class="field">FK<input data-map-stat="${i+1}" data-stat-key="first_kills" type="number" min="0" value="0"></label><label class="field">FD<input data-map-stat="${i+1}" data-stat-key="first_deaths" type="number" min="0" value="0"></label><label class="field">CLUTCH<input data-map-stat="${i+1}" data-stat-key="clutches_won" type="number" min="0" value="0"></label></div></details>`).join("")}</div>
-      <button type="button" class="btn btn-danger btn-small" data-remove-guest>Remover convidado</button>`;
-    host.append(row);
-    row.querySelector("[data-remove-guest]").addEventListener("click",()=>{row.remove();saveMatchDraft();});
-    row.querySelectorAll("input,select").forEach(el=>el.addEventListener("input",saveMatchDraft));
-  }
-  $("#addGuestPlayer")?.addEventListener("click",addGuestRow);
-
-  // Editable veto order. The database validates action type, map pool and team ownership.
-  const vetoHost = $("#matchVetoEditor");
-  if (vetoHost) {
-    vetoHost.innerHTML = `<div id="matchVetoRows"></div><button class="btn btn-ghost btn-small" type="button" id="addVetoAction">＋ Adicionar ação de veto</button>`;
-    function addVetoAction(action="ban", team="A") {
-      const row = document.createElement("div");
-      row.className = "veto-row form-grid";
-      row.innerHTML = `<label class="field">AÇÃO<select data-veto-key="action"><option value="ban" ${action==="ban"?"selected":""}>Ban</option><option value="pick" ${action==="pick"?"selected":""}>Pick</option><option value="decider" ${action==="decider"?"selected":""}>Decider</option></select></label>
-        <label class="field">EQUIPE<select data-veto-key="team"><option value="A" ${team==="A"?"selected":""}>Equipe A</option><option value="B" ${team==="B"?"selected":""}>Equipe B</option></select></label>
-        <label class="field">MAPA<select data-veto-key="map">${["Ancient","Anubis","Cache","Dust II","Inferno","Mirage","Nuke"].map(m=>`<option>${m}</option>`).join("")}</select></label>
-        <label class="field">LADO INICIAL<select data-veto-key="side"><option value="">Não definido</option><option value="TR">TR</option><option value="CT">CT</option></select></label>
-        <button type="button" class="btn btn-danger btn-small" data-remove-veto>Remover</button>`;
-      $("#matchVetoRows").append(row);
-      row.querySelector("[data-remove-veto]").addEventListener("click",()=>{row.remove();saveMatchDraft();});
-      row.querySelectorAll("input,select").forEach(el=>el.addEventListener("change",saveMatchDraft));
-    }
-    // Common MD3 veto pattern as an editable starting point.
-    [["ban","A"],["ban","B"],["pick","A"],["pick","B"],["ban","A"],["ban","B"],["decider","A"]].forEach(x=>addVetoAction(...x));
-    $("#addVetoAction")?.addEventListener("click",()=>addVetoAction("ban","A"));
-  }
-
   // Initial loading after Supabase auth has had a chance to resolve.
   loadHomeRecentMatches();
-  syncCustomTeamFields();
-  if (isAdmin) restoreMatchDraft();
-  window.addEventListener("focus", () => { if (isAdmin) restoreMatchDraft(); });
+  if (isAdmin) {
+    window.ACS5_MATCH_ENTRY?.renderAll?.();
+    restoreMatchDraft();
+  }
+  window.addEventListener("focus", () => {
+    if (isAdmin && !document.hidden) restoreMatchDraft();
+  });
 })();
