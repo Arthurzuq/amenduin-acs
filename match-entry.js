@@ -12,6 +12,9 @@
   let guestSequence = 0;
   let renderedFormat = "";
 
+  function persistMatchDraft() {
+    if (typeof window.saveACS5MatchDraft==="function") window.saveACS5MatchDraft();
+  }
   function notify(message) {
     if (typeof toast === "function") toast(message);
     else window.alert(message);
@@ -363,6 +366,7 @@
     roster[side].push(newRosterPlayer(player));
     renderRosterEditor();
     renderMapTables();
+    persistMatchDraft();
   }
   function addGuest(side,name) {
     const nickname=String(name||"").trim();
@@ -379,12 +383,14 @@
     if (field) field.value="";
     renderRosterEditor();
     renderMapTables();
+    persistMatchDraft();
   }
   function rosterChanged(side,key,selected) {
     const player=roster[side].find(row=>row.key===key);
     if (player) player.selected=!!selected;
     renderRosterEditor();
     renderMapTables();
+    persistMatchDraft();
   }
 
   function validateScore(map) {
@@ -566,16 +572,16 @@
       const target=event.target;
       if (target.matches("#matchBestOf")) {
         renderedFormat="";
-        renderVetoEditor(true);renderMapTables();return;
+        renderVetoEditor(true);renderMapTables();persistMatchDraft();return;
       }
       if (target.matches("#matchTeamA,#matchTeamB")) {
         const side=target.id.endsWith("A")?"A":"B";
         rosterTeam[side]="";
         loadRosterForTeam(side,true);
-        syncCustomNames();renderRosterEditor();renderMapTables();return;
+        syncCustomNames();renderRosterEditor();renderMapTables();persistMatchDraft();return;
       }
-      if (target.matches("[data-veto-action],[data-veto-team]")) { renderVetoSummary();return; }
-      if (target.matches("[data-veto-map]")) { refreshVetoMapOptions();renderMapTables();return; }
+      if (target.matches("[data-veto-action],[data-veto-team]")) { renderVetoSummary();renderMapTables();persistMatchDraft();return; }
+      if (target.matches("[data-veto-map]")) { refreshVetoMapOptions();renderMapTables();persistMatchDraft();return; }
       if (target.matches("[data-roster-choice]")) {
         const player=roster[target.dataset.rosterChoice].find(row=>row.key===target.dataset.rosterKey);
         if (player) player.selected=target.checked;
@@ -611,7 +617,7 @@
       if (removeButton) {
         const side=removeButton.dataset.removePlayer,key=removeButton.dataset.rosterKey;
         roster[side]=roster[side].filter(player=>player.key!==key);
-        renderRosterEditor();renderMapTables();
+        renderRosterEditor();renderMapTables();persistMatchDraft();
       }
     });
   }
