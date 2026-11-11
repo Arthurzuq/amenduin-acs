@@ -68,41 +68,100 @@
     return `<article class="player-card profile-${frame} bg-${bg}" data-open="${safe5(p.id)}"><div class="card-top"><div class="avatar">${avatar}</div><div class="card-identity"><b class="name-${name}">${safe5(p.nickname)}</b><small>${safe5(p.team || "Sem equipe")} · ${safe5(p.country || "")}</small></div><span class="rating-mini">${p.rating ?? "—"}<small>RATING AM</small></span></div><span class="role-tag ${roleClass ? `role-tag-${roleClass}` : ""}">${safe5(roleShort(p.mainRole))}</span><div class="card-stats"><div><strong>${p.kd ?? "N/A"}</strong><small>K/D</small></div><div><strong>${p.adr ?? "N/A"}</strong><small>ADR</small></div><div><strong>${p.win == null ? "N/A" : Number(p.win).toFixed(1) + "%"} </strong><small>WIN RATE</small></div></div></article>`;
   };
 
-  // ACS 5.0 match draft: browser-local autosave survives tab/app switches and reloads.
-  const draftKey = "acs5_match_draft_v1";
+  // Autosave híbrido: cópia local imediata e sincronização remota por administrador.
+  const draftKey = () => `acs5_match_draft_v1:${currentUser?.id || "admin"}`;
   let draftRestored = false;
+  let draftRestoring = false;
+  let draftSyncTimer = null;
+  let draftSyncChain = Promise.resolve();
+  const draftFieldIds = ["matchTeamA","matchTeamB","matchBestOf","matchMapCount","customTeamAName","customTeamBName","matchPlayedAt","matchNotes","matchBracketNode"];
+
   function saveMatchDraft() {
     const form = $("#adminMatchForm");
-    if (!form || !isAdmin) return;
+    if (!form || !isAdmin || draftRestoring) return;
     const values = [...form.querySelectorAll("input,select,textarea")].map(el => ({ value: el.value, checked: el.checked }));
+    const fields = Object.fromEntries(draftFieldIds.map(id => [id, $("#"+id)?.value ?? ""]));
+    const snapshot = { savedAt: new Date().toISOString(), guestCount: $("#matchGuestRows")?.querySelectorAll("[data-match-guest]").length || 0, values, fields };
     try {
-      localStorage.setItem(draftKey, JSON.stringify({ savedAt: new Date().toISOString(), guestCount: $("#matchGuestRows")?.querySelectorAll("[data-match-guest]").length || 0, values }));
+      localStorage.setItem(draftKey(), JSON.stringify(snapshot));
       const label = $("#acsAutosaveState");
-      if (label) label.textContent = "Rascunho salvo automaticamente neste dispositivo.";
+      if (label) label.textContent = "Rascunho salvo neste dispositivo; sincronizando com a nuvem...";
     } catch (_) {}
+    if (!currentUser || !supabaseClient) return;
+    const ownerId = currentUser.id;
+    clearTimeout(draftSyncTimer);
+    draftSyncTimer = setTimeout(() => {
+      draftSyncChain = draftSyncChain.then(async () => {
+        if (!currentUser || currentUser.id !== ownerId || !isAdmin) return;
+        const { error } = await supabaseClient.from("match_drafts").upsert({
+          owner_user_id: ownerId, draft_name: "Partida em andamento",
+          payload: snapshot, current_step: 1, updated_at: new Date().toISOString()
+        }, { onConflict: "owner_user_id" });
+        const label = $("#acsAutosaveState");
+        if (label) label.textContent = error
+          ? "Rascunho local salvo; falha na nuvem: " + error.message
+          : "Rascunho salvo neste dispositivo e sincronizado com a nuvem.";
+      }).catch(error => {
+        const label = $("#acsAutosaveState");
+        if (label) label.textContent = "Rascunho local salvo; falha na nuvem: " + (error?.message || "erro inesperado");
+      });
+    }, 650);
   }
-  function restoreMatchDraft() {
-    if (draftRestored || !isAdmin) return;
+
+  async function getLatestMatchDraft() {
+    let localDraft = null;
+    try { localDraft = JSON.parse(localStorage.getItem(draftKey()) || localStorage.getItem("acs5_match_draft_v1") || "null"); } catch (_) {}
+    let remoteDraft = null;
+    if (currentUser && supabaseClient) {
+      const { data, error } = await supabaseClient.from("match_drafts").select("payload,updated_at")
+        .eq("owner_user_id", currentUser.id).maybeSingle();
+      if (!error && data?.payload?.values?.length) remoteDraft = { ...data.payload, savedAt: data.payload.savedAt || data.updated_at };
+    }
+    const localTime = Date.parse(localDraft?.savedAt || "") || 0;
+    const remoteTime = Date.parse(remoteDraft?.savedAt || "") || 0;
+    const chosen = remoteTime > localTime ? remoteDraft : (localDraft || remoteDraft);
+    if (chosen && currentUser) { try { localStorage.setItem(draftKey(), JSON.stringify(chosen)); } catch (_) {} }
+    return { draft: chosen, source: remoteTime > localTime ? "nuvem" : "dispositivo" };
+  }
+
+  async function restoreMatchDraft() {
+    if (draftRestored || draftRestoring || !isAdmin) return;
     const form = $("#adminMatchForm");
     if (!form || !form.querySelectorAll("input,select,textarea").length) return;
+    draftRestoring = true;
     try {
-      const draft = JSON.parse(localStorage.getItem(draftKey) || "null");
+      if (typeof loadTournamentMatchChoices === "function") await loadTournamentMatchChoices();
+      const { draft, source } = await getLatestMatchDraft();
       if (!draft?.values?.length) { draftRestored = true; return; }
+      draftFieldIds.forEach(id => {
+        const el = $("#"+id);
+        if (el && draft.fields && Object.prototype.hasOwnProperty.call(draft.fields,id)) el.value = draft.fields[id] ?? "";
+      });
+      oldRenderMapEditors();
+      oldRenderMatchRows();
+      if (typeof syncCustomTeamFields === "function") syncCustomTeamFields();
       const guestHost = $("#matchGuestRows");
       while (guestHost && guestHost.querySelectorAll("[data-match-guest]").length < Number(draft.guestCount || 0)) addGuestRow();
       const controls = [...form.querySelectorAll("input,select,textarea")];
-      draft.values.forEach((item, i) => { if (controls[i]) { controls[i].value = item.value ?? ""; controls[i].checked = !!item.checked; } });
+      draft.values.forEach((item,i) => {
+        if (controls[i]) { controls[i].value = item.value ?? ""; controls[i].checked = !!item.checked; }
+      });
       draftRestored = true;
       const label = $("#acsAutosaveState");
-      if (label) label.textContent = `Rascunho restaurado (${new Date(draft.savedAt).toLocaleString("pt-BR")}).`;
-    } catch (_) { draftRestored = true; }
+      if (label) label.textContent = `Rascunho restaurado da ${source} (${draft.savedAt ? new Date(draft.savedAt).toLocaleString("pt-BR") : "data não informada"}).`;
+    } catch (_) {
+      draftRestored = true;
+    } finally {
+      draftRestoring = false;
+    }
   }
+
   const matchForm = $("#adminMatchForm");
   if (matchForm) {
     const note = document.createElement("p");
     note.id = "acsAutosaveState";
     note.className = "acs-autosave-state";
-    note.textContent = "O formulário será salvo automaticamente neste dispositivo.";
+    note.textContent = "Rascunho salvo automaticamente neste dispositivo e na nuvem.";
     matchForm.prepend(note);
     matchForm.addEventListener("input", saveMatchDraft);
     matchForm.addEventListener("change", saveMatchDraft);
@@ -111,12 +170,12 @@
   const oldRefreshAdmin = refreshAdminStatus;
   refreshAdminStatus = async function () {
     await oldRefreshAdmin();
-    restoreMatchDraft();
+    await restoreMatchDraft();
   };
   const oldRenderMapEditors = renderMapEditors;
-  renderMapEditors = function () { oldRenderMapEditors(); draftRestored = false; restoreMatchDraft(); };
+  renderMapEditors = function () { oldRenderMapEditors(); };
   const oldRenderMatchRows = renderMatchPlayerRows;
-  renderMatchPlayerRows = function () { oldRenderMatchRows(); draftRestored = false; restoreMatchDraft(); };
+  renderMatchPlayerRows = function () { oldRenderMatchRows(); };
 
   // Public recent matches on the home page.
   async function loadHomeRecentMatches() {
