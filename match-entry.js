@@ -617,4 +617,5 @@
   }
 
   renderAll();
+  if (typeof window.restoreACS5MatchDraft==="function") window.restoreACS5MatchDraft();
 })();
