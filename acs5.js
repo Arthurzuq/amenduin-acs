@@ -57,14 +57,15 @@
 
   // Profile appearance fields are persisted atomically by the main profile submit handler.
 
-  // Player cards reflect the saved avatar and colors.
-  const basePlayerCard = playerCard;
+  // Player cards reflect the saved avatar, colors and role-specific visual identity.
+  const roleClass5 = role => ({AWPer:"awp",Rifler:"rifler",IGL:"igl",Lurker:"lurker",Support:"support","Entry-Fragger":"entry"})[role] || "";
   playerCard = function (p) {
     const frame = safe5(p.profileFrameColor || "blue");
     const bg = safe5(p.profileBackground || "blue");
     const name = safe5(p.profileNameColor || "white");
-    const avatar = p.avatarUrl ? `<img src="${safe5(p.avatarUrl)}" alt="Foto de ${safe5(p.nickname)}">` : safe5(initials(p.nickname));
-    return `<article class="player-card profile-${frame} bg-${bg}" data-open="${safe5(p.id)}"><div class="card-top"><div class="avatar">${avatar}</div><div class="card-identity"><b class="name-${name}">${safe5(p.nickname)}</b><small>${safe5(p.team || "Sem equipe")} · ${safe5(p.country || "")}</small></div><span class="rating-mini">${p.rating ?? "—"}<small>RATING AM</small></span></div><span class="role-tag">${safe5(roleShort(p.mainRole))}</span><div class="card-stats"><div><strong>${p.kd ?? "N/A"}</strong><small>K/D</small></div><div><strong>${p.adr ?? "N/A"}</strong><small>ADR</small></div><div><strong>${p.win == null ? "N/A" : Number(p.win).toFixed(1) + "%"}</strong><small>WIN RATE</small></div></div></article>`;
+    const avatar = p.avatarUrl ? `<img src="${safe5(p.avatarUrl)}" alt="Foto de ${safe5(p.nickname)}" loading="lazy">` : safe5(initials(p.nickname));
+    const roleClass = roleClass5(p.mainRole);
+    return `<article class="player-card profile-${frame} bg-${bg}" data-open="${safe5(p.id)}"><div class="card-top"><div class="avatar">${avatar}</div><div class="card-identity"><b class="name-${name}">${safe5(p.nickname)}</b><small>${safe5(p.team || "Sem equipe")} · ${safe5(p.country || "")}</small></div><span class="rating-mini">${p.rating ?? "—"}<small>RATING AM</small></span></div><span class="role-tag ${roleClass ? `role-tag-${roleClass}` : ""}">${safe5(roleShort(p.mainRole))}</span><div class="card-stats"><div><strong>${p.kd ?? "N/A"}</strong><small>K/D</small></div><div><strong>${p.adr ?? "N/A"}</strong><small>ADR</small></div><div><strong>${p.win == null ? "N/A" : Number(p.win).toFixed(1) + "%"} </strong><small>WIN RATE</small></div></div></article>`;
   };
 
   // ACS 5.0 match draft: browser-local autosave survives tab/app switches and reloads.
