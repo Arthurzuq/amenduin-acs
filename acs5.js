@@ -81,7 +81,12 @@
     if (!form || !isAdmin || draftRestoring) return;
     const values = [...form.querySelectorAll("input,select,textarea")].map(el => ({ value: el.value, checked: el.checked }));
     const fields = Object.fromEntries(draftFieldIds.map(id => [id, $("#"+id)?.value ?? ""]));
-    const snapshot = { savedAt: new Date().toISOString(), guestCount: $("#matchGuestRows")?.querySelectorAll("[data-match-guest]").length || 0, values, fields };
+    const snapshot = {
+      savedAt: new Date().toISOString(),
+      guestCount: $("#matchGuestRows")?.querySelectorAll("[data-match-guest]").length || 0,
+      vetoCount: $("#matchVetoRows")?.querySelectorAll(".veto-row").length || 0,
+      values, fields
+    };
     try {
       localStorage.setItem(draftKey(), JSON.stringify(snapshot));
       const label = $("#acsAutosaveState");
@@ -142,6 +147,15 @@
       if (typeof syncCustomTeamFields === "function") syncCustomTeamFields();
       const guestHost = $("#matchGuestRows");
       while (guestHost && guestHost.querySelectorAll("[data-match-guest]").length < Number(draft.guestCount || 0)) addGuestRow();
+      const vetoHost = $("#matchVetoRows");
+      const expectedVetoCount = Number(draft.vetoCount ?? 7);
+      while (vetoHost && vetoHost.querySelectorAll(".veto-row").length > expectedVetoCount) {
+        vetoHost.querySelector(".veto-row:last-child [data-remove-veto]")?.click();
+      }
+      while (vetoHost && vetoHost.querySelectorAll(".veto-row").length < expectedVetoCount) {
+        $("#addVetoAction")?.click();
+        if (vetoHost.querySelectorAll(".veto-row").length < expectedVetoCount && !$("#addVetoAction")) break;
+      }
       const controls = [...form.querySelectorAll("input,select,textarea")];
       draft.values.forEach((item,i) => {
         if (controls[i]) { controls[i].value = item.value ?? ""; controls[i].checked = !!item.checked; }
