@@ -1,3 +1,4 @@
+const ACS_MAPS=["Ancient","Anubis","Cache","Dust II","Inferno","Mirage","Nuke"];
 const STORAGE_KEY = "acs_players_v1";
 // Perfis demonstrativos removidos: o ACS agora exibe apenas jogadores reais do Supabase.
 let players = loadPlayers();
