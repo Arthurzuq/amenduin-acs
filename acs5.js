@@ -267,29 +267,81 @@
   }
   async function loadTournament() {
     if (!supabaseClient) return;
-    const [tRes, rRes] = await Promise.all([
-      supabaseClient.from("tournaments").select("*").eq("id", tournamentId).maybeSingle(),
-      supabaseClient.from("tournament_registrations").select("id,tournament_id,team_id,status,team_size_snapshot,roster_snapshot,registered_at,registration_note,teams(id,name,tag,captain_player_id)").eq("tournament_id", tournamentId).order("registered_at", { ascending: true })
+    const [tRes,rRes]=await Promise.all([
+      supabaseClient.from("tournaments").select("*").eq("id",tournamentId).maybeSingle(),
+      supabaseClient.from("tournament_registrations")
+        .select("id,tournament_id,team_id,status,team_size_snapshot,roster_snapshot,registered_at,registration_note,teams(id,name,tag,captain_player_id)")
+        .eq("tournament_id",tournamentId).order("registered_at",{ascending:true})
     ]);
-    if (tRes.error || !tRes.data) { $("#tournamentMeta").textContent = "Não foi possível carregar o campeonato."; return; }
-    tournament = tRes.data;
-    registrations = rRes.data || [];
-    $("#tournamentName").textContent = tournament.name;
-    $("#tournamentStatus").textContent = statusLabel(tournament.status).toUpperCase();
-    const deadline = tournament.registration_deadline ? new Date(tournament.registration_deadline).toLocaleString("pt-BR") : "Não definida";
-    $("#tournamentMeta").innerHTML = `<span>Prazo: <b>${safe5(deadline)}</b></span><span>Mínimo: <b>${tournament.min_players_per_team} jogadores</b></span><span>Inscrições: <b>${registrations.length}</b></span>`;
-    const select = $("#tournamentTeamSelect");
-    const old = select.value;
-    const captainTeams = ownCaptainTeams();
-    select.innerHTML = '<option value="">Selecione uma equipe...</option>' + captainTeams.map(t => `<option value="${safe5(t.id)}">${safe5(t.name)}${t.tag ? " · " + safe5(t.tag) : ""}</option>`).join("");
-    if (captainTeams.some(t => t.id === old)) select.value = old;
-    const existingOwn = registrations.find(r => captainTeams.some(t => t.id === r.team_id) && ["pending", "approved"].includes(r.status));
-    const closed = tournament.status !== "registration_open" || (tournament.registration_deadline && new Date(tournament.registration_deadline) < new Date());
-    $("#registerTournamentButton").disabled = closed || !currentUser || !captainTeams.length || !!existingOwn;
-    $("#tournamentRegisterMessage").textContent = existingOwn ? (existingOwn.status === "pending" ? "Sua inscrição está em revisão!" : "Sua equipe já está aprovada neste campeonato.") : closed ? "As inscrições estão encerradas." : !currentUser ? "Entre com sua conta para inscrever uma equipe." : !captainTeams.length ? "Somente o capitão pode inscrever uma equipe. Você ainda não é capitão de uma equipe." : "A inscrição exige uma equipe com pelo menos três jogadores.";
-    $("#tournamentRegistrationCount").textContent = `${registrations.length} inscrição${registrations.length === 1 ? "" : "ões"}`;
+    if(tRes.error||!tRes.data){
+      const hint=$("#tournamentDeadlineHint");
+      if(hint)hint.textContent="Não foi possível carregar os dados do campeonato.";
+      return;
+    }
+    tournament=tRes.data;
+    registrations=rRes.data||[];
+    $("#tournamentName").textContent=tournament.name;
+    const status=$("#tournamentStatus");
+    if(status){
+      status.textContent=statusLabel(tournament.status).toUpperCase();
+      status.dataset.status=tournament.status;
+    }
+    const deadline=tournament.registration_deadline?new Date(tournament.registration_deadline):null;
+    const deadlineParts=deadline?new Intl.DateTimeFormat("pt-BR",{
+      timeZone:"America/Sao_Paulo",day:"2-digit",month:"short",year:"numeric"
+    }).formatToParts(deadline):[];
+    const datePart=type=>deadlineParts.find(part=>part.type===type)?.value||"";
+    const deadlineLabel=deadline
+      ? `${datePart("day")} ${datePart("month").replace(".","").toUpperCase()} ${datePart("year")}`
+      : "A DEFINIR";
+    if($("#tournamentDeadline"))$("#tournamentDeadline").textContent=deadlineLabel;
+    if($("#tournamentDeadlineTime")){
+      const time=deadline?new Intl.DateTimeFormat("pt-BR",{
+        timeZone:"America/Sao_Paulo",hour:"2-digit",minute:"2-digit",hourCycle:"h23"
+      }).format(deadline):"—";
+      $("#tournamentDeadlineTime").innerHTML=`${safe5(time)} <small>HORÁRIO DE BRASÍLIA</small>`;
+    }
+    const closed=tournament.status!=="registration_open"||(deadline&&deadline.getTime()<Date.now());
+    if($("#tournamentDeadlineHint")){
+      $("#tournamentDeadlineHint").textContent=closed
+        ?"O período de inscrição foi encerrado."
+        :"Prazo oficial: 18 de novembro, às 19:00 (horário de Brasília).";
+    }
+    const minimum=Number(tournament.min_players_per_team||3);
+    if($("#tournamentMinPlayers"))$("#tournamentMinPlayers").textContent=`${minimum} jogadores`;
+    const pending=registrations.filter(row=>row.status==="pending").length;
+    const approved=registrations.filter(row=>row.status==="approved").length;
+    if($("#tournamentTeamCount"))$("#tournamentTeamCount").textContent=String(registrations.length);
+    if($("#tournamentPendingCount"))$("#tournamentPendingCount").textContent=String(pending);
+    if($("#tournamentApprovedCount"))$("#tournamentApprovedCount").textContent=String(approved);
+    if($("#tournamentRegistrationCount"))$("#tournamentRegistrationCount").textContent=`${registrations.length} inscrição${registrations.length===1?"":"ões"}`;
+
+    const select=$("#tournamentTeamSelect");
+    const old=select?.value||"";
+    const captainTeams=ownCaptainTeams();
+    if(select){
+      select.innerHTML='<option value="">Selecione uma equipe...</option>'+captainTeams.map(team=>
+        `<option value="${safe5(team.id)}">${safe5(team.name)}${team.tag?" · "+safe5(team.tag):""}</option>`
+      ).join("");
+      if(captainTeams.some(team=>team.id===old))select.value=old;
+    }
+    const existingOwn=registrations.find(row=>
+      captainTeams.some(team=>team.id===row.team_id)&&["pending","approved"].includes(row.status)
+    );
+    const registrationClosed=closed;
+    const button=$("#registerTournamentButton");
+    if(button)button.disabled=registrationClosed||!currentUser||!captainTeams.length||!!existingOwn;
+    const message=$("#tournamentRegisterMessage");
+    if(message){
+      message.textContent=existingOwn
+        ?(existingOwn.status==="pending"?"Sua inscrição está em revisão!":"Sua equipe já está aprovada neste campeonato.")
+        :registrationClosed?"As inscrições estão encerradas."
+        :!currentUser?"Entre com sua conta para inscrever uma equipe."
+        :!captainTeams.length?"Somente o capitão pode inscrever uma equipe. Você ainda não é capitão de uma equipe."
+        :`A equipe precisa ter pelo menos ${minimum} jogadores e a inscrição deve ser enviada pelo capitão.`;
+    }
     renderRegistrations();
-    $("#tournamentAdminPanel").style.display = isAdmin ? "block" : "none";
+    $("#tournamentAdminPanel").style.display=isAdmin?"block":"none";
     await loadTournamentStructure();
   }
   function renderRegistrations() {
