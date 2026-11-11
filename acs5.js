@@ -55,28 +55,7 @@
     $("#profileNameColor").value = profile?.profileNameColor || "white";
   };
 
-  // Update the existing cloud write handler with customization values. A profile URL is used rather than
-  // silently uploading files without the user's explicit choice of storage path.
-  const playerForm = $("#playerForm");
-  playerForm?.addEventListener("submit", async (e) => {
-    if (!currentUser || !supabaseClient) return;
-    const id = $("#editId").value;
-    const own = players.find(p => p.userId === currentUser.id);
-    const payload = {
-      avatar_url: $("#profileAvatarUrl")?.value.trim() || null,
-      profile_frame_color: $("#profileFrameColor")?.value || "blue",
-      profile_background: $("#profileBackground")?.value || "blue",
-      profile_name_color: $("#profileNameColor")?.value || "white"
-    };
-    // Wait until the original cloud submit listener has completed its insert/update.
-    await new Promise(resolve => setTimeout(resolve, 450));
-    const { data: profileRow } = await supabaseClient.from("players").select("id").eq("user_id", currentUser.id).maybeSingle();
-    const targetId = id && !id.startsWith("p-") ? id : profileRow?.id || own?.id;
-    if (!targetId) return;
-    const { error } = await supabaseClient.from("players").update(payload).eq("id", targetId).eq("user_id", currentUser.id);
-    if (error) toast5("Perfil salvo, mas a personalização não sincronizou: " + error.message);
-    else await loadCloudPlayers();
-  });
+  // Profile appearance fields are persisted atomically by the main profile submit handler.
 
   // Player cards reflect the saved avatar and colors.
   const basePlayerCard = playerCard;
