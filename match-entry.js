@@ -21,7 +21,7 @@
     const id = teamId(side);
     if (id === "custom") return $("#customTeam"+side+"Name")?.value.trim() || "Equipe "+side;
     if (!id) return "Equipe "+side;
-    return (window.cloudTeams || []).find(team=>team.id===id)?.name
+    return (typeof cloudTeams!=="undefined"?cloudTeams:[]).find(team=>team.id===id)?.name
       || $("#matchTeam"+side)?.selectedOptions?.[0]?.textContent || "Equipe "+side;
   }
   function captureControls() {
@@ -58,10 +58,10 @@
     const previous = new Map((roster[side]||[]).map(player=>[player.key,player]));
     rosterTeam[side] = selectedTeam;
     if (selectedTeam && selectedTeam !== "custom") {
-      const memberIds = (window.teamMembers||[])
+      const memberIds = (typeof teamMembers!=="undefined"?teamMembers:[])
         .filter(member=>member.team_id===selectedTeam).map(member=>member.player_id);
       roster[side] = memberIds.map(id=>{
-        const player = (window.players||[]).find(item=>item.id===id);
+        const player = (typeof players!=="undefined"?players:[]).find(item=>item.id===id);
         if (!player) return null;
         const row = newRosterPlayer(player);
         row.selected = !!previous.get(row.key)?.selected;
@@ -446,7 +446,7 @@
   }
 
   async function submitMatch() {
-    if (!window.supabaseClient || !window.isAdmin) {
+    if (typeof supabaseClient==="undefined" || !isAdmin) {
       notify("Somente administradores podem registrar partidas."); return;
     }
     const teamA=teamId("A"),teamB=teamId("B"),bestOf=Number($("#matchBestOf")?.value);
@@ -506,7 +506,7 @@
       notes:$("#matchNotes")?.value.trim()||null,veto_actions:vetoActions
     };
     try {
-      const {data,error}=await window.supabaseClient.rpc("acs_admin_record_series",{
+      const {data,error}=await supabaseClient.rpc("acs_admin_record_series",{
         p_match:match,p_maps:maps,p_player_stats:playerStats
       });
       if (error) throw error;
@@ -588,7 +588,7 @@
       if (addPlayerButton) {
         const side=addPlayerButton.dataset.addPlayer;
         const id=$(`[data-add-player-select="${side}"]`)?.value;
-        const player=(window.players||[]).find(item=>item.id===id);
+        const player=(typeof players!=="undefined"?players:[]).find(item=>item.id===id);
         if (!player) { notify("Escolha um jogador cadastrado.");return; }
         addPlayer(side,player);return;
       }
