@@ -323,124 +323,54 @@ async function loadTeamRankings(){
  const maps=mapRes.data||[],rows=(rankRes.data||[]).filter(t=>t.matches>0);
  host.innerHTML=rows.length?`<div class="public-stats-table-wrap"><table class="public-stats-table"><thead><tr><th>#</th><th>Equipe</th><th>Rating AM</th><th>J</th><th>V</th><th>D</th><th>E</th><th>Win rate</th><th>Mapa forte</th><th>Mapa fraco</th></tr></thead><tbody>${rows.map((t,i)=>{const own=maps.filter(m=>m.team_id===t.team_id&&m.matches>=2).sort((a,b)=>b.win_rate-a.win_rate);const strong=own[0],weak=own[own.length-1];return `<tr><td>${i+1}</td><td><b>${safe(t.name)}</b><small>${safe(t.tag||"")}</small></td><td>${Number(t.rating_am).toFixed(2)}</td><td>${t.matches}</td><td>${t.wins}</td><td>${t.losses}</td><td>${t.draws||0}</td><td>${Number(t.win_rate).toFixed(1)}%</td><td>${strong?`${safe(strong.map_name)} · ${Number(strong.win_rate).toFixed(0)}%`:"—"}</td><td>${weak?`${safe(weak.map_name)} · ${Number(weak.win_rate).toFixed(0)}%`:"—"}</td></tr>`}).join("")}</tbody></table></div>`:'<div class="market-empty">Ainda não há equipes com partidas oficiais registradas. O ranking será calculado automaticamente após os primeiros confrontos.</div>';
 }
-const ACS_MAPS=["Ancient","Anubis","Dust II","Inferno","Mirage","Nuke","Overpass","Train","Vertigo","Cache","Cobblestone","Outro"];
-function renderMapEditors(){
- const host=$("#matchMapsEditor");if(!host)return;const format=Number($("#matchBestOf")?.value||1);const wrap=$("#matchMapCountWrap");if(wrap){wrap.style.display=format===1?"none":"block";const sel=$("#matchMapCount");const old=Number(sel.value);const opts=format===3?[2,3]:[3,4,5];sel.innerHTML=opts.map(n=>`<option value="${n}">${n} mapas</option>`).join("");sel.value=opts.includes(old)?String(old):String(format===3?3:5);}const count=format===1?1:Number($("#matchMapCount")?.value||(format===3?3:5));
- host.innerHTML=Array.from({length:count},(_,i)=>`<article class="panel" style="padding:14px;margin:10px 0"><h4>MAPA ${i+1}</h4><div class="form-grid"><label class="field">MAPA<select data-map-key="map_name" required>${ACS_MAPS.map(m=>`<option value="${m}">${m}</option>`).join("")}</select></label><label class="field">LADO INICIAL DA EQUIPE A<select data-map-key="team_a_start_side"><option value="TR">TR</option><option value="CT">CT</option></select></label><label class="field">1º TEMPO — EQUIPE A<input data-map-key="a_first_half" type="number" min="0" max="12" placeholder="Rounds ganhos" required></label><label class="field">1º TEMPO — EQUIPE B<input data-map-key="b_first_half" type="number" min="0" max="12" placeholder="Rounds ganhos" required></label><label class="field">2º TEMPO — EQUIPE A<input data-map-key="a_second_half" type="number" min="0" max="12" placeholder="Rounds ganhos" required></label><label class="field">2º TEMPO — EQUIPE B<input data-map-key="b_second_half" type="number" min="0" max="12" placeholder="Rounds ganhos" required></label></div><details style="margin-top:10px"><summary>Prorrogação (preencher somente em 12–12)</summary><p class="form-note">Informe os rounds totais de TR e CT conquistados por cada equipe em todas as prorrogações MR3 disputadas. Ex.: uma prorrogação encerrada em 4–2 tem 4/2 rounds para cada equipe, distribuídos conforme os lados.</p><div class="form-grid"><label class="field">A — TR<input data-map-key="a_ot_tr" type="number" min="0" value="0"></label><label class="field">A — CT<input data-map-key="a_ot_ct" type="number" min="0" value="0"></label><label class="field">B — TR<input data-map-key="b_ot_tr" type="number" min="0" value="0"></label><label class="field">B — CT<input data-map-key="b_ot_ct" type="number" min="0" value="0"></label></div></details><p class="form-note" data-map-preview>Placar final calculado: —</p></article>`).join("");
- host.querySelectorAll("article").forEach(card=>card.querySelectorAll("input,select").forEach(el=>el.addEventListener("input",()=>{const val=k=>Number(card.querySelector(`[data-map-key="${k}"]`)?.value||0);const a=val("a_first_half")+val("a_second_half")+val("a_ot_tr")+val("a_ot_ct"),b=val("b_first_half")+val("b_second_half")+val("b_ot_tr")+val("b_ot_ct");card.querySelector("[data-map-preview]").textContent=`Placar final calculado: ${a} × ${b}`;})));
-}
-$("#matchBestOf")?.addEventListener("change",()=>{renderMapEditors();renderMatchPlayerRows();});$("#matchMapCount")?.addEventListener("change",()=>{renderMapEditors();renderMatchPlayerRows();});
+const ACS_MAPS=["Ancient","Anubis","Cache","Dust II","Inferno","Mirage","Nuke"];
+let matchRoster={A:[],B:[]};
+let matchRosterTeam={A:"",B:""};
+let matchGuestSeq=0;
 
-$("#teamCreateForm")?.addEventListener("submit",async e=>{
-  e.preventDefault();if(!supabaseClient||!currentUser){toast("Entre na sua conta para criar uma equipe.");return;}
-  if(!currentPlayerProfile()){toast("Crie seu perfil de jogador antes de criar uma equipe.");return;}
-  const button=$("#createTeamButton");button.disabled=true;
-  const teamName=$("#newTeamName").value.trim();
-  const {data:teamId,error}=await supabaseClient.rpc("acs_create_team",{p_name:teamName,p_tag:$("#newTeamTag").value.trim()||null,p_capacity:null});
-  button.disabled=false;
-  if(error){toast("Não foi possível criar a equipe: "+error.message);return;}
-  const custom={logo_url:$("#newTeamLogo")?.value.trim()||null,frame_color:$("#newTeamFrame")?.value||"blue",name_color:$("#newTeamNameColor")?.value||"white"};
-  let customizationError=null;
-  if(teamId){const result=await supabaseClient.from("teams").update(custom).eq("id",teamId);customizationError=result.error||null;}
-  e.target.reset();toast(customizationError?"Equipe criada, mas a personalização não foi salva: "+customizationError.message:"Equipe criada. Você é o capitão!");await loadCloudPlayers();await loadTeamsData();
-});
-async function respondTeamInvite(id,action){
-  if(!supabaseClient)return;
-  const {error}=await supabaseClient.rpc("acs_respond_team_invite",{p_invite_id:id,p_accept:action==="accept"});
-  if(error){toast("Não foi possível responder ao convite: "+error.message);return;}
-  toast(action==="accept"?"Você entrou na equipe!":"Convite recusado.");await loadCloudPlayers();await loadTeamsData();
+function matchTeamId(side){return $("#matchTeam"+side)?.value||"";}
+function matchTeamName(side){
+  const id=matchTeamId(side);
+  if(id==="custom")return $("#customTeam"+side+"Name")?.value.trim()||"Equipe "+side;
+  if(!id)return "Equipe "+side;
+  return cloudTeams.find(t=>t.id===id)?.name||$("#matchTeam"+side)?.selectedOptions?.[0]?.textContent||"Equipe "+side;
 }
-async function removeTeamMember(playerId){
-  if(!supabaseClient||!confirm("Remover este jogador da equipe?"))return;
-  const {error}=await supabaseClient.rpc("acs_remove_team_member",{p_player_id:playerId});
-  if(error){toast("Não foi possível remover o jogador: "+error.message);return;}
-  toast("Jogador removido do elenco.");await loadCloudPlayers();await loadTeamsData();
+function matchControlSnapshot(){
+  const form=$("#adminMatchForm"),out={};
+  form?.querySelectorAll("[data-draft-key]").forEach(el=>{
+    out[el.dataset.draftKey]={value:el.value,checked:!!el.checked};
+  });
+  return out;
 }
-async function deleteTeam(teamId){
-  if(!supabaseClient||(!isAdmin&&!confirm("Excluir esta equipe? Todos os integrantes voltarão a ficar sem equipe. Esta ação não pode ser desfeita.")))return;
-  if(isAdmin&&!confirm("ADMINISTRAÇÃO: excluir esta equipe e desvincular todos os integrantes? Esta ação não pode ser desfeita."))return;
-  const {error}=await supabaseClient.rpc("acs_delete_team",{p_team_id:teamId});
-  if(error){toast("Não foi possível excluir a equipe: "+error.message);return;}
-  toast("Equipe excluída. Os jogadores estão sem equipe.");await loadCloudPlayers();await loadTeamsData();
+function restoreMatchControlSnapshot(values){
+  if(!values)return;
+  const form=$("#adminMatchForm");
+  form?.querySelectorAll("[data-draft-key]").forEach(el=>{
+    const saved=values[el.dataset.draftKey];
+    if(!saved)return;
+    if(el.type==="checkbox")el.checked=!!saved.checked;
+    else if(saved.value!==undefined)el.value=saved.value??"";
+  });
 }
-$("#refreshTeams")?.addEventListener("click",async()=>{await loadCloudPlayers();await loadTeamsData();toast("Equipes atualizadas.")});
-
-
-// ---- ACS 3.3: painel administrativo e estatísticas oficiais ----
-async function refreshAdminStatus(){
-  if(!supabaseClient||!currentUser){isAdmin=false;updateAuthButton();
-    const adminLink=document.querySelector('[data-page="admin"]');if(adminLink)adminLink.style.display="none";
-    if($("#adminActivationPanel"))$("#adminActivationPanel").style.display="block";
-    if($("#adminWorkspace"))$("#adminWorkspace").style.display="none";
-    if($("#matchesAdminPanel"))$("#matchesAdminPanel").style.display="none";
-    return;
-  }
-  const {data,error}=await supabaseClient.rpc("acs_is_admin");
-  isAdmin=!error&&data===true;updateAuthButton();
-  const link=document.querySelector('[data-page="admin"]');if(link)link.style.display="flex";
-  $("#adminActivationPanel").style.display=isAdmin?"none":"block";
-  $("#adminWorkspace").style.display=isAdmin?"block":"none";
-  $("#matchesAdminPanel").style.display=isAdmin?"block":"none";
-  if(isAdmin){renderAdminPanel();renderMatchPlayerRows();renderMapEditors();renderMatchTeamSelectors();}
+function syncCustomTeamFields(){
+  ["A","B"].forEach(side=>{
+    const wrap=$("#customTeam"+side+"Wrap");
+    if(wrap)wrap.style.display=matchTeamId(side)==="custom"?"flex":"none";
+  });
 }
-function renderAdminPanel(){
-  if(!isAdmin)return;
-  const select=$("#adminPlayerSelect");if(!select)return;
-  const previous=select.value;
-  select.innerHTML='<option value="">Selecione um jogador</option>'+players.map(p=>`<option value="${safe(p.id)}">${safe(p.nickname)}</option>`).join("");
-  if(previous&&players.some(p=>p.id===previous))select.value=previous;
-  const p=players.find(x=>x.id===select.value);
-  const fields={rating_am:p?.rating,kd:p?.kd,adr:p?.adr,headshot_pct:p?.hs,win_rate:p?.win,matches:p?.matches,mvps:p?.mvps,kills:p?.kills,deaths:p?.deaths,first_kills:p?.firstKills,first_deaths:p?.firstDeaths,clutches:p?.clutches};
-  Object.entries(fields).forEach(([key,value])=>{const input=$("#stat_"+key);if(input&&document.activeElement!==input)input.value=value??"";});
-  $("#adminStatsForm").style.display=p?"grid":"none";
+function resetMatchRosterSide(side){
+  const teamId=matchTeamId(side);
+  if(matchRosterTeam[side]===teamId)return;
+  matchRosterTeam[side]=teamId;
+  if(teamId&&teamId!=="custom"){
+    matchRoster[side]=teamMembers.filter(m=>m.team_id===teamId).map(m=>{
+      const p=players.find(x=>x.id===m.player_id);
+      return p?{key:"player-"+p.id,playerId:p.id,name:p.nickname,role:p.mainRole||"",guest:false,selected:false}:null;
+    }).filter(Boolean);
+  }else matchRoster[side]=[];
 }
-$("#adminActivateForm")?.addEventListener("submit",async e=>{
-  e.preventDefault();if(!currentUser||!supabaseClient){toast("Entre na sua conta primeiro.");return;}
-  const code=$("#adminCode").value.trim();if(!/^\d{5}$/.test(code)){toast("O código precisa ter 5 dígitos.");return;}
-  const btn=$("#adminActivateButton");btn.disabled=true;
-  const {data,error}=await supabaseClient.rpc("acs_claim_admin",{p_code:code});btn.disabled=false;
-  if(error||data!==true){toast(error?"Não foi possível ativar o painel: "+error.message:"Código incorreto. Confira os cinco dígitos.");return;}
-  isAdmin=true;$("#adminCode").value="";$("#adminActivationPanel").style.display="none";$("#adminWorkspace").style.display="block";$("#matchesAdminPanel").style.display="block";updateAuthButton();renderAdminPanel();renderMatchPlayerRows();renderMapEditors();renderMatchTeamSelectors();toast("Acesso administrativo ativado.");
-});
-$("#adminPlayerSelect")?.addEventListener("change",renderAdminPanel);
-$("#adminStatsForm")?.addEventListener("submit",async e=>{
-  e.preventDefault();if(!isAdmin){toast("Acesso administrativo necessário.");return;}
-  const playerId=$("#adminPlayerSelect").value;if(!playerId)return;
-  const keys=["rating_am","kd","adr","headshot_pct","win_rate","matches","mvps","kills","deaths","first_kills","first_deaths","clutches"];
-  const stats={};for(const key of keys){const raw=$("#stat_"+key).value.trim();stats[key]=raw===""?null:Number(raw);}
-  const {error}=await supabaseClient.rpc("acs_admin_update_player_stats",{p_player_id:playerId,p_stats:stats});
-  if(error){toast("Não foi possível salvar as estatísticas: "+error.message);return;}
-  toast("Estatísticas oficiais atualizadas.");await loadCloudPlayers();renderAdminPanel();
-});
-const adminNav=document.querySelector('[data-page="admin"]');if(adminNav)adminNav.addEventListener("click",()=>{
-  if(!currentUser){toast("Entre na sua conta para acessar a administração.");return;}
-  $("#adminActivationPanel").style.display=isAdmin?"none":"block";
-  $("#adminWorkspace").style.display=isAdmin?"block":"none";
-  if(isAdmin){renderAdminPanel();renderMatchPlayerRows();renderMapEditors();renderMatchTeamSelectors();}
-  $("#matchesAdminPanel").style.display=isAdmin?"block":"none";
-});
-
-
-// ---- ACS 4.0: registro de partidas oficiais e recálculo competitivo ----
-function renderMatchPlayerRows(){
-  const host=$("#matchPlayerRows");if(!host||!isAdmin)return;
-  const mapCount=Number($("#matchBestOf")?.value||1)===1?1:Number($("#matchMapCount")?.value||($("#matchBestOf")?.value==="3"?3:5));
-  host.innerHTML=players.length?players.map(p=>`<div class="match-player-row" data-match-player="${safe(p.id)}">
-    <div class="match-player-name"><b>${safe(p.nickname)}</b><small>${safe(p.mainRole)} · ${safe(p.team||"Sem equipe")}</small></div>
-    <label class="field">EQUIPE<select data-match-key="team_side"><option value="">Não convocado</option><option value="A">Equipe A</option><option value="B">Equipe B</option></select></label>
-    <label class="field">STATUS<select data-match-key="participation_status"><option value="not_played">Não jogou</option><option value="starter" selected>Titular</option><option value="reserve">Reserva</option></select></label>
-    <div class="match-player-map-stats">${Array.from({length:mapCount},(_,i)=>`<details class="match-map-player" ${mapCount===1?"open":""}><summary>Mapa ${i+1} — estatísticas individuais</summary><div class="form-grid">
-      <label class="field">K<input data-map-stat="${i+1}" data-stat-key="kills" type="number" min="0" max="300" value="0"></label>
-      <label class="field">D<input data-map-stat="${i+1}" data-stat-key="deaths" type="number" min="0" max="300" value="0"></label>
-      <label class="field">A<input data-map-stat="${i+1}" data-stat-key="assists" type="number" min="0" max="300" value="0"></label>
-      <label class="field">ADR<input data-map-stat="${i+1}" data-stat-key="adr" type="number" min="0" max="500" step="0.01" placeholder="—"></label>
-      <label class="field">HS%<input data-map-stat="${i+1}" data-stat-key="headshot_pct" type="number" min="0" max="100" step="0.01" placeholder="—"></label>
-      <label class="field">MVP<input data-map-stat="${i+1}" data-stat-key="mvps" type="number" min="0" max="10" value="0"></label>
-      <label class="field">FK<input data-map-stat="${i+1}" data-stat-key="first_kills" type="number" min="0" max="30" value="0"></label>
-      <label class="field">FD<input data-map-stat="${i+1}" data-stat-key="first_deaths" type="number" min="0" max="30" value="0"></label>
-      <label class="field">CLUTCH<input data-map-stat="${i+1}" data-stat-key="clutches_won" type="number" min="0" max="20" value="0"></label>
-    </div></details>`).join("")}</div>
-  </div>`).join(""):`<div class="market-empty">Cadastre jogadores antes de registrar uma partida.</div>`;
+function selectedMatchRoster(side){
+  return (matchRoster[side]||[]).filter(p=>p.selected);
 }
 function renderPublicStats(){
   const host=$("#publicStatsList");if(!host)return;
