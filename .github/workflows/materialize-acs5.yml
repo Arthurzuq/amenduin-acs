@@ -1,0 +1,52 @@
+name: Materialize ACS 5.0 frontend
+
+on:
+  push:
+    branches: [acs5/materialize]
+    paths:
+      - 'ACS5_frontend_patch.zip'
+      - 'scripts/apply-acs5-package.py.b64'
+      - '.github/workflows/materialize-acs5.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: acs5/materialize
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Restore materializer
+        run: |
+          python - <<'PY'
+          import base64, gzip
+          from pathlib import Path
+          encoded = Path('scripts/apply-acs5-package.py.b64').read_text().strip()
+          Path('scripts/apply-acs5-package.py').write_bytes(gzip.decompress(base64.b64decode(encoded)))
+          PY
+      - name: Apply ACS 5.0 package
+        run: python scripts/apply-acs5-package.py
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate JavaScript syntax
+        run: node --check app.js && node --check acs5.js
+      - name: Commit materialized frontend and migrations
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html app.js styles.css acs5.js README.md supabase/
+          if git diff --cached --quiet; then
+            echo "No generated changes to commit."
+            exit 0
+          fi
+          git commit -m "Apply ACS 5.0 frontend and Supabase migration history [skip materialize]"
+          git push origin HEAD:acs5/materialize
