@@ -585,7 +585,7 @@
       if (target.matches("[data-roster-choice]")) {
         const player=roster[target.dataset.rosterChoice].find(row=>row.key===target.dataset.rosterKey);
         if (player) player.selected=target.checked;
-        renderRosterEditor();renderMapTables();return;
+        renderRosterEditor();renderMapTables();persistMatchDraft();return;
       }
       if (target.matches("[data-map-played]")) {
         const card=target.closest("[data-map-card]");
