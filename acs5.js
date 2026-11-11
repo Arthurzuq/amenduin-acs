@@ -186,13 +186,20 @@
       .eq("status", "completed").order("played_at", { ascending: false }).limit(3);
     if (error) { host.innerHTML = `<div class="market-empty">Não foi possível carregar as partidas: ${safe5(error.message)}</div>`; return; }
     host.innerHTML = data?.length ? data.map(m => `<button class="match-card match-card-compact home-match-link" type="button" data-home-match="${safe5(m.id)}"><div class="match-card-top"><small>${m.played_at ? new Date(m.played_at).toLocaleDateString("pt-BR") : "Data não informada"} · MD${m.best_of || 1}</small></div><div class="match-score"><b>${safe5(m.team_a_name)}</b><strong>${m.team_a_score} : ${m.team_b_score}</strong><b>${safe5(m.team_b_name)}</b></div></button>`).join("") : '<div class="market-empty">Ainda não há partidas registradas.</div>';
-    $$('[data-home-match]').forEach(btn => btn.addEventListener("click", () => {
+    $('[data-home-match]').forEach(btn => btn.addEventListener("click", () => {
       go("matches");
-      setTimeout(() => {
-        const card = document.querySelector(`[data-match-id="${btn.dataset.homeMatch}"]`);
-        card?.scrollIntoView({ behavior: "smooth", block: "center" });
-        card?.classList.add("match-highlight");
-      }, 120);
+      let attempts=0;
+      const revealMatch=()=>{
+        const card=document.querySelector(`#matchesList [data-match-id="${btn.dataset.homeMatch}"]`);
+        if(card){
+          card.scrollIntoView({behavior:"smooth",block:"center"});
+          card.classList.add("match-highlight");
+          card.click();
+          return;
+        }
+        if(++attempts<16)setTimeout(revealMatch,150);
+      };
+      setTimeout(revealMatch,120);
     }));
   }
 
