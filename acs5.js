@@ -249,39 +249,123 @@
   }
   async function loadTournamentStructure() {
     const host = $("#tournamentBracket");
-    const [sRes, nRes] = await Promise.all([
-      supabaseClient.from("tournament_stages").select("*").eq("tournament_id", tournamentId).order("stage_order"),
-      supabaseClient.from("tournament_bracket_nodes").select("*").eq("tournament_id", tournamentId).order("round_number").order("match_number")
+    const [sRes,nRes] = await Promise.all([
+      supabaseClient.from("tournament_stages").select("*").eq("tournament_id",tournamentId).order("stage_order"),
+      supabaseClient.from("tournament_bracket_nodes").select("*").eq("tournament_id",tournamentId).order("round_number").order("match_number")
     ]);
-    if (sRes.error || nRes.error) { host.innerHTML = `<div class="market-empty">Não foi possível carregar as fases: ${safe5((sRes.error || nRes.error).message)}</div>`; return; }
-    tournamentStages = sRes.data || [];
-    tournamentNodes = nRes.data || [];
-    if (!tournamentStages.length) { host.innerHTML = '<div class="market-empty">O chaveamento será exibido após a organização do campeonato.</div>'; return; }
-    const approved = registrations.filter(r => r.status === "approved").map(r => ({ id: r.team_id, name: r.teams?.name || cloudTeams.find(t => t.id === r.team_id)?.name || "Equipe" }));
-    const stageHtml = tournamentStages.map(stage => {
-      const nodes = tournamentNodes.filter(n => n.stage_id === stage.id);
-      return `<div class="tournament-stage"><h4>${safe5(stage.name)} <small>· ${safe5(stage.format)} · ${safe5(stage.status)}</small></h4>${nodes.length ? nodes.map(n => {
-        const a = cloudTeams.find(t => t.id === n.team_a_id)?.name || "A definir";
-        const b = cloudTeams.find(t => t.id === n.team_b_id)?.name || "A definir";
-        const slot = (which, teamId, label) => `<div class="tournament-slot ${teamId ? "filled" : ""}" data-bracket-node="${safe5(n.id)}" data-bracket-slot="${which}">${safe5(label)}</div>`;
-        return `<div class="tournament-node"><div><small>${safe5(n.bracket_side)} · Rodada ${n.round_number} · Jogo ${n.match_number}</small>${slot("A", n.team_a_id, a)}</div><div>${slot("B", n.team_b_id, b)}</div></div>`;
-      }).join("") : '<div class="market-empty">Fase sem confrontos gerados.</div>'}</div>`;
+    if(sRes.error||nRes.error){host.innerHTML=`<div class="market-empty">Não foi possível carregar as fases: ${safe5((sRes.error||nRes.error).message)}</div>`;return;}
+    tournamentStages=sRes.data||[];
+    tournamentNodes=nRes.data||[];
+    if(!tournamentStages.length){host.innerHTML='<div class="market-empty">O chaveamento será exibido após a organização do campeonato.</div>';await loadTournamentMatchChoices();return;}
+
+    const approved=registrations.filter(r=>r.status==="approved").map(r=>({
+      id:r.team_id,name:r.teams?.name||cloudTeams.find(t=>t.id===r.team_id)?.name||"Equipe"
+    }));
+    const groupStage=tournamentStages.find(stage=>stage.stage_order===1);
+    const playoffStage=tournamentStages.find(stage=>stage.stage_order===2);
+    const groupNodes=tournamentNodes.filter(node=>node.stage_id===groupStage?.id&&node.bracket_side==="groups");
+    const groupsReady=groupNodes.length>0&&groupNodes.every(node=>node.status==="completed");
+    const playoffsGenerated=!!playoffStage&&tournamentNodes.some(node=>node.stage_id===playoffStage.id&&["upper","lower","grand_final"].includes(node.bracket_side));
+    const savedUpper=playoffStage?.config?.qualification_draft?.upper||[];
+    const savedLower=playoffStage?.config?.qualification_draft?.lower||[];
+    let classificationSaveChain=Promise.resolve();
+
+    const stageHtml=tournamentStages.map(stage=>{
+      const nodes=tournamentNodes.filter(node=>node.stage_id===stage.id);
+      return `<div class="tournament-stage"><h4>${safe5(stage.name)} <small>· ${safe5(stage.format)} · ${safe5(stage.status)}</small></h4>${nodes.length?nodes.map(node=>{
+        const teamA=cloudTeams.find(team=>team.id===node.team_a_id)?.name||"A definir";
+        const teamB=cloudTeams.find(team=>team.id===node.team_b_id)?.name||"A definir";
+        const status=({ready:"Pronto",completed:"Concluído",bye:"Avanço automático",pending:"Aguardando",live:"Em andamento"})[node.status]||node.status;
+        const slot=(which,teamId,name)=>`<div class="tournament-slot ${teamId?"filled":""}" data-bracket-node="${safe5(node.id)}" data-bracket-slot="${which}">${safe5(name)}</div>`;
+        return `<article class="tournament-node"><div><small>${safe5(node.bracket_side)} · Rodada ${node.round_number} · Jogo ${node.match_number} · ${safe5(status)}</small>${slot("A",node.team_a_id,teamA)}</div><div>${slot("B",node.team_b_id,teamB)}</div></article>`;
+      }).join(""):'<div class="market-empty">Fase sem confrontos gerados.</div>'}</div>`;
     }).join("");
-    const teamPool = isAdmin ? `<div class="tournament-stage"><h4>Equipes aprovadas — arraste para uma vaga vazia</h4>${approved.map(t => `<span class="tournament-team-chip" draggable="true" data-drag-team="${safe5(t.id)}">${safe5(t.name)}</span>`).join("") || '<span class="muted">Nenhuma equipe aprovada.</span>'}</div>` : "";
-    host.innerHTML = teamPool + stageHtml;
-    if (isAdmin) {
-      $$('[data-drag-team]').forEach(chip => chip.addEventListener("dragstart", e => e.dataTransfer.setData("text/plain", chip.dataset.dragTeam)));
-      $$('[data-bracket-node]').forEach(slot => {
-        slot.addEventListener("dragover", e => { if (!slot.classList.contains("filled")) e.preventDefault(); });
-        slot.addEventListener("drop", async e => {
-          e.preventDefault();
-          if (slot.classList.contains("filled")) return;
-          const teamId = e.dataTransfer.getData("text/plain");
-          if (!teamId) return;
-          const { error } = await supabaseClient.rpc("acs_admin_set_bracket_slot", { p_node_id: slot.dataset.bracketNode, p_slot: slot.dataset.bracketSlot, p_team_id: teamId });
-          if (error) { toast5("Não foi possível posicionar a equipe: " + error.message); return; }
-          await loadTournamentStructure();
+
+    const qualificationPanel=isAdmin&&playoffStage&&!playoffsGenerated?`<div class="tournament-stage tournament-qualification">
+      <h4>Classificação manual para os playoffs</h4>
+      <p class="form-note">Conclua todos os jogos da fase de grupos e classifique cada equipe aprovada em Upper ou Lower. A classificação é salva no campeonato e pode ser retomada depois de atualizar a página.</p>
+      ${!groupsReady?'<p class="acs-bracket-warning">Finalize todos os confrontos da fase de grupos para liberar a geração dos playoffs.</p>':''}
+      ${approved.length?approved.map(team=>{
+        const value=savedUpper.includes(team.id)?"upper":savedLower.includes(team.id)?"lower":"";
+        return `<label class="tournament-qualification-row"><b>${safe5(team.name)}</b><select data-qual-team="${safe5(team.id)}"><option value="" ${value===""?"selected":""}>Não classificada</option><option value="upper" ${value==="upper"?"selected":""}>Upper</option><option value="lower" ${value==="lower"?"selected":""}>Lower</option></select></label>`;
+      }).join(""):'<div class="market-empty">Ainda não há equipes aprovadas.</div>'}
+      <p class="form-note" id="qualificationSaveState">As alterações são salvas automaticamente.</p>
+      <button class="btn btn-primary btn-small" type="button" id="createPlayoffsButton" ${approved.length<2||!groupsReady?"disabled":""}>Gerar playoffs Upper/Lower</button>
+    </div>`:"";
+
+    host.innerHTML=qualificationPanel+stageHtml;
+
+    if(isAdmin&&playoffStage&&!playoffsGenerated){
+      const saveClassificationDraft=()=>{
+        const upper=[],lower=[];
+        $$("[data-qual-team]").forEach(select=>{
+          if(select.value==="upper")upper.push(select.dataset.qualTeam);
+          else if(select.value==="lower")lower.push(select.dataset.qualTeam);
         });
+        const state=$("#qualificationSaveState");
+        classificationSaveChain=classificationSaveChain.then(async()=>{
+          if(state)state.textContent="Salvando classificação...";
+          const config={...(playoffStage.config||{}),qualification_draft:{upper,lower,updated_at:new Date().toISOString()}};
+          const {error}=await supabaseClient.from("tournament_stages").update({config}).eq("id",playoffStage.id);
+          if(state)state.textContent=error?"Falha ao salvar a classificação: "+error.message:"Classificação salva no campeonato.";
+        }).catch(error=>{if(state)state.textContent="Falha ao salvar a classificação: "+(error?.message||"erro inesperado");});
+        const button=$("#createPlayoffsButton");
+        if(button)button.disabled=!groupsReady||upper.length===0||lower.length===0||upper.length+lower.length!==approved.length;
+        return classificationSaveChain;
+      };
+      $$("[data-qual-team]").forEach(select=>select.addEventListener("change",saveClassificationDraft));
+      $("#createPlayoffsButton")?.addEventListener("click",async()=>{
+        await classificationSaveChain;
+        const upper=[],lower=[];
+        $$("[data-qual-team]").forEach(select=>{
+          if(select.value==="upper")upper.push(select.dataset.qualTeam);
+          else if(select.value==="lower")lower.push(select.dataset.qualTeam);
+        });
+        if(!groupsReady||!upper.length||!lower.length||upper.length+lower.length!==approved.length){
+          toast5("Classifique todas as equipes aprovadas em Upper ou Lower.");
+          return;
+        }
+        const button=$("#createPlayoffsButton");button.disabled=true;button.textContent="Gerando chaveamento...";
+        const {data,error}=await supabaseClient.rpc("acs_admin_build_playoffs",{
+          p_tournament_id:tournamentId,p_upper_team_ids:upper,p_lower_team_ids:lower
+        });
+        button.disabled=false;button.textContent="Gerar playoffs Upper/Lower";
+        if(error){toast5("Não foi possível gerar os playoffs: "+error.message);return;}
+        toast5(`Playoffs gerados: ${data?.node_count??"—"} confrontos.`);
+        await loadTournament();
+      });
+    }
+    await loadTournamentMatchChoices();
+  }
+
+  async function loadTournamentMatchChoices() {
+    const select=$("#matchBracketNode");
+    if(!select||!supabaseClient)return;
+    const keep=select.value;
+    const {data,error}=await supabaseClient.from("tournament_bracket_nodes")
+      .select("id,stage_id,bracket_side,round_number,match_number,team_a_id,team_b_id,status")
+      .eq("tournament_id",tournamentId).eq("status","ready")
+      .order("round_number").order("match_number");
+    select.dataset.tournamentId=tournamentId;
+    if(error){select.innerHTML='<option value="">Partida avulsa (não vinculada)</option>';return;}
+    const matches=(data||[]).filter(node=>node.team_a_id&&node.team_b_id);
+    const labels=matches.map(node=>{
+      const stage=tournamentStages.find(item=>item.id===node.stage_id)?.name||"Campeonato";
+      const nameA=cloudTeams.find(team=>team.id===node.team_a_id)?.name||"Equipe A";
+      const nameB=cloudTeams.find(team=>team.id===node.team_b_id)?.name||"Equipe B";
+      return {id:node.id,label:`${stage} · ${node.bracket_side} · R${node.round_number}/J${node.match_number} · ${nameA} × ${nameB}`};
+    });
+    select.innerHTML='<option value="">Partida avulsa (não vinculada)</option>'+labels.map(item=>`<option value="${safe5(item.id)}">${safe5(item.label)}</option>`).join("");
+    select.value=labels.some(item=>item.id===keep)?keep:"";
+    if(select.dataset.acsBound!=="true"){
+      select.dataset.acsBound="true";
+      select.addEventListener("change",()=>{
+        const node=matches.find(item=>item.id===select.value);
+        if(!node)return;
+        const teamA=$("#matchTeamA"),teamB=$("#matchTeamB");
+        if(teamA){teamA.value=node.team_a_id;teamA.dispatchEvent(new Event("change",{bubbles:true}));}
+        if(teamB){teamB.value=node.team_b_id;teamB.dispatchEvent(new Event("change",{bubbles:true}));}
+        saveMatchDraft();
       });
     }
   }
