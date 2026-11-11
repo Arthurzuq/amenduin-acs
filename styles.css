@@ -44,3 +44,183 @@
 .tournament-qualification-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line)}
 .tournament-qualification-row select{min-width:145px;background:#0e141d;border:1px solid #2b3747;color:#dce5ef;padding:8px;border-radius:5px}
 @media(max-width:600px){.match-detail-map>div{align-items:flex-start;flex-direction:column}.tournament-qualification-row{align-items:flex-start;flex-direction:column}.tournament-qualification-row select{width:100%}}
+
+
+/* ACS 5.0.1 — guided match entry */
+.admin-match-form{display:grid;gap:17px}
+.match-step{position:relative;padding:20px;border:1px solid var(--line);border-radius:9px;background:linear-gradient(145deg,#121a26,#101620);min-width:0}
+.match-step-heading{display:flex;align-items:flex-start;gap:13px;margin-bottom:19px}
+.match-step-heading h4{font:700 24px var(--display);margin:3px 0 4px;color:#edf4fc}
+.match-step-heading p{margin:0;color:#8e9caf;font-size:11px;line-height:1.6;max-width:680px}
+.match-step-number{width:34px;height:34px;display:grid;place-items:center;flex:none;background:#1b2e43;border:1px solid #345475;border-radius:7px;color:#8cc3ff;font:800 17px var(--display)}
+.match-setup-grid{align-items:end}
+.match-format-field{grid-column:1/-1;max-width:360px}
+.match-format-field select{font-size:13px;font-weight:700;color:#f0f6ff;background:#102033;border-color:#47709b;min-height:46px}
+.match-veto-help{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 14px;margin-bottom:12px;border:1px solid #263b52;background:#0d1520;border-radius:7px}
+.match-veto-help b{font-size:11px;color:#d8e9fa;letter-spacing:.03em}
+.match-veto-help span{font-size:10px;color:var(--muted);text-align:right}
+.match-veto-list{display:grid;gap:8px}
+.match-veto-row{display:grid;grid-template-columns:36px minmax(110px,.7fr) minmax(110px,.7fr) minmax(150px,1.4fr);align-items:end;gap:10px;padding:10px;background:#0d141d;border:1px solid #263344;border-radius:7px}
+.match-veto-order{height:37px;width:34px;display:grid;place-items:center;border-radius:5px;background:#18283a;color:#83baf0;font:800 15px var(--display)}
+.match-veto-row .field{min-width:0}
+.match-veto-row select{min-height:38px}
+.match-veto-status{display:inline-flex;align-items:center;gap:7px;font-size:10px;padding:8px 11px;border-radius:5px}
+.match-veto-status.incomplete{background:#2a2119;color:#e9c18b;border:1px solid #5a452b}
+.match-veto-status.complete{background:#132b22;color:#8ce0b1;border:1px solid #285b43}
+.match-veto-summary{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px}
+.match-veto-decider{font-size:11px;color:#aab8c9}
+.match-veto-decider b{color:#9bcaff}
+.match-decider-preview{font-size:10px;color:#8da0b6;margin-top:9px}
+.match-empty-state{display:grid;gap:5px;padding:18px;border:1px dashed #33465d;border-radius:7px;text-align:center;color:#9baabd;font-size:11px;background:#0c131c}
+.match-empty-state small{color:#75879d;font-size:10px}
+.match-empty-state.compact{padding:14px}
+.match-roster-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.match-roster-side{min-width:0;border:1px solid #2b394b;border-radius:8px;background:#0d141e;padding:14px}
+.match-roster-a{border-top:3px solid #5d9fea}
+.match-roster-b{border-top:3px solid #d48a63}
+.match-roster-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:13px}
+.match-roster-head h5{font:700 21px var(--display);margin:3px 0;color:#eff5fc}
+.match-roster-head small{font-size:9px;color:var(--muted)}
+.match-roster-count{white-space:nowrap;padding:6px 8px;border-radius:5px;background:#1a2a3c;color:#a8cfff;font-size:9px;font-weight:700}
+.match-roster-add-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:8px;margin:9px 0}
+.match-roster-add-row .btn{min-height:36px;padding:9px 11px}
+.match-roster-add-row select,.match-roster-add-row input{min-width:0}
+.match-roster-list{display:grid;gap:6px;margin-top:12px}
+.match-roster-person{display:flex;align-items:center;gap:10px;min-width:0;padding:9px 10px;background:#141f2c;border:1px solid #27364a;border-radius:6px;cursor:pointer}
+.match-roster-person input{width:16px;height:16px;accent-color:#69adf4;flex:none}
+.match-roster-person-name{display:grid;gap:3px;flex:1;min-width:0}
+.match-roster-person-name b{font-size:11px;overflow:hidden;text-overflow:ellipsis}
+.match-roster-person-name small{font-size:8px;color:#8293a8;letter-spacing:.08em}
+.match-roster-remove{width:24px;height:24px;flex:none;border:0;border-radius:4px;background:#302027;color:#efaaa7;font-size:17px;cursor:pointer}
+.match-roster-remove:hover{background:#5b2b31;color:white}
+.match-roster-footnote{font-size:9px;color:#8190a2;line-height:1.5;margin:11px 0 0}
+.match-map-cards{display:grid;gap:14px}
+.match-map-card{min-width:0;overflow:hidden;border:1px solid #2b3b50;border-radius:9px;background:#0e151f}
+.match-map-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;background:linear-gradient(90deg,#16283b,#101a28);border-bottom:1px solid #2b3b50}
+.match-map-card-head h5{font:800 25px var(--display);margin:3px 0 0;color:#edf5ff}
+.match-map-played{display:flex;align-items:center;gap:7px;font-size:10px;color:#adbbcb;white-space:nowrap}
+.match-map-played input{accent-color:#70b6f5}
+.match-map-card.not-played{opacity:.58}
+.match-map-fields{border:0;margin:0;padding:15px;min-width:0}
+.match-map-fields:disabled{opacity:.48}
+.match-map-scoreboard{padding:13px;background:#111d2b;border:1px solid #283c53;border-radius:7px}
+.match-map-result-row{display:flex;align-items:end;justify-content:space-between;gap:12px;padding-bottom:12px;border-bottom:1px solid #293a4c}
+.match-map-result-row .field{width:min(280px,100%)}
+.match-map-score-preview{font-size:10px;color:#8da0b5;white-space:nowrap;padding-bottom:10px}
+.match-map-score-preview b{font:800 24px var(--display);color:#9bcaff;padding-left:5px}
+.match-round-grid{display:grid;grid-template-columns:95px minmax(0,1fr);gap:10px 13px;align-items:end;margin-top:13px}
+.match-round-label{display:grid;gap:3px;padding-bottom:10px}
+.match-round-label span{font-size:9px;color:#b8c8d9;font-weight:800;letter-spacing:.08em}
+.match-round-label small{font-size:8px;color:#71849a}
+.match-round-input{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.match-round-input .field input{text-align:center;font-weight:700;font-size:13px}
+.match-overtime{margin-top:12px;padding:10px 11px;border:1px solid #304258;border-radius:6px;background:#0c141e}
+.match-overtime summary{font-size:10px;font-weight:700;color:#d8e4f1;cursor:pointer}
+.match-overtime summary small{font-weight:400;color:#8395aa;margin-left:6px}
+.match-overtime-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin-top:13px}
+.match-overtime-grid .field input{text-align:center}
+.match-map-team-tables{display:grid;gap:12px;margin-top:14px}
+.match-map-team-table{border:1px solid #2c394a;border-radius:7px;overflow:hidden;background:#0d141d}
+.match-map-team-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;background:#172435}
+.match-map-team-heading b{font-size:11px;color:#e9f2fc}
+.match-map-team-heading span{font-size:8px;letter-spacing:.1em;color:#8aa1ba;text-transform:uppercase}
+.match-map-table-scroll{width:100%;overflow-x:auto}
+.match-map-stats-table{width:100%;min-width:670px;border-collapse:collapse}
+.match-map-stats-table th,.match-map-stats-table td{padding:7px 8px;border-bottom:1px solid #253244;text-align:center}
+.match-map-stats-table th{font-size:8px;color:#8497ad;letter-spacing:.09em}
+.match-map-stats-table th:first-child,.match-map-stats-table td:first-child{text-align:left}
+.match-map-stats-table td input{width:76px;max-width:100%;padding:8px 6px;text-align:center;background:#101b29;border:1px solid #304055;border-radius:4px;color:#eef5fc;font-size:11px}
+.match-map-stats-table td input:focus{outline:1px solid var(--accent);border-color:var(--accent)}
+.match-stat-player{min-width:145px}
+.match-stat-player b{display:block;font-size:10px;color:#e1ebf6;white-space:nowrap}
+.match-stat-player small{display:block;font-size:8px;color:#75889e;margin-top:3px}
+.match-submit-row{display:flex;align-items:center;gap:13px;flex-wrap:wrap}
+.match-submit-row .form-note{margin:0}
+.match-submit-row button{min-width:260px}
+@media(max-width:850px){
+ .match-roster-grid{grid-template-columns:1fr}
+ .match-veto-row{grid-template-columns:30px minmax(0,1fr) minmax(0,1fr)}
+ .match-veto-row .veto-map-field{grid-column:2/-1}
+ .match-overtime-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:580px){
+ .match-step{padding:14px}
+ .match-step-heading h4{font-size:21px}
+ .match-veto-help{align-items:flex-start;flex-direction:column}
+ .match-veto-help span{text-align:left}
+ .match-veto-row{grid-template-columns:28px minmax(0,1fr) minmax(0,1fr);gap:7px;padding:8px}
+ .match-veto-order{width:27px;height:34px}
+ .match-veto-row .field{font-size:7px}
+ .match-veto-row select{padding:8px 6px;font-size:10px}
+ .match-roster-add-row{grid-template-columns:1fr}
+ .match-roster-add-row .btn{width:100%}
+ .match-map-card-head{align-items:flex-start;flex-direction:column}
+ .match-round-grid{grid-template-columns:1fr}
+ .match-round-input{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .match-round-label{padding-bottom:0}
+ .match-map-result-row{align-items:flex-start;flex-direction:column}
+ .match-map-result-row .field{width:100%}
+ .match-map-score-preview{padding:0}
+ .match-submit-row button{width:100%;min-width:0}
+}
+
+/* ACS 5.0.1 — tournament dashboard */
+.tournament-hero{position:relative;display:grid;grid-template-columns:minmax(0,1.5fr) minmax(230px,.75fr);gap:0;overflow:hidden;margin-bottom:15px;border:1px solid #2c4662;border-radius:10px;background:radial-gradient(circle at 78% 10%,#284e7138,transparent 38%),linear-gradient(115deg,#142438,#0f1722 70%);box-shadow:0 18px 45px #0002}
+.tournament-hero-main{padding:30px 32px 24px}
+.tournament-hero-label{display:flex;align-items:center;gap:11px}
+.tournament-season-mark{display:grid;place-items:center;width:37px;height:37px;background:#6baef5;color:#071320;font:900 20px var(--display);border-radius:6px}
+.tournament-hero-label span:last-child{display:grid;gap:3px}
+.tournament-hero-label small{font-size:8px;color:#84a0ba;letter-spacing:.17em}
+.tournament-hero-label b{font-size:9px;letter-spacing:.1em;color:#cad9e8}
+.tournament-hero-main h2{font:900 clamp(34px,4vw,51px)/.92 var(--display);letter-spacing:.02em;color:#f2f7fd;margin:24px 0 10px}
+.tournament-hero-main p{max-width:530px;color:#a1b1c3;font-size:11px;line-height:1.7}
+.tournament-hero-status{display:flex;align-items:center;gap:8px;margin-top:19px;font-size:9px;color:#98aabd;letter-spacing:.08em}
+.tournament-hero-status b{color:#91dfb4}
+.tournament-live-dot{height:7px;width:7px;border-radius:50%;background:#5bda98;box-shadow:0 0 12px #5bda9877}
+.tournament-deadline-card{display:flex;flex-direction:column;justify-content:center;gap:11px;margin:15px;padding:20px;border:1px solid #3a5876;border-radius:8px;background:linear-gradient(150deg,#1a2e44,#132133)}
+.tournament-deadline-card>.eyebrow{line-height:1.5}
+.tournament-deadline-card>strong{font:900 clamp(27px,3vw,38px)/1 var(--display);color:#f2f7fe;white-space:nowrap}
+.tournament-deadline-time{font:800 22px var(--display);color:#8ec5ff}
+.tournament-deadline-time small{display:block;margin-top:3px;font:700 8px var(--font);letter-spacing:.1em;color:#849bb2}
+.tournament-deadline-card p{font-size:9px;color:#96aabe;line-height:1.5;margin:0}
+.tournament-quick-stats{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:1px solid #2a3d52;background:#0e1825}
+.tournament-quick-stats>div{display:grid;gap:5px;padding:13px 20px;border-right:1px solid #24364a}
+.tournament-quick-stats>div:last-child{border-right:0}
+.tournament-quick-stats span{font-size:8px;color:#7e92a9;letter-spacing:.1em}
+.tournament-quick-stats b{font:700 18px var(--display);color:#e6f0fb}
+.tournament-content-grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(260px,.75fr);gap:14px;margin-bottom:15px}
+.tournament-register-panel,.tournament-info-panel,.tournament-registrations-panel,.tournament-admin-panel,.tournament-bracket-panel{min-width:0}
+.tournament-section-copy{font-size:10px;color:#97a7ba;line-height:1.7;margin:-4px 0 16px}
+.tournament-step-chip{font-size:8px;color:#8ebdf0;border:1px solid #385675;padding:6px 8px;border-radius:4px;letter-spacing:.1em;white-space:nowrap}
+.tournament-info-panel{display:grid;align-content:start;gap:10px}
+.tournament-info-step{display:flex;align-items:flex-start;gap:11px;padding:10px 0;border-bottom:1px solid var(--line)}
+.tournament-info-step:last-child{border-bottom:0}
+.tournament-info-step>b{display:grid;place-items:center;flex:none;width:27px;height:27px;border-radius:5px;background:#1a2d42;color:#86bdfa;font:800 13px var(--display)}
+.tournament-info-step div{display:grid;gap:4px}
+.tournament-info-step strong{font-size:10px;color:#e6eef8}
+.tournament-info-step small{font-size:9px;color:#899aaf;line-height:1.5}
+.tournament-registrations-panel,.tournament-admin-panel,.tournament-bracket-panel{margin-top:15px}
+.tournament-register-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:10px}
+.tournament-register-row .field{min-width:0}
+.tournament-registration{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 0;border-bottom:1px solid var(--line)}
+.tournament-registration>div:first-child{display:grid;gap:5px;min-width:0}
+.tournament-registration>div:first-child>b{font-size:11px}
+.tournament-registration small{font-size:9px;color:var(--muted);overflow-wrap:anywhere}
+@media(max-width:850px){
+ .tournament-hero{grid-template-columns:1fr}
+ .tournament-deadline-card{margin:0 16px 16px}
+ .tournament-quick-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .tournament-quick-stats>div:nth-child(2){border-right:0}
+ .tournament-quick-stats>div:nth-child(-n+2){border-bottom:1px solid #24364a}
+ .tournament-content-grid{grid-template-columns:1fr}
+}
+@media(max-width:580px){
+ .tournament-hero-main{padding:22px 18px}
+ .tournament-hero-main h2{font-size:36px}
+ .tournament-deadline-card{margin:0 12px 12px;padding:16px}
+ .tournament-quick-stats>div{padding:11px 13px}
+ .tournament-register-row{grid-template-columns:1fr}
+ .tournament-register-row button{width:100%}
+ .tournament-registration{align-items:flex-start;flex-direction:column}
+ .tournament-review-actions{width:100%;display:flex;gap:8px}
+}
