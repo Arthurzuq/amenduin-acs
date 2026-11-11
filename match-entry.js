@@ -86,7 +86,7 @@
       const playersOnSide = roster[side] || [];
       const otherSideIds = [...roster[side==="A"?"B":"A"]]
         .filter(player=>!player.guest).map(player=>player.playerId);
-      const available = (window.players||[]).filter(player=>
+      const available = (typeof players!=="undefined"?players:[]).filter(player=>
         !playersOnSide.some(row=>row.playerId===player.id) && !otherSideIds.includes(player.id)
       );
       const registered = teamId(side) && teamId(side)!=="custom";
@@ -142,7 +142,8 @@
       return;
     }
     if (!force && renderedFormat===String(format) && $$(".match-veto-row",host).length===6) return;
-    const oldValues = captureControls();
+    const sameFormat=renderedFormat===String(format);
+    const oldValues = sameFormat?captureControls():null;
     const rows = vetoTemplate(format);
     host.innerHTML = `<div class="match-veto-help">
       <b>${format===1?"MD1 · seis bans e um decider":format===3?"MD3 · dois picks, quatro bans e um decider":"MD5 · quatro picks, dois bans e um decider"}</b>
@@ -171,7 +172,7 @@
       </div>`).join("")}
     </div><div class="match-decider-preview" id="matchDeciderPreview"></div>`;
     renderedFormat=String(format);
-    restoreControls(oldValues);
+    if(sameFormat)restoreControls(oldValues);
     refreshVetoMapOptions();
     renderVetoSummary();
   }
@@ -544,6 +545,15 @@
     renderVetoEditor,
     renderRosterEditor,
     renderMapTables,
+    refreshMaps:renderMapTables,
+    updatePreviews:updateScorePreviews,
+    syncRosterFromControls:()=>{
+      $("#matchRosterEditor [data-roster-choice]").forEach(input=>{
+        const side=input.dataset.rosterChoice;
+        const player=roster[side]?.find(row=>row.key===input.dataset.rosterKey);
+        if(player)player.selected=input.checked;
+      });
+    },
     submit:submitMatch,
     getState:()=>({roster,rosterTeam})
   };
