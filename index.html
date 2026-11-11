@@ -65,7 +65,7 @@
 
         <div class="section-heading">
           <div><span class="eyebrow">PANORAMA</span><h2>O ecossistema Amenduin</h2></div>
-          <span class="muted small">Dados salvos neste navegador</span>
+          <span class="muted small">Dados sincronizados com a Liga</span>
         </div>
         <div class="stat-grid">
           <article class="stat-card"><span class="stat-icon">♙</span><span class="stat-label">JOGADORES CADASTRADOS</span><strong id="totalPlayers">0</strong><small>Perfis na plataforma</small></article>
@@ -132,6 +132,7 @@
               <label class="field">EQUIPE A<select id="matchTeamA" required><option value="">Selecione a equipe A...</option></select></label>
               <label class="field">EQUIPE B<select id="matchTeamB" required><option value="">Selecione a equipe B...</option></select></label>
               <label class="field" id="customTeamAWrap" style="display:none">NOME DA EQUIPE A (AVULSA)<input id="customTeamAName" maxlength="60"></label><label class="field" id="customTeamBWrap" style="display:none">NOME DA EQUIPE B (AVULSA)<input id="customTeamBName" maxlength="60"></label>
+              <label class="field span-2">CONFRONTO DO CAMPEONATO<select id="matchBracketNode"><option value="">Partida avulsa (não vinculada)</option></select></label>
               <label class="field">FORMATO<select id="matchBestOf"><option value="1">MD1</option><option value="3">MD3</option><option value="5">MD5</option></select></label><label class="field" id="matchMapCountWrap" style="display:none">MAPAS DISPUTADOS<select id="matchMapCount"><option value="3" selected>3 mapas</option><option value="4">4 mapas</option><option value="5">5 mapas</option></select></label>
               <label class="field">DATA/HORA<input id="matchPlayedAt" type="datetime-local"></label>
               <label class="field span-2">OBSERVAÇÕES<textarea id="matchNotes" rows="2" maxlength="500"></textarea></label>
