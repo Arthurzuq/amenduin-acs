@@ -197,6 +197,8 @@
       draftRestoring=false;
     }
   }
+  window.restoreACS5MatchDraft=restoreMatchDraft;
+
   window.clearACS5MatchDraft=async function(){
     clearTimeout(draftSyncTimer);
     draftSyncTimer=null;
