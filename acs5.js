@@ -133,6 +133,8 @@
     clearTimeout(draftSyncTimer);
     draftSyncTimer=setTimeout(()=>{syncDraftToCloud(snapshot);},350);
   }
+  window.saveACS5MatchDraft=saveMatchDraft;
+
   async function flushMatchDraft() {
     const form=$("#adminMatchForm");
     if(!form||!isAdmin||draftRestoring)return;
