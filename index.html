@@ -25,6 +25,7 @@
         <a href="#" class="nav-link" data-page="matches"><span>◷</span> Partidas</a>
         <a href="#" class="nav-link" data-page="teams"><span>⬡</span> Equipes</a>
         <a href="#" class="nav-link" data-page="market"><span>⇄</span> Mercado</a>
+        <a href="#" class="nav-link" data-page="tournaments"><span>🏆</span> Campeonatos</a>
         <a href="#" class="nav-link" data-page="admin" style="display:none"><span>⚙</span> Administração</a>
       </nav>
       <div class="sidebar-bottom">
@@ -39,7 +40,7 @@
         <div class="breadcrumb">LIGA AMENDUIN <span>/</span> <b id="crumb">VISÃO GERAL</b></div>
         <div class="top-actions">
           <span class="demo-pill">ACS ONLINE</span>
-          <button class="btn btn-ghost btn-small" id="authButton">Entrar</button><button class="btn btn-primary btn-small" id="newPlayerTop">＋ Criar perfil</button>
+          <button class="btn btn-ghost btn-small" id="authButton">Entrar</button>
         </div>
       </header>
 
@@ -48,7 +49,7 @@
           <div class="hero-copy">
             <div class="eyebrow"><span class="live-dot"></span> O HUB COMPETITIVO DA LIGA</div>
             <h1>SEU JOGO.<br><em>SUA HISTÓRIA.</em></h1>
-            <p>Identidade competitiva, estatísticas e histórico dos jogadores da Liga Amenduin em um só lugar.</p>
+            <p>A Liga Amendoim CS2 organiza competições, equipes, jogadores e estatísticas oficiais da comunidade. Acompanhe partidas, participe de campeonatos e construa seu histórico competitivo.</p>
             <div class="hero-actions">
               <button class="btn btn-primary" id="createFromHero">Criar meu perfil <span>↗</span></button>
               <button class="btn btn-ghost" data-goto="players">Explorar jogadores</button>
@@ -80,17 +81,18 @@
           </section>
           <section class="panel quick-panel">
             <span class="eyebrow">COMECE POR AQUI</span><h3>Construa sua identidade competitiva.</h3>
-            <p>Crie seu perfil, escolha sua função e acompanhe sua trajetória dentro da Liga Amenduin.</p>
+            <p>Entre com seu e-mail para criar um perfil único, escolha sua função e acompanhe sua trajetória dentro da Liga Amendoim CS2.</p>
             <button class="btn btn-primary full" id="createFromPanel">＋ Criar perfil de jogador</button>
             <div class="quick-foot"><span>01</span> PERFIL <i></i><span>02</span> ESTATÍSTICAS <i></i><span>03</span> HISTÓRICO</div>
           </section>
         </div>
-        <div class="notice"><b>ⓘ Dados oficiais</b><span>Esta plataforma exibe perfis cadastrados por jogadores. Estatísticas competitivas oficiais são publicadas exclusivamente pela administração.</span></div>
+        <div class="notice"><b>ⓘ Dados oficiais</b><span>Perfis são vinculados a contas individuais. Estatísticas competitivas oficiais são publicadas exclusivamente pela administração.</span></div>
+        <section class="panel home-recent-panel"><div class="panel-head"><div><span class="eyebrow">RECENT MATCHES</span><h3>Últimas partidas</h3></div><button class="text-button" data-goto="matches">Ver histórico →</button></div><div id="homeRecentMatches" class="matches-list"><div class="market-empty">Carregando partidas...</div></div></section>
       </section>
 
       <section class="page" id="page-players">
         <div class="page-title-row"><div><span class="eyebrow">DATABASE / PLAYERS</span><h1>JOGADORES</h1><p>Explore os perfis competitivos da Liga Amenduin.</p></div><button class="btn btn-primary" id="newPlayerList">＋ Novo jogador</button></div>
-        <div class="toolbar"><div class="search-box"><span>⌕</span><input id="playerSearch" placeholder="Buscar por nickname ou equipe..."></div><select id="roleFilter"><option value="">Todas as funções</option><option>AWPer</option><option>Rifler</option><option>Support</option><option>Lurker</option><option>Entry-Fragger</option><option>IGL</option></select><select id="sortPlayers"><option value="name">Nome (A–Z)</option><option value="rating">Maior Rating AM</option><option value="kd">Maior K/D</option></select></div>
+        <div class="toolbar"><div class="search-box"><span>⌕</span><input id="playerSearch" placeholder="Buscar por nickname ou equipe..."></div><select id="roleFilter"><option value="">Todas as funções</option><option>AWPer</option><option>Rifler</option><option>Support</option><option>Lurker</option><option>Entry-Fragger</option><option>IGL</option></select><select id="sortPlayers"><option value="name">Nome (A–Z)</option><option value="rating">Maior Rating AM</option><option value="kd">Maior K/D</option><option value="win">Maior Win%</option></select></div>
         <div id="playersGrid" class="players-grid"></div>
       </section>
 
@@ -108,6 +110,7 @@
             <form id="teamCreateForm" class="team-create-form">
               <label class="field">NOME DA EQUIPE<input id="newTeamName" maxlength="40" required placeholder="Ex.: Amenduin Five"></label>
               <label class="field">TAG<input id="newTeamTag" maxlength="6" placeholder="Ex.: AM5"></label>
+              <label class="field">URL DO LOGO PNG<input id="newTeamLogo" type="url" maxlength="500" placeholder="https://..."></label><label class="field">MOLDURA<select id="newTeamFrame"><option value="blue">Azul</option><option value="green">Verde</option><option value="red">Vermelho</option><option value="yellow">Amarelo</option></select></label><label class="field">COR DO NOME<select id="newTeamNameColor"><option value="yellow">Amarelo</option><option value="white">Branco</option><option value="gray">Cinza</option></select></label>
               <p class="form-note">O elenco não tem limite fixo de jogadores. Adicione quantos integrantes forem necessários.</p>
               <button class="btn btn-primary" id="createTeamButton" type="submit">＋ Criar equipe</button>
             </form>
@@ -128,18 +131,28 @@
             <div class="form-grid">
               <label class="field">EQUIPE A<select id="matchTeamA" required><option value="">Selecione a equipe A...</option></select></label>
               <label class="field">EQUIPE B<select id="matchTeamB" required><option value="">Selecione a equipe B...</option></select></label>
+              <label class="field" id="customTeamAWrap" style="display:none">NOME DA EQUIPE A (AVULSA)<input id="customTeamAName" maxlength="60"></label><label class="field" id="customTeamBWrap" style="display:none">NOME DA EQUIPE B (AVULSA)<input id="customTeamBName" maxlength="60"></label>
               <label class="field">FORMATO<select id="matchBestOf"><option value="1">MD1</option><option value="3">MD3</option><option value="5">MD5</option></select></label><label class="field" id="matchMapCountWrap" style="display:none">MAPAS DISPUTADOS<select id="matchMapCount"><option value="3" selected>3 mapas</option><option value="4">4 mapas</option><option value="5">5 mapas</option></select></label>
               <label class="field">DATA/HORA<input id="matchPlayedAt" type="datetime-local"></label>
               <label class="field span-2">OBSERVAÇÕES<textarea id="matchNotes" rows="2" maxlength="500"></textarea></label>
             </div>
             <div class="match-player-heading"><h4>Mapas e placares</h4><p>Informe os rounds vencidos por cada equipe em cada tempo. O segundo tempo já considera a troca de lados. Em 12–12, preencha a prorrogação MR3 por lado; informe os rounds totais de todas as séries de overtime.</p></div>
             <div id="matchMapsEditor" class="match-player-rows"></div>
+            <div class="match-player-heading"><h4>Veto, picks e decider</h4><p>Registre a ordem das ações, a equipe responsável, o mapa e o lado inicial quando aplicável.</p></div><div id="matchVetoEditor"></div>
             <div class="match-player-heading"><h4>Estatísticas dos jogadores</h4><p>Defina a equipe e o status de cada jogador. Para cada mapa, registre K/D/A, ADR, HS%, MVP, first kills, first deaths e clutches. Jogadores que não jogaram não entram nas estatísticas.</p></div>
-            <div id="matchPlayerRows" class="match-player-rows"></div>
+            <div id="matchPlayerRows" class="match-player-rows"></div><div id="matchGuestRows" class="match-player-rows"></div><button class="btn btn-ghost btn-small" type="button" id="addGuestPlayer">＋ Adicionar jogador convidado</button>
             <div class="admin-save-row"><button class="btn btn-primary" type="submit" id="saveMatchButton">Registrar série e atualizar rankings</button></div>
           </form>
         </section>
         <section class="panel"><div class="panel-head"><div><span class="eyebrow">MATCH ARCHIVE</span><h3>Histórico de partidas</h3></div><span class="muted small" id="matchCount">0 partidas</span></div><div id="matchesList" class="matches-list"><div class="market-empty">Carregando partidas...</div></div></section>
+      </section>
+
+      <section class="page" id="page-tournaments">
+        <div class="page-title-row"><div><span class="eyebrow">COMPETITIVE SEASON / TOURNAMENTS</span><h1>CAMPEONATOS</h1><p>Inscrições, organização e acompanhamento das competições da Liga Amendoim CS2.</p></div><button class="btn btn-ghost" id="refreshTournaments">↻ Atualizar</button></div>
+        <section class="panel tournament-feature"><div class="panel-head"><div><span class="eyebrow">TEMPORADA 2026</span><h3 id="tournamentName">Liga Amendoim CS2 - S1 (26)</h3></div><span class="badge-admin" id="tournamentStatus">INSCRIÇÕES ABERTAS</span></div><div class="tournament-meta" id="tournamentMeta">Carregando informações do campeonato...</div><div class="tournament-register-row"><label class="field">SUA EQUIPE<select id="tournamentTeamSelect"><option value="">Selecione uma equipe...</option></select></label><button class="btn btn-primary" id="registerTournamentButton">Inscrever equipe</button></div><p class="form-note" id="tournamentRegisterMessage">A inscrição exige uma equipe com pelo menos três jogadores e deve ser feita pelo capitão.</p></section>
+        <section class="panel"><div class="panel-head"><div><span class="eyebrow">REGISTRATION REVIEW</span><h3>Equipes inscritas</h3></div><span class="muted small" id="tournamentRegistrationCount">0 inscrições</span></div><div id="tournamentRegistrations" class="offer-list"><div class="market-empty">Carregando inscrições...</div></div></section>
+        <section class="panel" id="tournamentAdminPanel" style="display:none"><div class="panel-head"><div><span class="eyebrow">ADMIN / TOURNAMENT CONTROL</span><h3>Organização do campeonato</h3></div><span class="badge-admin">ADMINISTRADOR</span></div><p class="form-note">Aprove as equipes, depois organize a competição. O motor de torneios usa etapas configuráveis e mantém os confrontos vinculados às partidas oficiais.</p><div class="admin-save-row"><button class="btn btn-primary" id="organizeTournamentButton">Organizar campeonato</button></div></section>
+        <section class="panel"><div class="panel-head"><div><span class="eyebrow">BRACKET / STAGES</span><h3>Chaveamento e fases</h3></div></div><div id="tournamentBracket" class="tournament-bracket"><div class="market-empty">O chaveamento será exibido após a organização.</div></div></section>
       </section>
 
       <section class="page" id="page-admin">
@@ -232,5 +245,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
   <script src="app.js"></script>
+  <script src="acs5.js"></script>
 </body>
 </html>

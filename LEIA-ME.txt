@@ -1,0 +1,10 @@
+ACS 5.0 — PACOTE DE ATUALIZAÇÃO DO FRONTEND
+Substitua index.html, app.js e styles.css na raiz do repositório e adicione acs5.js. Mantenha supabase-config.js com a URL e a chave pública publishable/anon do projeto.
+
+Inclui: guia de campeonatos integrada ao torneio S1 existente; inscrições/revisão/admin/organização; slots de bracket drag-and-drop quando os nós já existirem; login obrigatório para criar perfil; personalização por URL de foto/logo e cores; filtro Win%; últimas três partidas; autosave local do formulário de partida; equipes avulsas; jogadores convidados; veto/pick/decider; seleção automática do elenco de equipes cadastradas; map pool de sete mapas.
+
+Nenhuma alteração foi executada no Supabase nesta preparação. O backend atual já possui os campos e RPCs usados pelo frontend.
+
+Limitações: o autosave é local ao dispositivo; imagens usam URLs e não upload direto; o backend gera final com duas equipes, mas para 3+ equipes cria grupos e etapa Upper/Lower sem gerar automaticamente os nós de playoff; a interface de arrastar e soltar funciona apenas para nós existentes. Swiss e round-robin ainda não têm fluxo completo. Teste o site publicado antes de considerar a versão pronta.
+
+Não execute novamente migrations antigas ACS 4.1–4.3.1 por causa deste pacote. Nunca publique service_role/secret keys.
