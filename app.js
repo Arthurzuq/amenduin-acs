@@ -491,16 +491,46 @@ async function loadPlayerMapStats(){
   renderPlayerMapStats();
 }
 $("#playerMapFilter")?.addEventListener("change",renderPlayerMapStats);
+let loadedMatchRecords=[];
+function openMatchDetail(match){
+  if(!match)return;
+  let overlay=$("#matchDetailModal");
+  if(!overlay){
+    overlay=document.createElement("div");overlay.id="matchDetailModal";overlay.className="modal-backdrop";
+    overlay.innerHTML='<div class="modal detail-modal" role="dialog" aria-modal="true" aria-labelledby="matchDetailTitle"><div class="modal-head"><div><span class="eyebrow">MATCH REPORT</span><h2 id="matchDetailTitle">Detalhes da partida</h2></div><button class="icon-button" type="button" data-close-match-detail aria-label="Fechar">×</button></div><div id="matchDetailContent"></div></div>';
+    document.body.append(overlay);
+    overlay.addEventListener("click",e=>{if(e.target===overlay||e.target.closest("[data-close-match-detail]"))overlay.classList.remove("open");});
+    document.addEventListener("keydown",e=>{if(e.key==="Escape")overlay.classList.remove("open");});
+  }
+  const maps=(match.match_maps||[]).slice().sort((a,b)=>a.map_number-b.map_number);
+  const stats=(match.player_match_stats||[]).slice().sort((a,b)=>(a.team_side||"").localeCompare(b.team_side||"")||String(a.player_name_snapshot||"").localeCompare(String(b.player_name_snapshot||"")));
+  const veto=(match.match_veto_actions||[]).slice().sort((a,b)=>a.sequence_no-b.sequence_no);
+  const date=match.played_at?new Date(match.played_at).toLocaleString("pt-BR"):"Data não informada";
+  const mapHtml=maps.length?maps.map(m=>{
+    const start=m.team_a_start_side||"—";
+    const ot=(Number(m.a_ot_tr||0)+Number(m.a_ot_ct||0)+Number(m.b_ot_tr||0)+Number(m.b_ot_ct||0))>0
+      ?`<small>OT — A TR/CT: ${m.a_ot_tr}/${m.a_ot_ct} · B TR/CT: ${m.b_ot_tr}/${m.b_ot_ct}</small>`:"";
+    return `<div class="match-detail-map"><div><b>Mapa ${m.map_number}: ${safe(m.map_name)}</b><strong>${m.team_a_score} × ${m.team_b_score}</strong></div><small>Lado inicial da equipe A: ${safe(start)} · 1º tempo: ${m.a_first_half}–${m.b_first_half} · 2º tempo: ${m.a_second_half}–${m.b_second_half}</small>${ot}</div>`;
+  }).join(""):'<p class="muted">Sem placares por mapa disponíveis.</p>';
+  const playerHtml=stats.length?`<div class="public-stats-table-wrap"><table class="public-stats-table"><thead><tr><th>Jogador</th><th>Equipe</th><th>K/D/A</th><th>ADR</th><th>HS%</th><th>MVP</th></tr></thead><tbody>${stats.map(p=>{
+    const name=p.players?.nickname||p.player_name_snapshot||"Jogador convidado";
+    return `<tr><td><b>${safe(name)}</b>${p.is_guest?'<small>Convidado</small>':""}</td><td>${p.team_side==="A"?safe(match.team_a_name):p.team_side==="B"?safe(match.team_b_name):"—"}</td><td>${p.kills}/${p.deaths}/${p.assists}</td><td>${p.adr==null?"—":Number(p.adr).toFixed(1)}</td><td>${p.headshot_pct==null?"—":Number(p.headshot_pct).toFixed(1)+"%"}</td><td>${p.mvps||0}</td></tr>`;
+  }).join("")}</tbody></table></div>`:'<p class="muted">Sem estatísticas individuais registradas.</p>';
+  const vetoHtml=veto.length?`<div class="match-detail-veto">${veto.map(v=>`<span><b>${v.sequence_no}.</b> ${safe(v.action_type.toUpperCase())} · ${safe(v.map_name)} · ${safe(v.team_name_snapshot||"Equipe não informada")}${v.starting_side?" · "+safe(v.starting_side):""}</span>`).join("")}</div>`:'<p class="muted">Não há ações de veto registradas.</p>';
+  $("#matchDetailTitle").textContent=`${match.team_a_name} ${match.team_a_score} × ${match.team_b_score} ${match.team_b_name}`;
+  $("#matchDetailContent").innerHTML=`<p class="form-note">${safe(date)} · MD${match.best_of||1}</p><section class="detail-section"><h3>Mapas e rounds</h3>${mapHtml}</section><section class="detail-section"><h3>Estatísticas individuais</h3>${playerHtml}</section><section class="detail-section"><h3>Veto, picks e decider</h3>${vetoHtml}</section>${match.notes?`<section class="detail-section"><h3>Observações</h3><p class="detail-bio">${safe(match.notes)}</p></section>`:""}`;
+  overlay.classList.add("open");
+}
 async function loadMatches(){
   const host=$("#matchesList");if(!host)return;
   renderPublicStats();
   if(!supabaseClient){host.innerHTML='<div class="market-empty">Conecte o Supabase para consultar o histórico oficial.</div>';return;}
   host.innerHTML='<div class="market-empty">Carregando partidas...</div>';
-  const {data,error}=await supabaseClient.from("matches").select("id,played_at,map_name,team_a_name,team_b_name,team_a_score,team_b_score,status,best_of,notes,player_match_stats(player_id,kills,deaths,assists,adr,headshot_pct,mvps,first_kills,first_deaths,clutches_won,team_side,players(nickname)),match_maps(map_number,map_name,team_a_score,team_b_score,team_a_start_side,a_first_half,b_first_half,a_second_half,b_second_half,a_ot_tr,a_ot_ct,b_ot_tr,b_ot_ct)").eq("status","completed").order("played_at",{ascending:false}).limit(100);
+  const {data,error}=await supabaseClient.from("matches").select("id,played_at,map_name,team_a_name,team_b_name,team_a_score,team_b_score,status,best_of,notes,player_match_stats(player_id,player_name_snapshot,is_guest,kills,deaths,assists,adr,headshot_pct,mvps,first_kills,first_deaths,clutches_won,team_side,players(nickname)),match_maps(map_number,map_name,team_a_score,team_b_score,team_a_start_side,a_first_half,b_first_half,a_second_half,b_second_half,a_ot_tr,a_ot_ct,b_ot_tr,b_ot_ct),match_veto_actions(sequence_no,action_type,map_name,team_name_snapshot,starting_side)").eq("status","completed").order("played_at",{ascending:false}).limit(100);
   if(error){host.innerHTML=`<div class="market-empty">Não foi possível carregar partidas: ${safe(error.message)}</div>`;return;}
   await loadPlayerSideStats();
   await loadPlayerMapStats();
-  const matches=data||[];$("#matchCount").textContent=`${matches.length} partida${matches.length===1?"":"s"}`;
+  const matches=data||[];loadedMatchRecords=matches;$("#matchCount").textContent=`${matches.length} partida${matches.length===1?"":"s"}`;
   host.innerHTML=matches.length?matches.map(m=>{
     const date=m.played_at?new Date(m.played_at).toLocaleString("pt-BR"):"Data não informada";
     const winner=m.team_a_score>m.team_b_score?"A":m.team_b_score>m.team_a_score?"B":"D";
@@ -509,7 +539,13 @@ async function loadMatches(){
     const dotsB=ordered.map(mm=>`<i class="match-map-dot ${mm.team_b_score>mm.team_a_score?"is-won":""}" title="${safe(mm.map_name)}"></i>`).join("");
     return `<article class="match-card match-card-compact" data-match-id="${safe(m.id)}"><div class="match-card-top"><small>${safe(date)} · MD${m.best_of||1}</small>${isAdmin?`<button class="btn btn-danger btn-small" data-delete-match="${safe(m.id)}">Excluir</button>`:""}</div><div class="match-score"><b class="${winner==="A"?"match-winner":""}">${safe(m.team_a_name)}</b><strong>${m.team_a_score} : ${m.team_b_score}</strong><b class="${winner==="B"?"match-winner":""}">${safe(m.team_b_name)}</b></div>${(m.best_of||1)>1?`<div class="match-map-tracks"><div><small>${safe(m.team_a_name)}</small>${dotsA}</div><div><small>${safe(m.team_b_name)}</small>${dotsB}</div></div>`:""}</article>`;
   }).join(""):'<div class="empty-state"><h3>Nenhuma partida registrada</h3><p>Quando a administração cadastrar o primeiro confronto, ele aparecerá aqui.</p></div>';
-  $$('[data-delete-match]').forEach(btn=>btn.addEventListener('click',async()=>{
+  $("#matchesList .match-card[data-match-id]").forEach(card=>{
+    card.setAttribute("role","button");card.setAttribute("tabindex","0");
+    const open=()=>openMatchDetail(loadedMatchRecords.find(m=>m.id===card.dataset.matchId));
+    card.addEventListener("click",e=>{if(e.target.closest("[data-delete-match]"))return;open();});
+    card.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();open();}});
+  });
+  $('[data-delete-match]').forEach(btn=>btn.addEventListener('click',async()=>{
     if(!confirm("Excluir esta partida? As estatísticas dos jogadores serão recalculadas sem este confronto."))return;
     const {error}=await supabaseClient.rpc("acs_admin_delete_match",{p_match_id:btn.dataset.deleteMatch});
     if(error){toast("Não foi possível excluir a partida: "+error.message);return;}
@@ -525,9 +561,9 @@ $("#adminMatchForm")?.addEventListener("submit",async e=>{
  const playerStats=[];$$("#matchPlayerRows [data-match-player], #matchGuestRows [data-match-guest]").forEach(row=>{const get=k=>row.querySelector(`[data-match-key="${k}"]`).value;const side=get("team_side"),status=get("participation_status");if(!side)return;const mapStats=[...row.querySelectorAll("[data-map-stat]")].reduce((all,input)=>{const n=Number(input.dataset.mapStat);all[n]??={map_number:n};const key=input.dataset.statKey;all[n][key]=input.value===""?null:Number(input.value);return all;},{});const arr=Object.values(mapStats);const sum=k=>arr.reduce((s,x)=>s+(Number(x[k])||0),0);const avg=k=>{const vals=arr.map(x=>x[k]).filter(v=>v!==null&&v!==undefined);return vals.length?vals.reduce((a,b)=>a+Number(b),0)/vals.length:null;};playerStats.push({player_id:row.dataset.matchPlayer||null,player_name:row.dataset.matchGuest?row.querySelector("[data-guest-name]").value.trim():null,team_side:side,participation_status:status,kills:sum("kills"),deaths:sum("deaths"),assists:sum("assists"),adr:avg("adr"),headshot_pct:avg("headshot_pct"),mvps:sum("mvps"),first_kills:sum("first_kills"),first_deaths:sum("first_deaths"),clutches_won:sum("clutches_won"),map_stats:arr});});
  if(!playerStats.length){toast("Selecione os jogadores participantes e suas equipes.");return;}
  const button=$("#saveMatchButton");button.disabled=true;button.textContent="Salvando série...";
- const match={tournament_id:$("#matchBracketNode")?.value?$("#matchBracketNode").dataset.tournamentId||null:null,bracket_node_id:$("#matchBracketNode")?.value||null,team_a_id:teamA==="custom"?null:teamA,team_b_id:teamB,team_a_name:teamA==="custom"?$("#customTeamAName").value.trim():null,team_b_name:teamB==="custom"?$("#customTeamBName").value.trim():null,veto_actions:[...$$("#matchVetoRows .veto-row")].map(row=>({action_type:row.querySelector("[data-veto-key=action]").value,map_name:row.querySelector("[data-veto-key=map]").value,team_id:row.querySelector("[data-veto-key=team]").value==="A"?teamA==="custom"?null:teamA:teamB==="custom"?null:teamB,team_name:row.querySelector("[data-veto-key=team]").value==="A"?(teamA==="custom"?$("#customTeamAName").value.trim():$("#matchTeamA").selectedOptions[0].textContent): (teamB==="custom"?$("#customTeamBName").value.trim():$("#matchTeamB").selectedOptions[0].textContent),starting_side:row.querySelector("[data-veto-key=side]").value||null})),best_of:bestOf,played_at:$("#matchPlayedAt").value?new Date($("#matchPlayedAt").value).toISOString():null,notes:$("#matchNotes").value.trim()};
+ const match={tournament_id:$("#matchBracketNode")?.value?$("#matchBracketNode").dataset.tournamentId||null:null,bracket_node_id:$("#matchBracketNode")?.value||null,team_a_id:teamA==="custom"?null:teamA,team_b_id:teamB==="custom"?null:teamB,team_a_name:teamA==="custom"?$("#customTeamAName").value.trim():null,team_b_name:teamB==="custom"?$("#customTeamBName").value.trim():null,veto_actions:[...$$("#matchVetoRows .veto-row")].map(row=>({action_type:row.querySelector("[data-veto-key=action]").value,map_name:row.querySelector("[data-veto-key=map]").value,team_id:row.querySelector("[data-veto-key=team]").value==="A"?teamA==="custom"?null:teamA:teamB==="custom"?null:teamB,team_name:row.querySelector("[data-veto-key=team]").value==="A"?(teamA==="custom"?$("#customTeamAName").value.trim():$("#matchTeamA").selectedOptions[0].textContent): (teamB==="custom"?$("#customTeamBName").value.trim():$("#matchTeamB").selectedOptions[0].textContent),starting_side:row.querySelector("[data-veto-key=side]").value||null})),best_of:bestOf,played_at:$("#matchPlayedAt").value?new Date($("#matchPlayedAt").value).toISOString():null,notes:$("#matchNotes").value.trim()};
  let result;try{result=await supabaseClient.rpc("acs_admin_record_series",{p_match:match,p_maps:maps,p_player_stats:playerStats});}catch(err){result={error:err};}
  button.disabled=false;button.textContent="Registrar série e atualizar rankings";
  if(result?.error){toast("Não foi possível registrar: "+(result.error.message||"erro inesperado")+". Confira se as migrations ACS 4.3 e 4.3.1 foram executadas.");return;}
- e.target.reset();localStorage.removeItem("acs5_match_draft_v1");if(currentUser)await supabaseClient.from("match_drafts").delete().eq("owner_user_id",currentUser.id);$("#matchGuestRows").innerHTML="";$("#matchMapCount").value="3";renderMapEditors();renderMatchPlayerRows();toast("Série registrada. Estatísticas e rankings atualizados.");await loadCloudPlayers();await loadMatches();await loadTeamsData();renderAdminPanel();
+ e.target.reset();localStorage.removeItem("acs5_match_draft_v1");localStorage.removeItem(`acs5_match_draft_v1:${currentUser?.id||"admin"}`);if(currentUser)await supabaseClient.from("match_drafts").delete().eq("owner_user_id",currentUser.id);$("#matchGuestRows").innerHTML="";$("#matchMapCount").value="3";renderMapEditors();renderMatchPlayerRows();toast("Série registrada. Estatísticas e rankings atualizados.");await loadCloudPlayers();await loadMatches();await loadTeamsData();renderAdminPanel();
 });
