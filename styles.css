@@ -27,3 +27,20 @@
 .bg-black{background:#0a0c10}.bg-white{background:#f1f3f6;color:#171a20}.bg-light_orange{background:#f5e2d3;color:#27211d}.bg-light_green{background:#dcefe2;color:#17271e}.bg-light_red{background:#f2dddd;color:#2b1919}.bg-light_yellow{background:#f2edcf;color:#2b2818}.bg-blue{background:var(--panel2)}
 .role-tag-awp{background:#1b6b45!important;color:#fff!important}.role-tag-rifler{background:#9d343b!important;color:#fff!important}.role-tag-igl{background:#76502f!important;color:#fff!important}.role-tag-lurker{background:#633d91!important;color:#fff!important}.role-tag-support{background:#245b9b!important;color:#fff!important}.role-tag-entry{background:#b85b20!important;color:#fff!important}
 .team-card.profile-blue{border-color:#4b9cff}.team-card.profile-green{border-color:#37c978}.team-card.profile-red{border-color:#ef5d62}.team-card.profile-yellow{border-color:#e6c44c}
+
+
+/* ACS 5.0 match reports */
+.match-card[role="button"]{cursor:pointer}
+.match-card[role="button"]:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.match-card.match-highlight{border-color:var(--accent);box-shadow:0 0 0 2px #62a8ff22}
+.match-detail-map{display:grid;gap:6px;padding:12px 14px;margin:8px 0;background:#0d141e;border:1px solid var(--line);border-radius:6px}
+.match-detail-map>div{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.match-detail-map strong{font:700 23px var(--display);color:var(--accent);white-space:nowrap}
+.match-detail-map small{font-size:10px;color:var(--muted);line-height:1.5}
+.match-detail-veto{display:grid;gap:7px}
+.match-detail-veto span{padding:9px 11px;background:#0d141e;border:1px solid var(--line);border-radius:5px;font-size:10px;color:#b9c7d7}
+.stats-subheading{font:700 16px var(--display);margin:16px 0 9px;color:#dce5ef}
+.tournament-qualification{margin-bottom:15px}
+.tournament-qualification-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line)}
+.tournament-qualification-row select{min-width:145px;background:#0e141d;border:1px solid #2b3747;color:#dce5ef;padding:8px;border-radius:5px}
+@media(max-width:600px){.match-detail-map>div{align-items:flex-start;flex-direction:column}.tournament-qualification-row{align-items:flex-start;flex-direction:column}.tournament-qualification-row select{width:100%}}

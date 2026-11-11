@@ -1,0 +1,44 @@
+name: ACS 5.0 validation
+
+on:
+  push:
+    branches: [acs5/materialize]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check JavaScript syntax
+        run: |
+          node --check app.js
+          node --check acs5.js
+          node --check supabase-config.js
+      - name: Check required frontend integrations
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          html = Path("index.html").read_text()
+          app = Path("app.js").read_text()
+          acs = Path("acs5.js").read_text()
+          config = Path("supabase-config.js").read_text()
+          assert 'id="matchBracketNode"' in html
+          assert 'bracket_node_id:$("#matchBracketNode")' in app
+          assert 'from("match_drafts").upsert' in acs
+          assert 'acs_admin_build_playoffs' in acs
+          assert 'qualification_draft' in acs
+          assert 'sb_secret_' not in config
+          assert 'service_role\n' not in config
+          print("ACS 5.0 integration checks passed.")
+          PY
