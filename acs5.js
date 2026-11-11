@@ -4,7 +4,7 @@
   const $$ = (s) => [...document.querySelectorAll(s)];
   const safe5 = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const toast5 = (m) => typeof toast === "function" ? toast(m) : alert(m);
-  const tournamentId = "9a865495-77c1-439f-a468-0ad8d52634b7";
+  const tournamentId = document.documentElement.dataset.acsTournamentId || "9a865495-77c1-439f-a468-0ad8d52634b7";
   let tournament = null;
   let registrations = [];
   let tournamentStages = [];
@@ -137,8 +137,8 @@
         const el = $("#"+id);
         if (el && draft.fields && Object.prototype.hasOwnProperty.call(draft.fields,id)) el.value = draft.fields[id] ?? "";
       });
-      oldRenderMapEditors();
-      oldRenderMatchRows();
+      renderMapEditors();
+      renderMatchPlayerRows();
       if (typeof syncCustomTeamFields === "function") syncCustomTeamFields();
       const guestHost = $("#matchGuestRows");
       while (guestHost && guestHost.querySelectorAll("[data-match-guest]").length < Number(draft.guestCount || 0)) addGuestRow();
@@ -349,6 +349,7 @@
     select.dataset.tournamentId=tournamentId;
     if(error){select.innerHTML='<option value="">Partida avulsa (não vinculada)</option>';return;}
     const matches=(data||[]).filter(node=>node.team_a_id&&node.team_b_id);
+    select._acsBracketNodes=matches;
     const labels=matches.map(node=>{
       const stage=tournamentStages.find(item=>item.id===node.stage_id)?.name||"Campeonato";
       const nameA=cloudTeams.find(team=>team.id===node.team_a_id)?.name||"Equipe A";
@@ -360,7 +361,7 @@
     if(select.dataset.acsBound!=="true"){
       select.dataset.acsBound="true";
       select.addEventListener("change",()=>{
-        const node=matches.find(item=>item.id===select.value);
+        const node=(select._acsBracketNodes||[]).find(item=>item.id===select.value);
         if(!node)return;
         const teamA=$("#matchTeamA"),teamB=$("#matchTeamB");
         if(teamA){teamA.value=node.team_a_id;teamA.dispatchEvent(new Event("change",{bubbles:true}));}
@@ -414,7 +415,8 @@
       const top = obj => Object.entries(obj).sort((a,b)=>b[1]-a[1])[0];
       return { ...t, topPick: top(t.picks), topBan: top(t.bans) };
     });
-    host.insertAdjacentHTML("beforeend", `<div class="detail-section"><h3>Mapas mais escolhidos e banidos</h3><div class="public-stats-table-wrap"><table class="public-stats-table"><thead><tr><th>Equipe</th><th>Mais pickado</th><th>Mais banido</th></tr></thead><tbody>${rows.map(r=>`<tr><td><b>${safe5(r.name)}</b></td><td>${r.topPick?`${safe5(r.topPick[0])} · ${r.topPick[1]}`:"—"}</td><td>${r.topBan?`${safe5(r.topBan[0])} · ${r.topBan[1]}`:"—"}</td></tr>`).join("")}</tbody></table></div></div>`);
+    $("#acsTeamMapChoiceStats")?.remove();
+    host.insertAdjacentHTML("beforeend", `<div class="detail-section" id="acsTeamMapChoiceStats"><h3>Mapas mais escolhidos e banidos</h3><div class="public-stats-table-wrap"><table class="public-stats-table"><thead><tr><th>Equipe</th><th>Mais pickado</th><th>Mais banido</th></tr></thead><tbody>${rows.map(r=>`<tr><td><b>${safe5(r.name)}</b></td><td>${r.topPick?`${safe5(r.topPick[0])} · ${r.topPick[1]}`:"—"}</td><td>${r.topBan?`${safe5(r.topBan[0])} · ${r.topBan[1]}`:"—"}</td></tr>`).join("")}</tbody></table></div></div>`);
   }
   const oldLoadTeamRankings = loadTeamRankings;
   loadTeamRankings = async function () { await oldLoadTeamRankings(); await loadTeamMapChoiceStats(); };
