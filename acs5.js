@@ -170,6 +170,20 @@
     }
   }
 
+  window.clearACS5MatchDraft = async function () {
+    clearTimeout(draftSyncTimer);
+    draftSyncTimer = null;
+    await draftSyncChain;
+    try {
+      localStorage.removeItem(draftKey());
+      localStorage.removeItem("acs5_match_draft_v1");
+    } catch (_) {}
+    if (currentUser && supabaseClient) {
+      const { error } = await supabaseClient.from("match_drafts").delete().eq("owner_user_id", currentUser.id);
+      if (error) throw error;
+    }
+  };
+
   const matchForm = $("#adminMatchForm");
   if (matchForm) {
     const note = document.createElement("p");
