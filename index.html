@@ -128,32 +128,99 @@
         <section class="panel admin-match-panel" id="matchesAdminPanel" style="display:none"><div class="panel-head"><div><span class="eyebrow">ADMIN / MATCH OPERATIONS</span><h3>Registrar partida oficial</h3></div><span class="badge-admin">ADMINISTRADOR</span></div>
           <p class="form-note">Esta área só aparece para administradores. Os resultados salvos aqui ficam públicos para todos os jogadores.</p>
           <form id="adminMatchForm" class="admin-match-form">
-            <div class="form-grid">
-              <label class="field">EQUIPE A<select id="matchTeamA" required><option value="">Selecione a equipe A...</option></select></label>
-              <label class="field">EQUIPE B<select id="matchTeamB" required><option value="">Selecione a equipe B...</option></select></label>
-              <label class="field" id="customTeamAWrap" style="display:none">NOME DA EQUIPE A (AVULSA)<input id="customTeamAName" maxlength="60"></label><label class="field" id="customTeamBWrap" style="display:none">NOME DA EQUIPE B (AVULSA)<input id="customTeamBName" maxlength="60"></label>
-              <label class="field span-2">CONFRONTO DO CAMPEONATO<select id="matchBracketNode"><option value="">Partida avulsa (não vinculada)</option></select></label>
-              <label class="field">FORMATO<select id="matchBestOf"><option value="1">MD1</option><option value="3">MD3</option><option value="5">MD5</option></select></label><label class="field" id="matchMapCountWrap" style="display:none">MAPAS DISPUTADOS<select id="matchMapCount"><option value="3" selected>3 mapas</option><option value="4">4 mapas</option><option value="5">5 mapas</option></select></label>
-              <label class="field">DATA/HORA<input id="matchPlayedAt" type="datetime-local"></label>
-              <label class="field span-2">OBSERVAÇÕES<textarea id="matchNotes" rows="2" maxlength="500"></textarea></label>
-            </div>
-            <div class="match-player-heading"><h4>Mapas e placares</h4><p>Informe os rounds vencidos por cada equipe em cada tempo. O segundo tempo já considera a troca de lados. Em 12–12, preencha a prorrogação MR3 por lado; informe os rounds totais de todas as séries de overtime.</p></div>
-            <div id="matchMapsEditor" class="match-player-rows"></div>
-            <div class="match-player-heading"><h4>Veto, picks e decider</h4><p>Registre a ordem das ações, a equipe responsável, o mapa e o lado inicial quando aplicável.</p></div><div id="matchVetoEditor"></div>
-            <div class="match-player-heading"><h4>Estatísticas dos jogadores</h4><p>Defina a equipe e o status de cada jogador. Para cada mapa, registre K/D/A, ADR, HS%, MVP, first kills, first deaths e clutches. Jogadores que não jogaram não entram nas estatísticas.</p></div>
-            <div id="matchPlayerRows" class="match-player-rows"></div><div id="matchGuestRows" class="match-player-rows"></div><button class="btn btn-ghost btn-small" type="button" id="addGuestPlayer">＋ Adicionar jogador convidado</button>
-            <div class="admin-save-row"><button class="btn btn-primary" type="submit" id="saveMatchButton">Registrar série e atualizar rankings</button></div>
+            <section class="match-step match-step-format">
+              <div class="match-step-heading"><span class="match-step-number">01</span><div><span class="eyebrow">CONFIGURAÇÃO DA SÉRIE</span><h4>Qual é o formato da partida?</h4><p>Escolha o formato primeiro. O formulário monta a sequência de veto e os mapas automaticamente.</p></div></div>
+              <div class="form-grid match-setup-grid">
+                <label class="field match-format-field">FORMATO DA SÉRIE
+                  <select id="matchBestOf" required data-draft-key="matchBestOf"><option value="">Escolha MD1, MD3 ou MD5...</option><option value="1">MD1 · Melhor de 1</option><option value="3">MD3 · Melhor de 3</option><option value="5">MD5 · Melhor de 5</option></select>
+                </label>
+                <label class="field">EQUIPE A<select id="matchTeamA" required data-draft-key="matchTeamA"><option value="">Selecione a equipe A...</option></select></label>
+                <label class="field">EQUIPE B<select id="matchTeamB" required data-draft-key="matchTeamB"><option value="">Selecione a equipe B...</option></select></label>
+                <label class="field custom-team-field" id="customTeamAWrap" style="display:none">NOME DA EQUIPE A<input id="customTeamAName" maxlength="60" data-draft-key="customTeamAName" placeholder="Nome da equipe avulsa"></label>
+                <label class="field custom-team-field" id="customTeamBWrap" style="display:none">NOME DA EQUIPE B<input id="customTeamBName" maxlength="60" data-draft-key="customTeamBName" placeholder="Nome da equipe avulsa"></label>
+                <label class="field span-2">VINCULAR AO CAMPEONATO<select id="matchBracketNode" data-draft-key="matchBracketNode"><option value="">Partida avulsa (não vinculada)</option></select></label>
+                <label class="field">DATA E HORA<input id="matchPlayedAt" type="datetime-local" data-draft-key="matchPlayedAt"></label>
+                <label class="field span-2">OBSERVAÇÕES<textarea id="matchNotes" rows="2" maxlength="500" data-draft-key="matchNotes" placeholder="Opcional"></textarea></label>
+              </div>
+            </section>
+
+            <section class="match-step" data-match-step="veto" hidden>
+              <div class="match-step-heading"><span class="match-step-number">02</span><div><span class="eyebrow">MAP VETO</span><h4>Veto, picks e decider</h4><p>Informe a ordem das ações, a equipe responsável e o mapa. O último mapa livre será definido como decider.</p></div></div>
+              <div id="matchVetoEditor" class="match-veto-editor"><div class="match-empty-state">Escolha MD1, MD3 ou MD5 para montar o veto.</div></div>
+              <div id="matchVetoSummary" class="match-veto-summary" aria-live="polite"></div>
+            </section>
+
+            <section class="match-step" data-match-step="roster" hidden>
+              <div class="match-step-heading"><span class="match-step-number">03</span><div><span class="eyebrow">ROSTERS</span><h4>Quem jogou por cada equipe?</h4><p>Selecione o elenco uma única vez. Os jogadores marcados aparecerão automaticamente nas tabelas de todos os mapas da série.</p></div></div>
+              <div id="matchRosterEditor" class="match-roster-grid"><div class="match-empty-state">Selecione as duas equipes para carregar os elencos.</div></div>
+            </section>
+
+            <section class="match-step" data-match-step="stats" hidden>
+              <div class="match-step-heading"><span class="match-step-number">04</span><div><span class="eyebrow">MAP REPORTS</span><h4>Preencha as estatísticas por mapa</h4><p>Uma tabela por mapa disputado. Os jogadores vêm do elenco selecionado acima; basta preencher K, D, A, ADR, MVP e HS%.</p></div></div>
+              <div id="matchMapsEditor" class="match-map-cards"><div class="match-empty-state">O formulário criará as tabelas assim que o veto estiver completo.</div></div>
+            </section>
+            <div id="matchPlayerRows" hidden></div><div id="matchGuestRows" hidden></div>
+            <div class="admin-save-row match-submit-row"><button class="btn btn-primary" type="submit" id="saveMatchButton">Salvar partida e atualizar estatísticas</button><span class="form-note">O rascunho é salvo automaticamente neste dispositivo e na nuvem.</span></div>
           </form>
         </section>
         <section class="panel"><div class="panel-head"><div><span class="eyebrow">MATCH ARCHIVE</span><h3>Histórico de partidas</h3></div><span class="muted small" id="matchCount">0 partidas</span></div><div id="matchesList" class="matches-list"><div class="market-empty">Carregando partidas...</div></div></section>
       </section>
 
       <section class="page" id="page-tournaments">
-        <div class="page-title-row"><div><span class="eyebrow">COMPETITIVE SEASON / TOURNAMENTS</span><h1>CAMPEONATOS</h1><p>Inscrições, organização e acompanhamento das competições da Liga Amendoim CS2.</p></div><button class="btn btn-ghost" id="refreshTournaments">↻ Atualizar</button></div>
-        <section class="panel tournament-feature"><div class="panel-head"><div><span class="eyebrow">TEMPORADA 2026</span><h3 id="tournamentName">Liga Amendoim CS2 - S1 (26)</h3></div><span class="badge-admin" id="tournamentStatus">INSCRIÇÕES ABERTAS</span></div><div class="tournament-meta" id="tournamentMeta">Carregando informações do campeonato...</div><div class="tournament-register-row"><label class="field">SUA EQUIPE<select id="tournamentTeamSelect"><option value="">Selecione uma equipe...</option></select></label><button class="btn btn-primary" id="registerTournamentButton">Inscrever equipe</button></div><p class="form-note" id="tournamentRegisterMessage">A inscrição exige uma equipe com pelo menos três jogadores e deve ser feita pelo capitão.</p></section>
-        <section class="panel"><div class="panel-head"><div><span class="eyebrow">REGISTRATION REVIEW</span><h3>Equipes inscritas</h3></div><span class="muted small" id="tournamentRegistrationCount">0 inscrições</span></div><div id="tournamentRegistrations" class="offer-list"><div class="market-empty">Carregando inscrições...</div></div></section>
-        <section class="panel" id="tournamentAdminPanel" style="display:none"><div class="panel-head"><div><span class="eyebrow">ADMIN / TOURNAMENT CONTROL</span><h3>Organização do campeonato</h3></div><span class="badge-admin">ADMINISTRADOR</span></div><p class="form-note">Aprove as equipes, depois organize a competição. O motor de torneios usa etapas configuráveis e mantém os confrontos vinculados às partidas oficiais.</p><div class="admin-save-row"><button class="btn btn-primary" id="organizeTournamentButton">Organizar campeonato</button></div></section>
-        <section class="panel"><div class="panel-head"><div><span class="eyebrow">BRACKET / STAGES</span><h3>Chaveamento e fases</h3></div></div><div id="tournamentBracket" class="tournament-bracket"><div class="market-empty">O chaveamento será exibido após a organização.</div></div></section>
+        <div class="page-title-row">
+          <div><span class="eyebrow">TEMPORADA COMPETITIVA / 2026</span><h1>CAMPEONATOS</h1><p>Inscrições, fases e confrontos oficiais da Liga Amendoim CS2.</p></div>
+          <button class="btn btn-ghost" id="refreshTournaments">↻ Atualizar</button>
+        </div>
+        <section class="tournament-hero">
+          <div class="tournament-hero-main">
+            <div class="tournament-hero-label"><span class="tournament-season-mark">ACS</span><span><small>PRIMEIRA TEMPORADA</small><b>LIGA AMENDOIM CS2</b></span></div>
+            <h2 id="tournamentName">Liga Amendoim CS2 - S1 (26)</h2>
+            <p>Reúna sua equipe, confirme a inscrição e dispute a primeira temporada oficial.</p>
+            <div class="tournament-hero-status"><span class="tournament-live-dot"></span><b id="tournamentStatus">INSCRIÇÕES ABERTAS</b><span>·</span><span id="tournamentRegistrationCount">0 inscrições</span></div>
+          </div>
+          <div class="tournament-deadline-card">
+            <span class="eyebrow">ENCERRAMENTO DAS INSCRIÇÕES</span>
+            <strong id="tournamentDeadline">18 NOV 2026</strong>
+            <b class="tournament-deadline-time" id="tournamentDeadlineTime">19:00 <small>HORÁRIO DE BRASÍLIA</small></b>
+            <p id="tournamentDeadlineHint">Inscreva sua equipe antes do prazo.</p>
+          </div>
+          <div class="tournament-quick-stats">
+            <div><span>EQUIPE MÍNIMA</span><b id="tournamentMinPlayers">3 jogadores</b></div>
+            <div><span>EQUIPES INSCRITAS</span><b id="tournamentTeamCount">0</b></div>
+            <div><span>EM ANÁLISE</span><b id="tournamentPendingCount">0</b></div>
+            <div><span>APROVADAS</span><b id="tournamentApprovedCount">0</b></div>
+          </div>
+        </section>
+        <section class="tournament-content-grid">
+          <section class="panel tournament-register-panel">
+            <div class="panel-head"><div><span class="eyebrow">PARTICIPE DA TEMPORADA</span><h3>Inscrever equipe</h3></div><span class="tournament-step-chip">01 / INSCRIÇÃO</span></div>
+            <p class="tournament-section-copy">A inscrição deve ser feita pelo capitão da equipe. O elenco precisa ter pelo menos três jogadores cadastrados.</p>
+            <div class="tournament-register-row">
+              <label class="field">SUA EQUIPE<select id="tournamentTeamSelect"><option value="">Selecione uma equipe...</option></select></label>
+              <button class="btn btn-primary" id="registerTournamentButton">Enviar inscrição</button>
+            </div>
+            <p class="form-note" id="tournamentRegisterMessage">Ao enviar, a inscrição ficará aguardando análise da organização.</p>
+          </section>
+          <section class="panel tournament-info-panel">
+            <span class="eyebrow">COMO FUNCIONA</span>
+            <div class="tournament-info-step"><b>01</b><div><strong>Inscrição</strong><small>Capitão envia a equipe com o elenco cadastrado.</small></div></div>
+            <div class="tournament-info-step"><b>02</b><div><strong>Revisão</strong><small>A organização verifica e aprova as equipes.</small></div></div>
+            <div class="tournament-info-step"><b>03</b><div><strong>Competição</strong><small>Fases e confrontos aparecem nesta página após a organização.</small></div></div>
+          </section>
+        </section>
+        <section class="panel tournament-registrations-panel">
+          <div class="panel-head"><div><span class="eyebrow">STATUS DAS EQUIPES</span><h3>Inscrições recebidas</h3></div><span class="tournament-step-chip">02 / REVISÃO</span></div>
+          <div id="tournamentRegistrations" class="offer-list"><div class="market-empty">Carregando inscrições...</div></div>
+        </section>
+        <section class="panel tournament-admin-panel" id="tournamentAdminPanel" style="display:none">
+          <div class="panel-head"><div><span class="eyebrow">PAINEL DA ORGANIZAÇÃO</span><h3>Controle do campeonato</h3></div><span class="badge-admin">ADMIN</span></div>
+          <p class="form-note">Aprove as inscrições e organize as fases quando o período de registro terminar.</p>
+          <div class="admin-save-row"><button class="btn btn-primary" id="organizeTournamentButton">Organizar campeonato</button></div>
+        </section>
+        <section class="panel tournament-bracket-panel">
+          <div class="panel-head"><div><span class="eyebrow">COMPETIÇÃO</span><h3>Fases e chaveamento</h3></div><span class="tournament-step-chip">03 / DISPUTA</span></div>
+          <div id="tournamentBracket" class="tournament-bracket"><div class="market-empty">O chaveamento será exibido após a organização.</div></div>
+        </section>
       </section>
 
       <section class="page" id="page-admin">
@@ -247,5 +314,6 @@
   <script src="supabase-config.js"></script>
   <script src="app.js"></script>
   <script src="acs5.js"></script>
+  <script src="match-entry.js"></script>
 </body>
 </html>
