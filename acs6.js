@@ -53,8 +53,8 @@
       const own=currentPlayerProfile();
       const captain=team.captain_player_id===own?.id;
       const logo=team.logo_url?'<img src="'+esc(team.logo_url)+'" alt="Logo '+esc(team.name)+'" loading="lazy">':'<span>'+esc((team.tag||team.name||"ACS").slice(0,3).toUpperCase())+'</span>';
-      return '<article class="team-profile-card profile-'+esc(team.frame_color||"blue")+'" data-team-profile="'+esc(team.id)+'">'+
-        '<div class="team-profile-logo">'+logo+'</div><div class="team-profile-copy"><small>'+esc(team.tag||"ACS TEAM")+'</small><h3 class="name-'+esc(team.name_color||"white")+'">'+esc(team.name)+'</h3><p>Equipe competitiva · '+members.length+' integrante(s)</p></div>'+
+      return '<article class="team-profile-card profile-'+esc(team.frame_color||"blue")+' '+(window.ACS8Cosmetics?.classFor(team.frame_style)||"")+' '+(window.ACS8Cosmetics?.classFor(team.background_style)||"")+'" data-team-profile="'+esc(team.id)+'">'+
+        '<div class="team-profile-logo">'+logo+'</div><div class="team-profile-copy"><small>'+esc(team.tag||"ACS TEAM")+'</small><h3 class="name-'+esc(team.name_color||"white")+' '+(window.ACS8Cosmetics?.classFor(team.name_style)||"")+'">'+esc(team.name)+'</h3><p>Equipe competitiva · '+members.length+' integrante(s)</p></div>'+
         (captain?'<button class="btn btn-ghost btn-small" data-team-edit="'+esc(team.id)+'">Personalizar</button>':"")+(captain||isAdmin?'<button class="btn btn-danger btn-small" data-team-delete="'+esc(team.id)+'">Excluir</button>':"")+
       '</article>';
     }).join(""):'<div class="market-empty"><b>Nenhuma equipe cadastrada</b>As equipes aparecerão aqui depois de criadas.</div>';
@@ -75,7 +75,7 @@
     const team=cloudTeams.find(t=>t.id===id);if(!team)return;
     ensureTeamModal();
     const logo=team.logo_url?'<img src="'+esc(team.logo_url)+'" alt="Logo da equipe">':'<span>'+esc((team.tag||team.name).slice(0,3).toUpperCase())+'</span>';
-    $("#teamProfileContent").innerHTML='<div class="modal-head"><span class="eyebrow">TEAM PROFILE / ACS</span><button class="icon-button" data-team-close>×</button></div><div class="team-profile-detail profile-'+esc(team.frame_color||"blue")+'"><div class="team-profile-logo">'+logo+'</div><div><small>'+esc(team.tag||"ACS TEAM")+'</small><h2 class="name-'+esc(team.name_color||"white")+'">'+esc(team.name)+'</h2><p>Perfil oficial da equipe na Liga Amenduin.</p></div></div>';
+    $("#teamProfileContent").innerHTML='<div class="modal-head"><span class="eyebrow">TEAM PROFILE / ACS</span><button class="icon-button" data-team-close>×</button></div><div class="team-profile-detail profile-'+esc(team.frame_color||"blue")+' '+(window.ACS8Cosmetics?.classFor(team.frame_style)||"")+' '+(window.ACS8Cosmetics?.classFor(team.background_style)||"")+'"><div class="team-profile-logo">'+logo+'</div><div><small>'+esc(team.tag||"ACS TEAM")+'</small><h2 class="name-'+esc(team.name_color||"white")+' '+(window.ACS8Cosmetics?.classFor(team.name_style)||"")+'">'+esc(team.name)+'</h2><p>Perfil oficial da equipe na Liga Amenduin.</p></div></div>';
     $("#teamProfileModal").classList.add("open");
   }
   function openTeamEditor(id){
@@ -86,7 +86,7 @@
       '<form id="teamEditForm" class="team-edit-form"><label class="field">NOME<input name="name" maxlength="40" required value="'+esc(team.name)+'"></label><label class="field">TAG<input name="tag" maxlength="6" value="'+esc(team.tag||"")+'"></label>'+
       '<label class="field">FOTO DA EQUIPE (PNG/JPG)<input name="logo" type="file" accept="image/png,image/jpeg"></label><label class="field">MOLDURA<select name="frame">'+["blue","red","green","yellow"].map(v=>'<option value="'+v+'" '+(frame===v?"selected":"")+'>'+({blue:"Azul",red:"Vermelho",green:"Verde",yellow:"Amarelo"}[v])+'</option>').join("")+'</select></label>'+
       '<label class="field">COR DO NOME<select name="nameColor">'+["black","red","green","blue","white","yellow"].map(v=>'<option value="'+v+'" '+(name===v?"selected":"")+'>'+({black:"Preto",red:"Vermelho",green:"Verde",blue:"Azul",white:"Branco",yellow:"Amarelo"}[v])+'</option>').join("")+'</select></label>'+
-      '<div class="modal-actions"><button type="button" class="btn btn-ghost" data-team-close>Cancelar</button><button class="btn btn-primary" type="submit">Salvar personalização</button></div></form>';
+      '<div id="teamCosmeticShop" class="cosmetic-shop-host"></div><div class="modal-actions"><button type="button" class="btn btn-ghost" data-team-close>Cancelar</button><button class="btn btn-primary" type="submit">Salvar personalização</button></div></form>';
     $("#teamProfileModal").classList.add("open");
     $("#teamEditForm").addEventListener("submit",async e=>{
       e.preventDefault();const form=e.currentTarget,button=form.querySelector('[type="submit"]');button.disabled=true;
@@ -99,6 +99,7 @@
       }catch(err){notify("Falha ao atualizar a equipe: "+(err?.message||"erro"));}
       finally{button.disabled=false;}
     });
+    window.ACS8Cosmetics?.renderEditor("team",team.id,$("#teamCosmeticShop"));
   }
 
   // Visual board document. The canvas is deliberately free-form; no bracket format is forced.
