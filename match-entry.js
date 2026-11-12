@@ -220,7 +220,8 @@
   }
   function updateFlowVisibility() {
     const format=Number($("#matchBestOf")?.value||0);
-    const hasTeams=!!teamId("A")&&!!teamId("B")&&teamId("A")!==teamId("B");
+    const identity=side=>teamId(side)==="custom"?teamName(side).trim().toLocaleLowerCase("pt-BR"):teamId(side);
+    const hasTeams=!!teamId("A")&&!!teamId("B")&&!!teamName("A").trim()&&!!teamName("B").trim()&&identity("A")!==identity("B");
     const vetoComplete=format>0&&hasTeams&&!readVeto().error;
     const rosterComplete=selectedRoster("A").length>0&&selectedRoster("B").length>0;
     const visibility={
