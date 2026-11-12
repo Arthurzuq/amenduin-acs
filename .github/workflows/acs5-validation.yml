@@ -52,7 +52,7 @@ jobs:
           assert 'acs_create_team' in acs6
           assert 'name-black' in Path("styles.css").read_text()
           assert 'qualification_draft' in acs
-          assert "$('[data-delete-match]')" in app
+          assert "$$('[data-delete-match]')" in app
           assert 'player_map_stats(player_id,map_number' in app
           assert 'toLocaleLowerCase("pt-BR")' in match
           assert 'economy_claim_weekly_grant' in acs7
