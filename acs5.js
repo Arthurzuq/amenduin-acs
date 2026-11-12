@@ -433,7 +433,7 @@
         const status=({ready:"Pronto",completed:"Concluído",bye:"Avanço automático",pending:"Aguardando",live:"Em andamento"})[node.status]||node.status;
         const slot=(which,teamId,name)=>`<div class="tournament-slot ${teamId?"filled":""}" data-bracket-node="${safe5(node.id)}" data-bracket-slot="${which}">${safe5(name)}</div>`;
         return `<article class="tournament-node"><div><small>${safe5(node.bracket_side)} · Rodada ${node.round_number} · Jogo ${node.match_number} · ${safe5(status)}</small>${slot("A",node.team_a_id,teamA)}</div><div>${slot("B",node.team_b_id,teamB)}</div></article>`;
-      }).join(""):'<div class="market-empty">Fase sem confrontos gerados.</div>'}</div>`;
+      }).join(""):(groupsRes.data||[]).some(group=>group.stage_id===stage.id)?'':'<div class="market-empty">Fase sem confrontos gerados.</div>'}</div>`;
     }).join("");
 
     const publicGroupHtml=(groupsRes.data||[]).map(group=>{
