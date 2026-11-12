@@ -559,6 +559,7 @@
       if (typeof loadCloudPlayers==="function") await loadCloudPlayers();
       if (typeof loadMatches==="function") await loadMatches();
       if (typeof loadTeamsData==="function") await loadTeamsData();
+      if (typeof window.ACS5_REFRESH_BRACKET_CHOICES==="function") await window.ACS5_REFRESH_BRACKET_CHOICES();
       if (typeof renderAdminPanel==="function") renderAdminPanel();
     } catch (error) {
       notify("Não foi possível registrar a série: "+(error?.message||"erro inesperado"));
