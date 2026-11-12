@@ -520,6 +520,7 @@
       });
     }
   }
+  window.ACS5_REFRESH_BRACKET_CHOICES=loadTournamentMatchChoices;
   $("#registerTournamentButton")?.addEventListener("click", async () => {
     if (!currentUser || !supabaseClient) { $("#authModal")?.classList.add("open"); return; }
     const teamId = $("#tournamentTeamSelect").value;
