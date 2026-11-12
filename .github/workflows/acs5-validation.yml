@@ -2,7 +2,7 @@ name: ACS 5.0 validation
 
 on:
   push:
-    branches: [acs5/materialize]
+    branches: [acs5/materialize, acs6/profile-team-tournament-board]
   pull_request:
     branches: [main]
   workflow_dispatch:
