@@ -493,20 +493,26 @@
     if(!select||!supabaseClient)return;
     const keep=select.value;
     const {data,error}=await supabaseClient.from("tournament_bracket_nodes")
-      .select("id,stage_id,bracket_side,round_number,match_number,team_a_id,team_b_id,status")
+      .select("id,stage_id,group_id,bracket_side,round_number,match_number,team_a_id,team_b_id,status,config")
       .eq("tournament_id",tournamentId).eq("status","ready")
       .order("round_number").order("match_number");
     select.dataset.tournamentId=tournamentId;
     if(error){select.innerHTML='<option value="">Partida avulsa (não vinculada)</option>';return;}
+    const {data:groupRows}=await supabaseClient.from("tournament_groups").select("id,name");
+    const groupNames=new Map((groupRows||[]).map(group=>[group.id,group.name]));
     const matches=(data||[]).filter(node=>node.team_a_id&&node.team_b_id);
     select._acsBracketNodes=matches;
     const labels=matches.map(node=>{
       const stage=tournamentStages.find(item=>item.id===node.stage_id)?.name||"Campeonato";
+      const groupName=node.bracket_side==="groups"
+        ?(groupNames.get(node.group_id||node.config?.group_node_id)||"Fase de grupos")
+        :null;
       const nameA=cloudTeams.find(team=>team.id===node.team_a_id)?.name||"Equipe A";
       const nameB=cloudTeams.find(team=>team.id===node.team_b_id)?.name||"Equipe B";
-      return {id:node.id,label:`${stage} · ${node.bracket_side} · R${node.round_number}/J${node.match_number} · ${nameA} × ${nameB}`};
+      const phaseLabel=groupName?groupName+" · "+stage:"Mata-mata · "+stage;
+      return {id:node.id,label:phaseLabel+" · R"+node.round_number+"/J"+node.match_number+" · "+nameA+" × "+nameB};
     });
-    select.innerHTML='<option value="">Partida avulsa (não vinculada)</option>'+labels.map(item=>`<option value="${safe5(item.id)}">${safe5(item.label)}</option>`).join("");
+    select.innerHTML='<option value="">Partida avulsa (não vinculada)</option>'+labels.map(item=>'<option value="'+safe5(item.id)+'">'+safe5(item.label)+'</option>').join("");
     select.value=labels.some(item=>item.id===keep)?keep:"";
     if(select.dataset.acsBound!=="true"){
       select.dataset.acsBound="true";
