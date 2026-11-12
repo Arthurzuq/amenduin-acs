@@ -58,8 +58,8 @@
         (captain?'<button class="btn btn-ghost btn-small" data-team-edit="'+esc(team.id)+'">Personalizar</button>':"")+(captain||isAdmin?'<button class="btn btn-danger btn-small" data-team-delete="'+esc(team.id)+'">Excluir</button>':"")+
       '</article>';
     }).join(""):'<div class="market-empty"><b>Nenhuma equipe cadastrada</b>As equipes aparecerão aqui depois de criadas.</div>';
-    $("[data-team-edit]").forEach(btn=>btn.addEventListener("click",()=>openTeamEditor(btn.dataset.teamEdit)));
-    $("[data-team-delete]").forEach(btn=>btn.addEventListener("click",()=>deleteTeam(btn.dataset.teamDelete)));
+    $$("[data-team-edit]").forEach(btn=>btn.addEventListener("click",()=>openTeamEditor(btn.dataset.teamEdit)));
+    $$("[data-team-delete]").forEach(btn=>btn.addEventListener("click",()=>deleteTeam(btn.dataset.teamDelete)));
     $$("[data-team-profile]").forEach(card=>card.addEventListener("click",e=>{
       if(e.target.closest("button"))return;
       openTeamProfile(card.dataset.teamProfile);
