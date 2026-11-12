@@ -67,9 +67,9 @@ jobs:
           assert "acs_purchase_cosmetic" in cosmetics
           assert "animated_chroma" in cosmetics and "animated_neon" in cosmetics
           assert Path("acs-9.0-cosmetics-migration.sql").exists()
-          assert "id=\\"customizePlayer\\"" in app
+          assert 'id="customizePlayer"' in app
           assert "acs8-cosmetics.js" in html
           assert 'sb_secret_' not in config
           assert 'service_role\n' not in config
-          print("ACS 7.0 integration checks passed.")
+          print("ACS 9.0 integration checks passed.")
           PY
