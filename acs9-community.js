@@ -134,10 +134,7 @@
     host.innerHTML=(data||[]).length?data.map(a=>'<article class="community-item"><div><b>'+esc(a.action)+'</b><small>'+esc(a.players?.nickname||"Registro geral")+' · '+fmtDate(a.created_at)+'</small></div><small>'+esc(JSON.stringify(a.new_values||{}).slice(0,110))+'</small></article>').join(""):'<div class="community-empty">Nenhuma alteração administrativa registrada.</div>';
   }
   $("#acsCommunityRefresh")?.addEventListener("click",loadCommunity);
-  const oldUpdateAuthButton=window.updateAuthButton;
-  // Keep the profile shortcut synchronized with cloud profile hydration and auth transitions.
-  const observer=new MutationObserver(()=>refreshProfileMenu());
-  observer.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:["class"]});
+  // Refresh account identity periodically; notifications refresh only while the hub is visible.
   setInterval(()=>{refreshProfileMenu();if($("#page-community")?.classList.contains("active"))loadNotifications();},12000);
   const oldOpenDetail=window.openDetail;
   if(typeof openDetail==="function"){
