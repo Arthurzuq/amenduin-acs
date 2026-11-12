@@ -70,6 +70,13 @@
   });
   async function loadCalendar(){
     const host=$("#acsCalendar");if(!host)return;
+    const form=$("#acsScheduleForm");
+    if(form){
+      form.hidden=!isAdmin;
+      const {data:teams}=await supabaseClient.from("teams").select("id,name").order("name");
+      const options='<option value="">Selecione...</option>'+(teams||[]).map(t=>'<option value="'+esc(t.id)+'">'+esc(t.name)+'</option>').join("");
+      $("#acsScheduleTeamA").innerHTML=options;$("#acsScheduleTeamB").innerHTML=options;
+    }
     if(!supabaseClient){host.innerHTML='<div class="community-empty">Agenda indisponível sem conexão.</div>';return;}
     const now=new Date().toISOString();
     const {data,error}=await supabaseClient.from("matches").select("id,played_at,team_a_name,team_b_name,best_of,status").eq("status","scheduled").gte("played_at",now).order("played_at").limit(25);
@@ -133,6 +140,19 @@
     if(error){host.innerHTML='<div class="community-empty">Não foi possível carregar auditoria: '+esc(error.message)+'</div>';return;}
     host.innerHTML=(data||[]).length?data.map(a=>'<article class="community-item"><div><b>'+esc(a.action)+'</b><small>'+esc(a.players?.nickname||"Registro geral")+' · '+fmtDate(a.created_at)+'</small></div><small>'+esc(JSON.stringify(a.new_values||{}).slice(0,110))+'</small></article>').join(""):'<div class="community-empty">Nenhuma alteração administrativa registrada.</div>';
   }
+  $("#acsScheduleForm")?.addEventListener("submit",async e=>{
+    e.preventDefault();
+    if(!isAdmin||!supabaseClient){toast("Somente administradores podem agendar partidas.");return;}
+    const teamA=$("#acsScheduleTeamA").value,teamB=$("#acsScheduleTeamB").value,raw=$("#acsScheduleDate").value;
+    if(!teamA||!teamB||teamA===teamB||!raw){toast("Selecione duas equipes diferentes e informe a data.");return;}
+    const date=new Date(raw);
+    if(Number.isNaN(date.getTime())||date<=new Date()){toast("Escolha uma data futura.");return;}
+    const button=e.submitter;if(button){button.disabled=true;button.textContent="Agendando...";}
+    const {error}=await supabaseClient.rpc("acs_admin_schedule_match",{p_team_a_id:teamA,p_team_b_id:teamB,p_played_at:date.toISOString(),p_best_of:Number($("#acsScheduleBo").value)});
+    if(button){button.disabled=false;button.textContent="Agendar partida";}
+    if(error){toast("Não foi possível agendar: "+error.message);return;}
+    $("#acsScheduleForm").reset();toast("Partida agendada. As equipes receberão uma notificação.");loadCalendar();
+  });
   $("#acsCommunityRefresh")?.addEventListener("click",loadCommunity);
   // Refresh account identity periodically; notifications refresh only while the hub is visible.
   setInterval(()=>{refreshProfileMenu();if($("#page-community")?.classList.contains("active"))loadNotifications();},12000);
