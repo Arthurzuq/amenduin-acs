@@ -500,7 +500,7 @@ async function loadMatches(){
     card.addEventListener("click",e=>{if(e.target.closest("[data-delete-match]"))return;open();});
     card.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();open();}});
   });
-  $('[data-delete-match]').forEach(btn=>btn.addEventListener('click',async event=>{
+  $$('[data-delete-match]').forEach(btn=>btn.addEventListener('click',async event=>{
     event.preventDefault();event.stopPropagation();
     if(!isAdmin){toast("Somente administradores podem excluir partidas.");return;}
     if(!confirm("Excluir esta partida? As estatísticas dos jogadores serão recalculadas sem este confronto."))return;
