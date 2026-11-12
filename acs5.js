@@ -39,10 +39,10 @@
     wrap.id = "profileCustomization";
     wrap.className = "profile-custom-grid span-2";
     wrap.innerHTML = `
-      <label class="field">URL DA FOTO DE PERFIL<input id="profileAvatarUrl" type="url" placeholder="https://..." maxlength="500"></label>
+      <label class="field">FOTO DE PERFIL (PNG/JPG)<input id="profileAvatarFile" type="file" accept="image/png,image/jpeg"></label><label class="field">OU URL DA FOTO<input id="profileAvatarUrl" type="url" placeholder="https://..." maxlength="500"></label>
       <label class="field">MOLDURA<select id="profileFrameColor"><option value="blue">Azul</option><option value="green">Verde</option><option value="red">Vermelho</option><option value="yellow">Amarelo</option></select></label>
       <label class="field">FUNDO DO PERFIL<select id="profileBackground"><option value="black">Preto</option><option value="white">Branco</option><option value="light_orange">Laranja claro</option><option value="blue">Azul</option><option value="light_green">Verde claro</option><option value="light_red">Vermelho claro</option><option value="light_yellow">Amarelo claro</option></select></label>
-      <label class="field">COR DO NOME<select id="profileNameColor"><option value="yellow">Amarelo</option><option value="white">Branco</option><option value="gray">Cinza</option></select></label>`;
+      <label class="field">COR DO NOME<select id="profileNameColor"><option value="black">Preto</option><option value="red">Vermelho</option><option value="green">Verde</option><option value="blue">Azul</option><option value="yellow">Amarelo</option><option value="white">Branco</option><option value="gray">Cinza</option></select></label>`;
     profileGrid.append(wrap);
   }
   const oldProfileOpen = openForm;
@@ -274,7 +274,7 @@
     const [tRes,rRes]=await Promise.all([
       supabaseClient.from("tournaments").select("*").eq("id",tournamentId).maybeSingle(),
       supabaseClient.from("tournament_registrations")
-        .select("id,tournament_id,team_id,status,team_size_snapshot,roster_snapshot,registered_at,registration_note,teams(id,name,tag,captain_player_id)")
+        .select("id,tournament_id,team_id,status,team_size_snapshot,registered_at,registration_note,teams(id,name,tag,captain_player_id,logo_url,frame_color,name_color)")
         .eq("tournament_id",tournamentId).order("registered_at",{ascending:true})
     ]);
     if(tRes.error||!tRes.data){
@@ -352,15 +352,21 @@
     const host = $("#tournamentRegistrations");
     if (!registrations.length) { host.innerHTML = '<div class="market-empty">Nenhuma equipe inscrita até o momento.</div>'; return; }
     host.innerHTML = registrations.map(r => {
-      const team = r.teams?.name || cloudTeams.find(t => t.id === r.team_id)?.name || "Equipe";
-      const status = ({ pending: "Em revisão", approved: "Aprovada", rejected: "Recusada", withdrawn: "Retirada" })[r.status] || r.status;
-      const roster = Array.isArray(r.roster_snapshot) ? r.roster_snapshot.map(p => safe5(p.nickname || p.name || "Jogador")).join(", ") : "";
-      return `<div class="tournament-registration"><div><b>${safe5(team)}</b><span class="market-status">${safe5(status)}</span><small>${r.team_size_snapshot || 0} jogadores${roster ? " · " + roster : ""}</small></div>${isAdmin && r.status === "pending" ? `<div class="tournament-review-actions"><button class="btn btn-primary btn-small" data-review-registration="${safe5(r.id)}" data-review-status="approved">Aprovar</button><button class="btn btn-danger btn-small" data-review-registration="${safe5(r.id)}" data-review-status="rejected">Recusar</button></div>` : ""}</div>`;
+      const team = r.teams || cloudTeams.find(t => t.id === r.team_id) || {};
+      const name = team.name || "Equipe";
+      const status = ({ pending: "Em avaliação", approved: "Aprovada", rejected: "Rejeitada", withdrawn: "Retirada" })[r.status] || r.status;
+      const logo = team.logo_url ? `<img src="${safe5(team.logo_url)}" alt="" loading="lazy">` : `<span>${safe5((team.tag||name).slice(0,3).toUpperCase())}</span>`;
+      return `<article class="tournament-team-profile profile-${safe5(team.frame_color||"blue")}">
+        <div class="tournament-team-avatar">${logo}</div>
+        <div class="tournament-team-identity"><small>${safe5(team.tag||"ACS TEAM")}</small><b class="name-${safe5(team.name_color||"white")}">${safe5(name)}</b><span>${Number(r.team_size_snapshot||0)} integrantes inscritos</span></div>
+        <span class="tournament-review-badge status-${safe5(r.status)}">${safe5(status)}</span>
+        ${isAdmin && r.status === "pending" ? `<div class="tournament-review-actions"><button class="btn btn-primary btn-small" data-review-registration="${safe5(r.id)}" data-review-status="approved">Aprovar</button><button class="btn btn-danger btn-small" data-review-registration="${safe5(r.id)}" data-review-status="rejected">Rejeitar</button></div>` : ""}
+      </article>`;
     }).join("");
-    $$('[data-review-registration]').forEach(btn => btn.addEventListener("click", async () => {
+    $('[data-review-registration]').forEach(btn => btn.addEventListener("click", async () => {
       const { error } = await supabaseClient.rpc("acs_admin_review_tournament_registration", { p_registration_id: btn.dataset.reviewRegistration, p_status: btn.dataset.reviewStatus, p_admin_note: null });
       if (error) { toast5("Não foi possível revisar a inscrição: " + error.message); return; }
-      toast5(btn.dataset.reviewStatus === "approved" ? "Equipe aprovada." : "Inscrição recusada.");
+      toast5(btn.dataset.reviewStatus === "approved" ? "Equipe aprovada." : "Inscrição rejeitada.");
       await loadTournament();
     }));
   }
@@ -504,12 +510,9 @@
     await loadTournament();
   });
   $("#organizeTournamentButton")?.addEventListener("click", async () => {
-    if (!isAdmin) return;
-    if (!confirm("Organizar o campeonato com as equipes aprovadas? A geração das fases será feita no Supabase.")) return;
-    const { error } = await supabaseClient.rpc("acs_admin_organize_tournament", { p_tournament_id: tournamentId });
-    if (error) { toast5("Não foi possível organizar o campeonato: " + error.message); return; }
-    toast5("Fases e confrontos gerados.");
-    await loadTournament();
+    if (!isAdmin) { toast5("Somente a organização pode montar o campeonato."); return; }
+    if (window.ACS6?.openBoard) await window.ACS6.openBoard();
+    else toast5("O editor visual ainda está carregando. Atualize a página.");
   });
   $("#refreshTournaments")?.addEventListener("click", loadTournament);
 

@@ -54,6 +54,55 @@ function supabaseReady(){
   return !!(window.supabase && window.ACS_SUPABASE_URL && window.ACS_SUPABASE_ANON_KEY &&
     window.ACS_SUPABASE_URL.startsWith("https://") && window.ACS_SUPABASE_ANON_KEY.length > 20);
 }
+
+// Admin authorization is always checked against the database, never browser metadata.
+async function refreshAdminStatus(){
+  if(!supabaseClient||!currentUser){isAdmin=false;}
+  else{
+    const {data,error}=await supabaseClient.rpc("acs_is_admin");
+    isAdmin=!error&&data===true;
+    if(error)console.warn("ACS admin status:",error.message);
+  }
+  const show=(selector,visible)=>{const el=$(selector);if(el)el.style.display=visible?"block":"none";};
+  show("#adminActivationPanel",!!currentUser&&!isAdmin);
+  show("#adminWorkspace",isAdmin);
+  show("#matchesAdminPanel",isAdmin);
+  show("#tournamentAdminPanel",isAdmin);
+  const adminNav=document.querySelector('[data-page="admin"]');
+  if(adminNav)adminNav.style.display=currentUser?"flex":"none";
+  if(isAdmin)renderAdminPanel();
+}
+function renderAdminPanel(){
+  const select=$("#adminPlayerSelect");if(!select)return;
+  const keep=select.value;
+  select.innerHTML='<option value="">Selecione um jogador</option>'+players.filter(p=>p.userId).map(p=>`<option value="${safe(p.id)}">${safe(p.nickname)}</option>`).join("");
+  if(players.some(p=>p.id===keep))select.value=keep;
+}
+$("#adminActivateForm")?.addEventListener("submit",async e=>{
+  e.preventDefault();
+  if(!supabaseClient||!currentUser){toast("Entre na sua conta antes de ativar o painel.");return;}
+  const button=$("#adminActivateButton");button.disabled=true;
+  const {data,error}=await supabaseClient.rpc("acs_claim_admin",{p_code:$("#adminCode").value.trim()});
+  button.disabled=false;
+  if(error){toast("Não foi possível ativar o painel: "+error.message);return;}
+  if(data!==true){toast("Código inválido ou já utilizado.");return;}
+  $("#adminCode").value="";await refreshAdminStatus();toast("Acesso administrativo ativado.");
+});
+$("#adminPlayerSelect")?.addEventListener("change",async()=>{
+  const id=$("#adminPlayerSelect").value,form=$("#adminStatsForm");
+  if(!id){form.style.display="none";return;}
+  const {data,error}=await supabaseClient.from("player_competitive_stats").select("*").eq("player_id",id).maybeSingle();
+  if(error){toast("Não foi possível carregar as estatísticas.");return;}
+  ["rating_am","kd","adr","headshot_pct","win_rate","matches","mvps","kills","deaths","first_kills","first_deaths","clutches"].forEach(key=>{const el=$("#stat_"+key);if(el)el.value=data?.[key]??"";});
+  form.style.display="grid";
+});
+$("#adminStatsForm")?.addEventListener("submit",async e=>{
+  e.preventDefault();const id=$("#adminPlayerSelect").value;if(!id)return;
+  const stats={};["rating_am","kd","adr","headshot_pct","win_rate","matches","mvps","kills","deaths","first_kills","first_deaths","clutches"].forEach(key=>{const el=$("#stat_"+key);stats[key]=el?.value??"";});
+  const {error}=await supabaseClient.rpc("acs_admin_update_player_stats",{p_player_id:id,p_stats:stats});
+  if(error){toast("Não foi possível salvar: "+error.message);return;}
+  toast("Estatísticas atualizadas.");await loadCloudPlayers();
+});
 if(supabaseReady()){
   supabaseClient = window.supabase.createClient(window.ACS_SUPABASE_URL,window.ACS_SUPABASE_ANON_KEY);
   initCloudAuth();
@@ -148,12 +197,19 @@ $("#playerForm").addEventListener("submit",async()=>{
   if(!supabaseClient||!currentUser)return;
   // The local save handler remains useful in demo mode; cloud writes happen for signed-in users.
   const nickname=$("#nickname").value.trim();
+  const avatarFile=$("#profileAvatarFile")?.files?.[0]||null;
+  let avatarUrl=$("#profileAvatarUrl")?.value.trim()||null;
+  if(avatarFile){
+    if(!window.ACS6?.uploadImage){toast("O envio de imagens ainda não está disponível.");return;}
+    try{avatarUrl=await window.ACS6.uploadImage(avatarFile,`avatars/${currentUser.id}`);}
+    catch(err){toast("Falha ao enviar a foto: "+(err?.message||"erro"));return;}
+  }
   const payload={
     user_id:currentUser.id,nickname,steam_url:$("#steam").value.trim()||null,
     country:$("#country").value,main_role:$("#mainRole").value,
     secondary_role:$("#secondaryRole").value||null,
     market_status:$("#marketStatus").value,bio:$("#bio").value.trim()||null,
-    avatar_url:$("#profileAvatarUrl")?.value.trim()||null,
+    avatar_url:avatarUrl,
     profile_frame_color:$("#profileFrameColor")?.value||"blue",
     profile_background:$("#profileBackground")?.value||"blue",
     profile_name_color:$("#profileNameColor")?.value||"white"
