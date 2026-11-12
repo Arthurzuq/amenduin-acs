@@ -89,8 +89,13 @@
   async function loadEconomy(){
     if(!supabaseClient){setNotice("A conexão com o sistema financeiro ainda não está disponível.");return;}
     if(!currentUser){setNotice("Entre na sua conta para consultar a economia.");return;}
+    if(typeof loadTeamsData==="function")await loadTeamsData();
     const own=currentPlayerProfile();
-    if(!own){setNotice("Crie ou vincule seu perfil de jogador para receber salários e usar a carteira.");return;}
+    if(!own){
+      setNotice("Crie ou vincule seu perfil de jogador para receber salários e usar a carteira.");
+      await loadPrizeManager();
+      return;
+    }
 
     setNotice("Carregando suas carteiras e movimentações...");
     const membership=ownMembership(own);
