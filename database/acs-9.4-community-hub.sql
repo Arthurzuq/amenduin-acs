@@ -157,3 +157,48 @@ create trigger acs_player_rating_history_trigger after insert or update of ratin
 insert into public.acs_player_rating_history(player_id,rating_am,recorded_at)
 select pcs.player_id,pcs.rating_am,coalesce(pcs.updated_at,now()) from public.player_competitive_stats pcs
 where pcs.rating_am is not null and not exists(select 1 from public.acs_player_rating_history h where h.player_id=pcs.player_id);
+
+-- Final trigger behavior: notify both sides when team invitations or offers are answered.
+create or replace function public.acs_notify_team_invite()
+returns trigger language plpgsql security definer set search_path=public as $$
+declare v_user uuid; v_team text; v_sender text; v_status text;
+begin
+ select name into v_team from public.teams where id=NEW.team_id;
+ select nickname into v_sender from public.players where id=NEW.invited_by_player_id;
+ if TG_OP='INSERT' then
+  select user_id into v_user from public.players where id=NEW.invited_player_id;
+  perform public.acs_notify_user(v_user,'Convite para equipe',coalesce(v_sender,'Um capitão')||' convidou você para '||coalesce(v_team,'uma equipe')||'.','team','teams');
+ elsif OLD.status is distinct from NEW.status then
+  select p.user_id into v_user from public.teams t join public.players p on p.id=t.captain_player_id where t.id=NEW.team_id;
+  v_status:=case NEW.status when 'accepted' then 'aceitou' when 'rejected' then 'recusou' else 'atualizou' end;
+  perform public.acs_notify_user(v_user,'Resposta ao convite',coalesce((select nickname from public.players where id=NEW.invited_player_id),'O jogador')||' '||v_status||' o convite para '||coalesce(v_team,'sua equipe')||'.','team','teams');
+ end if;
+ return NEW;
+end; $$;
+drop trigger if exists acs_notify_team_invite_insert on public.team_invites;
+drop trigger if exists acs_notify_team_invite_event on public.team_invites;
+create trigger acs_notify_team_invite_event after insert or update of status on public.team_invites for each row execute function public.acs_notify_team_invite();
+revoke all on function public.acs_notify_team_invite() from public,anon,authenticated;
+
+create or replace function public.acs_notify_transfer_offer()
+returns trigger language plpgsql security definer set search_path=public as $$
+declare v_user uuid; v_sender text; v_status text;
+begin
+ if TG_OP='INSERT' then
+  select user_id into v_user from public.players where id=NEW.target_player_id;
+  select nickname into v_sender from public.players where id=NEW.offered_by_player_id;
+  perform public.acs_notify_user(v_user,'Nova proposta de transferência',coalesce(v_sender,'Uma equipe')||' enviou uma proposta de transferência.','market','market');
+ elsif OLD.status is distinct from NEW.status then
+  select user_id into v_user from public.players where id=NEW.offered_by_player_id;
+  v_status:=case NEW.status when 'accepted' then 'aceitou' when 'rejected' then 'recusou' else 'atualizou' end;
+  perform public.acs_notify_user(v_user,'Resposta à proposta',coalesce((select nickname from public.players where id=NEW.target_player_id),'O jogador')||' '||v_status||' sua proposta de transferência.','market','market');
+ end if;
+ return NEW;
+end; $$;
+drop trigger if exists acs_notify_transfer_offer_insert on public.transfer_offers;
+drop trigger if exists acs_notify_transfer_offer_event on public.transfer_offers;
+create trigger acs_notify_transfer_offer_event after insert or update of status on public.transfer_offers for each row execute function public.acs_notify_transfer_offer();
+revoke all on function public.acs_notify_transfer_offer() from public,anon,authenticated;
+
+revoke all on table public.acs_notifications from public,anon;
+grant select,update on table public.acs_notifications to authenticated;
