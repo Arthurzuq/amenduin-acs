@@ -363,7 +363,7 @@
         ${isAdmin && r.status === "pending" ? `<div class="tournament-review-actions"><button class="btn btn-primary btn-small" data-review-registration="${safe5(r.id)}" data-review-status="approved">Aprovar</button><button class="btn btn-danger btn-small" data-review-registration="${safe5(r.id)}" data-review-status="rejected">Rejeitar</button></div>` : ""}
       </article>`;
     }).join("");
-    $('[data-review-registration]').forEach(btn => btn.addEventListener("click", async () => {
+    document.querySelectorAll('[data-review-registration]').forEach(btn => btn.addEventListener("click", async () => {
       if (!isAdmin || !supabaseClient) {
         toast5("Sua sessão administrativa expirou. Entre novamente e tente de novo.");
         return;
@@ -374,7 +374,7 @@
         toast5("Não foi possível identificar a inscrição ou a ação solicitada.");
         return;
       }
-      const actionButtons = $('[data-review-registration]');
+      const actionButtons = Array.from(document.querySelectorAll('[data-review-registration]'));
       actionButtons.forEach(button => { button.disabled = true; });
       try {
         const { data, error } = await supabaseClient.rpc("acs_admin_review_tournament_registration", {
