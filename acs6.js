@@ -102,7 +102,7 @@
   }
 
   // Visual board document. The canvas is deliberately free-form; no bracket format is forced.
-  let board={version:1,nodes:[],edges:[]},approvedTeams=[],boardStageId=null,pendingOutput=null,saveTimer=null,boardBusy=false,suppressTrayClick=false;
+  let board={version:1,nodes:[],edges:[]},approvedTeams=[],boardStageId=null,pendingOutput=null,saveTimer=null,boardBusy=false,suppressTrayClick=false,groupStandings=new Map();
   const canvas=()=>$("#tournamentBoardCanvas");
   const nodeById=id=>board.nodes.find(n=>n.id===id);
   const teamById=id=>approvedTeams.find(t=>t.id===id)||cloudTeams.find(t=>t.id===id)||{id,name:"Equipe"};
@@ -118,10 +118,11 @@
   async function loadBoard(){
     if(!supabaseClient)return;
     $("#boardSaveState").textContent="Carregando quadro...";
-    const [teamsRes,docRes,stageRes]=await Promise.all([
+    const [teamsRes,docRes,stageRes,groupRowsRes]=await Promise.all([
       supabaseClient.from("tournament_registrations").select("team_id,teams(id,name,tag,logo_url,frame_color,name_color)").eq("tournament_id",tid).eq("status","approved"),
       supabaseClient.from("tournament_board_documents").select("board_json,updated_at").eq("tournament_id",tid).maybeSingle(),
-      supabaseClient.from("tournament_stages").select("id,name,stage_order").eq("tournament_id",tid).eq("name","Quadro personalizado").maybeSingle()
+      supabaseClient.from("tournament_stages").select("id,name,stage_order").eq("tournament_id",tid).eq("name","Quadro personalizado").maybeSingle(),
+      supabaseClient.from("tournament_bracket_nodes").select("team_a_id,team_b_id,winner_team_id,config").eq("tournament_id",tid).eq("bracket_side","groups")
     ]);
     if(teamsRes.error){$("#boardSaveState").textContent="Erro ao carregar equipes: "+teamsRes.error.message;return;}
     approvedTeams=(teamsRes.data||[]).map(r=>r.teams).filter(Boolean);
@@ -129,6 +130,18 @@
     if(!Array.isArray(board.nodes))board.nodes=[];
     if(!Array.isArray(board.edges))board.edges=[];
     boardStageId=stageRes.data?.id||null;
+    groupStandings=new Map();
+    const groupRows=groupRowsRes.data||[];
+    board.nodes.filter(n=>n.type==="group").forEach(group=>{
+      const tally=new Map((group.teamIds||[]).map(id=>[id,{teamId:id,points:0,wins:0,played:0}]));
+      groupRows.filter(row=>row.config?.group_node_id===group.id).forEach(row=>{
+        const winner=tally.get(row.winner_team_id);
+        if(winner){winner.points+=3;winner.wins++;winner.played++;}
+        const loser=tally.get(row.winner_team_id===row.team_a_id?row.team_b_id:row.team_a_id);
+        if(loser&&row.winner_team_id)loser.played++;
+      });
+      groupStandings.set(group.id,[...tally.values()].sort((a,b)=>b.points-a.points||b.wins-a.wins||teamById(a.teamId).name.localeCompare(teamById(b.teamId).name)));
+    });
     renderBoard();
     $("#boardSaveState").textContent=docRes.data?.updated_at?"Última edição: "+new Date(docRes.data.updated_at).toLocaleString("pt-BR"):"Quadro ainda não salvo.";
   }
@@ -145,7 +158,9 @@
       const participants=teams.map(t=>'<div class="board-match-team"><span>'+(t.logo_url?'<img src="'+esc(t.logo_url)+'" alt="">':esc((t.tag||t.name).slice(0,2).toUpperCase()))+'</span><b>'+esc(t.name)+'</b></div>').join("");
       const outs=n.type==="match"?'<div class="board-connectors"><button data-connect-out="winner" data-node-id="'+n.id+'">Vencedor →</button><button data-connect-out="loser" data-node-id="'+n.id+'">Perdedor →</button></div>':n.type==="group"?'<div class="board-connectors">'+(n.teamIds||[]).slice(0,8).map((_,i)=>'<button data-connect-out="place_'+(i+1)+'" data-node-id="'+n.id+'">'+(i+1)+'º lugar →</button>').join("")+'</div>':'';
       const ins=n.type==="match"?'<div class="board-inputs"><button data-connect-in="A" data-node-id="'+n.id+'">＋ Entrada A</button><button data-connect-in="B" data-node-id="'+n.id+'">＋ Entrada B</button></div>':'';
-      const fixtures=n.type==="group"?'<div class="board-group-fixtures">'+(n.fixtures||[]).map((f,i)=>'<div>'+esc(teamById(f.teamA).name)+' <span>×</span> '+esc(teamById(f.teamB).name)+'</div>').join("")+'</div><small class="board-group-note">Todos se enfrentam uma vez. Cada vitória vale 3 pontos.</small>':"";
+      const standings=n.type==="group"?(groupStandings.get(n.id)||(n.teamIds||[]).map(teamId=>({teamId,points:0,wins:0,played:0}))):[];
+      const table=standings.length?'<div class="board-group-table"><div class="board-group-head"><b>#</b><b>Equipe</b><b>J</b><b>V</b><b>Pts</b></div>'+standings.map((r,i)=>'<div><b>'+(i+1)+'</b><span>'+esc(teamById(r.teamId).name)+'</span><span>'+r.played+'</span><span>'+r.wins+'</span><strong>'+r.points+'</strong></div>').join("")+'</div>':'<div class="board-group-empty">A classificação será preenchida após os resultados.</div>';
+      const fixtures=n.type==="group"?'<div class="board-group-fixtures">'+(n.fixtures||[]).map((f,i)=>'<div>'+esc(teamById(f.teamA).name)+' <span>×</span> '+esc(teamById(f.teamB).name)+'</div>').join("")+'</div>'+table+'<small class="board-group-note">Todos se enfrentam uma vez. Cada vitória vale 3 pontos.</small>':"";
       return '<article class="board-node board-node-'+n.type+'" data-board-node="'+n.id+'" style="left:'+Number(n.x||40)+'px;top:'+Number(n.y||40)+'px">'+
         '<header><span>'+title+'</span><button data-delete-board-node="'+n.id+'" title="Remover">×</button></header>'+
         '<div class="board-node-teams">'+(participants||'<p>Arraste equipes para cá</p>')+'</div>'+fixtures+ins+outs+
