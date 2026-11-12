@@ -633,12 +633,12 @@
     const desiredGroups=new Map(groups.map(group=>[group.id,new Map((group.fixtures||[]).map(fixture=>[fixture.bracketId||fixture.id,fixture]))]));
     const staleMain=existingRows.filter(row=>row.config?.board_node_id&&!mainIds.has(row.id));
     const staleGroupRows=existingGroupRows.filter(row=>{
-      const groupId=row.group_id||row.config?.group_node_id;
-      const fixtures=desiredGroups.get(groupId);
-      const fixture=fixtures?.get(row.id);
-      if(!fixture)return true;
-      const expectedRound=Math.max(1,Number(fixture.round)||1);
-      return row.round_number!==expectedRound||row.team_a_id!==fixture.teamA||row.team_b_id!==fixture.teamB;
+      const desired=rows.find(item=>item.bracket_side==="groups"&&item.id===row.id);
+      if(!desired)return true;
+      return row.round_number!==desired.round_number||
+        row.match_number!==desired.match_number||
+        row.team_a_id!==desired.team_a_id||
+        row.team_b_id!==desired.team_b_id;
     });
     const staleGroupRecords=existingGroups.filter(group=>!groupIds.has(group.id));
     const staleHasResults=[...staleMain,...staleGroupRows].some(row=>row.match_id||["completed","live"].includes(row.status));
