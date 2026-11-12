@@ -273,7 +273,19 @@ function openOffer(targetId){
   const membership=myTeamMembership();if(!membership||membership.role!=="captain"){toast("Somente o capitão da equipe pode contratar jogadores pelo Mercado.");return;}
   if(!target||target.id===own.id){toast("Esse jogador não pode receber esta proposta.");return;}if(target.team&&target.team===own.team){toast("Esse jogador já está na sua equipe.");return;}
   $("#offerTargetId").value=target.id;$("#offerTargetName").textContent=`Proposta destinada a ${target.nickname} (${target.team||"Sem equipe"}). Sua equipe: ${own.team||"Sem equipe"}.`;
-  $("#offerWeeklySalary").value="";$("#offerMessage").value="";$("#offerModal").classList.add("open");
+  // Garante o campo mesmo se a hospedagem estiver servindo um HTML antigo em cache.
+  let salaryInput=$("#offerWeeklySalary");
+  if(!salaryInput){
+    const salaryLabel=document.createElement("label");
+    salaryLabel.className="field";
+    salaryLabel.innerHTML='SALÁRIO SEMANAL (USD)<input id="offerWeeklySalary" type="number" min="1" max="1000000" step="1" required placeholder="Ex.: 500"><small>O salário será registrado no contrato automaticamente se o jogador aceitar.</small>';
+    $("#offerTargetName").insertAdjacentElement("afterend",salaryLabel);
+    salaryInput=$("#offerWeeklySalary");
+  }
+  salaryInput.required=true;
+  salaryInput.value="";
+  $("#offerMessage").value="";
+  $("#offerModal").classList.add("open");
 }
 $("#closeOffer")?.addEventListener("click",()=>$("#offerModal").classList.remove("open"));
 $("#cancelOffer")?.addEventListener("click",()=>$("#offerModal").classList.remove("open"));
