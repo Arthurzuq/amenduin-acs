@@ -401,3 +401,23 @@
 .board-node-group .board-connectors button{min-width:0}
 .board-team-chip.selected{outline:2px solid #7db7ee;outline-offset:1px}
 @media(max-width:700px){.board-node-group{width:320px}.board-group-fixture{grid-template-columns:18px minmax(0,1fr) 10px minmax(0,1fr);font-size:7px}.board-group-team b{font-size:9px}}
+
+
+/* ACS 9.3 — public group-stage standings */
+.public-group-panel{margin:12px 0;padding:15px;border:1px solid var(--line);border-radius:8px;background:#101923}
+.public-group-panel header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.public-group-panel header h4{margin:0;font:800 18px var(--display)}
+.public-group-panel header small{font-size:9px;color:var(--muted)}
+.public-group-panel h5{margin:13px 0 7px;font:800 9px Inter,sans-serif;letter-spacing:.09em;color:#9eabbc;text-transform:uppercase}
+.public-group-table{display:grid;gap:3px;overflow:auto}
+.public-group-table>div{display:grid;grid-template-columns:22px minmax(100px,1fr) 24px 24px 24px 44px;gap:7px;align-items:center;padding:6px 8px;border-bottom:1px solid #263345;color:#c7d2df;font-size:9px}
+.public-group-table>div:first-child{color:#8493a6;font-size:8px;text-transform:uppercase;font-weight:800}
+.public-group-table strong{text-align:right;color:#8fd9ad}
+.public-group-fixtures{display:grid;gap:5px}
+.public-group-fixtures>div{display:grid;grid-template-columns:35px minmax(0,1fr) 14px minmax(0,1fr) auto;gap:7px;align-items:center;padding:8px 9px;border:1px solid #253447;border-radius:5px;background:#0c141e;color:#d6e0ed;font-size:9px}
+.public-group-fixtures>div>span,.public-group-fixtures>div>small{color:#8798ad;font-size:8px}
+.public-group-fixtures>div>i{color:#71849b;text-align:center;font-style:normal}
+.public-group-fixtures>div>small.done{color:#70d69a}
+.public-group-empty{font-size:9px;color:var(--muted);margin:6px 0}
+.tournament-board-canvas{height:1800px}
+@media(max-width:700px){.public-group-fixtures>div{grid-template-columns:25px minmax(0,1fr) 12px minmax(0,1fr);font-size:8px}.public-group-fixtures>div>small{grid-column:2/-1;text-align:right}}
