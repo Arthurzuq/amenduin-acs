@@ -155,6 +155,7 @@
     if(typeof window.ACS5_REFRESH_BRACKET_CHOICES==="function")await window.ACS5_REFRESH_BRACKET_CHOICES();
   }
   function nodeLabel(node){
+    if(node?.type==="group")return node.name||"Fase de grupos";
     const index=board.nodes.filter(n=>n.type!=="group").indexOf(node)+1;
     return node.label||("PARTIDA "+String(index).padStart(2,"0"));
   }
