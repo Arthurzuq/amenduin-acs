@@ -20,7 +20,7 @@ const roleShort = r => r==="Entry-Fragger"?"ENTRY":r==="Support"?"SUPPORT":r==="
  function renderMapEditors(){window.ACS5_MATCH_ENTRY?.renderMapTables?.();}
 
 function toast(msg){const t=$("#toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2600)}
-function go(page){$$(".page").forEach(p=>p.classList.toggle("active",p.id===`page-${page}`));$$(".nav-link").forEach(a=>a.classList.toggle("active",a.dataset.page===page));$("#crumb").textContent=({home:"VISÃO GERAL",players:"JOGADORES",rankings:"RANKINGS",matches:"PARTIDAS",teams:"EQUIPES",market:"MERCADO"})[page]||page.toUpperCase();$(".sidebar").classList.remove("open");if(page==="players")renderPlayers();if(page==="rankings")renderRanking();if(page==="matches"){loadMatches();renderPublicStats();if(isAdmin){renderMatchPlayerRows();renderMapEditors();$("#matchesAdminPanel").style.display="block";loadTeamsData();}}if(page==="market")loadMarketData();if(page==="teams")loadTeamsData();window.scrollTo(0,0)}
+function go(page){$$(".page").forEach(p=>p.classList.toggle("active",p.id===`page-${page}`));$$(".nav-link").forEach(a=>a.classList.toggle("active",a.dataset.page===page));$("#crumb").textContent=({home:"VISÃO GERAL",players:"JOGADORES",rankings:"RANKINGS",matches:"PARTIDAS",teams:"EQUIPES",economy:"ECONOMIA",market:"MERCADO"})[page]||page.toUpperCase();$(".sidebar").classList.remove("open");if(page==="players")renderPlayers();if(page==="rankings")renderRanking();if(page==="matches"){loadMatches();renderPublicStats();if(isAdmin){renderMatchPlayerRows();renderMapEditors();$("#matchesAdminPanel").style.display="block";loadTeamsData();}}if(page==="market")loadMarketData();if(page==="teams")loadTeamsData();window.scrollTo(0,0)}
 $$("[data-page]").forEach(a=>a.addEventListener("click",e=>{e.preventDefault();go(a.dataset.page)}));
 $$("[data-goto]").forEach(b=>b.addEventListener("click",()=>go(b.dataset.goto)));
 $("#mobileMenu").addEventListener("click",()=>$(".sidebar").classList.toggle("open"));
@@ -488,11 +488,21 @@ async function loadMatches(){
     card.addEventListener("click",e=>{if(e.target.closest("[data-delete-match]"))return;open();});
     card.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();open();}});
   });
-  $('[data-delete-match]').forEach(btn=>btn.addEventListener('click',async()=>{
+  $('[data-delete-match]').forEach(btn=>btn.addEventListener('click',async event=>{
+    event.preventDefault();event.stopPropagation();
+    if(!isAdmin){toast("Somente administradores podem excluir partidas.");return;}
     if(!confirm("Excluir esta partida? As estatísticas dos jogadores serão recalculadas sem este confronto."))return;
-    const {error}=await supabaseClient.rpc("acs_admin_delete_match",{p_match_id:btn.dataset.deleteMatch});
-    if(error){toast("Não foi possível excluir a partida: "+error.message);return;}
-    toast("Partida excluída e estatísticas recalculadas.");await loadCloudPlayers();await loadMatches();
+    btn.disabled=true;btn.textContent="Excluindo...";
+    try{
+      const {data,error}=await supabaseClient.rpc("acs_admin_delete_match",{p_match_id:btn.dataset.deleteMatch});
+      if(error)throw error;
+      if(data===false)throw new Error("A partida não foi encontrada ou já foi excluída.");
+      toast("Partida excluída e estatísticas recalculadas.");
+      await loadCloudPlayers();await loadMatches();
+    }catch(error){
+      toast("Não foi possível excluir a partida: "+(error?.message||"erro inesperado"));
+      btn.disabled=false;btn.textContent="Excluir";
+    }
   }));
 }
 $("#refreshMatches")?.addEventListener("click",loadMatches);
