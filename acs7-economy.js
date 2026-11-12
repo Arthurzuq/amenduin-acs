@@ -11,7 +11,8 @@
     weekly_grant:"Repasse semanal da equipe",
     salary_payment:"Pagamento de salário",
     tournament_prize:"Premiação de campeonato",
-    player_transfer:"Transferência entre jogadores"
+    player_transfer:"Transferência entre jogadores",
+    cosmetic_purchase:"Compra de personalização"
   };
   const prizeValues = {
     1:{E:400,D:750,C:1500,B:5000,A:10000,S:50000},

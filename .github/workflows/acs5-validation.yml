@@ -27,6 +27,7 @@ jobs:
           node --check match-entry.js
           node --check acs6.js
           node --check acs7-economy.js
+          node --check acs8-cosmetics.js
           node --check supabase-config.js
       - name: Check required frontend integrations
         run: |
@@ -62,7 +63,13 @@ jobs:
           assert 'economy_award_tournament_prize' in acs7
           assert 'id="page-economy"' in html
           assert Path("acs-7.0-economy-migration.sql").exists()
+          cosmetics = Path("acs8-cosmetics.js").read_text()
+          assert "acs_purchase_cosmetic" in cosmetics
+          assert "animated_chroma" in cosmetics and "animated_neon" in cosmetics
+          assert Path("acs-9.0-cosmetics-migration.sql").exists()
+          assert 'id="customizePlayer"' in app
+          assert "acs8-cosmetics.js" in html
           assert 'sb_secret_' not in config
           assert 'service_role\n' not in config
-          print("ACS 7.0 integration checks passed.")
+          print("ACS 9.0 integration checks passed.")
           PY
