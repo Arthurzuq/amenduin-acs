@@ -376,7 +376,7 @@ function renderTeams(){
   }));
 }
 function renderMatchTeamSelectors(){
-  ["#matchTeamA","#matchTeamB"].forEach((sel,index)=>{const el=$(sel);if(!el)return;const old=el.value;el.innerHTML='<option value="">Selecione a equipe...</option>'+cloudTeams.map(t=>`<option value="${safe(t.id)}">${safe(t.name)}${t.tag?" · "+safe(t.tag):""}</option>`).join("")+'<option value="custom">Equipe avulsa (sem cadastro)</option>';if(cloudTeams.some(t=>t.id===old)||old==="custom")el.value=old;});
+  ["#matchTeamA","#matchTeamB"].forEach((sel,index)=>{const el=$(sel);if(!el)return;const old=el.value;el.innerHTML='<option value="">Usar nome manual abaixo ou escolher equipe cadastrada...</option>'+cloudTeams.map(t=>`<option value="${safe(t.id)}">${safe(t.name)}${t.tag?" · "+safe(t.tag):""}</option>`).join("")+'<option value="custom">Equipe avulsa (nome manual)</option>';if(cloudTeams.some(t=>t.id===old)||old==="custom")el.value=old;});
 }
 async function loadTeamRankings(){
  const host=$("#teamRankingList");if(!host||!supabaseClient)return;
