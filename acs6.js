@@ -173,7 +173,7 @@
     const logo=team?(team.logo_url?'<img src="'+esc(team.logo_url)+'" alt="">':esc((team.tag||team.name||"ACS").slice(0,2).toUpperCase())):"＋";
     const kind=edge?"linked":"initial";
     return '<div class="board-slot-wrap">'+
-      '<button type="button" class="board-slot board-slot-'+kind+(team?" filled":"")+(selectedTeamId&&!edge?" board-slot-ready":"")+'" data-connect-in="'+slot+'" data-node-id="'+esc(node.id)+'"'+(edge?' data-slot-linked="true"':' data-team-slot="'+slot+'"')+'>'+
+      '<button type="button" class="board-slot board-slot-'+kind+(team?" board-slot-filled":"")+(selectedTeamId&&!edge?" board-slot-ready":"")+'" data-connect-in="'+slot+'" data-node-id="'+esc(node.id)+'"'+(edge?' data-slot-linked="true"':' data-team-slot="'+slot+'"')+'>'+
         '<span class="board-slot-side">'+slot+'</span><span class="board-slot-logo">'+logo+'</span>'+
         '<span class="board-slot-copy"><b>'+esc(detail)+'</b><small>'+(edge?(team?"Classificada automaticamente":"Conectada · aguarda o placar"):(team?"Vaga inicial · clique para remover ou substituir":"VAGA INICIAL · receba um time aqui"))+'</small></span>'+
         (edge?'<span class="board-slot-link">↖</span>':'')+
