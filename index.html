@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=acs9">
+  <link rel="stylesheet" href="styles.css?v=acs9.2-bracket-builder">
 </head>
 <body>
   <div class="app-shell">
@@ -229,16 +229,16 @@
           <div><span class="eyebrow">ACS / TOURNAMENT STUDIO</span><h1>ORGANIZAR CAMPEONATO</h1><p>Monte confrontos, fases de grupos e caminhos de classificação no quadro.</p></div>
           <div class="board-head-actions"><button class="btn btn-ghost" id="boardBackButton">← Voltar ao campeonato</button><button class="btn btn-primary" id="boardSaveButton">Salvar organização</button></div>
         </div>
-        <div class="board-instructions"><b>Como montar:</b> arraste um time para o quadro. Arraste outro time sobre ele para criar uma partida. O terceiro time transforma a partida em grupo. Depois, conecte as saídas de vencedor, perdedor ou posição do grupo aos próximos jogos.</div>
+        <div class="board-instructions"><b>Etapa 1 — monte a chave:</b> clique em “Adicionar partida” para criar todas as caixas. Arraste a saída “Vencedor” ou “Perdedor” de uma partida até a vaga A/B de outra (ou clique na saída e depois na vaga). <b>Etapa 2 — coloque os times:</b> arraste cada equipe aprovada apenas para as vagas iniciais, que não têm uma seta de entrada. Depois, registre os placares: o vencedor e, quando houver conexão, o perdedor avançam automaticamente. Sem conexão de perdedor, ele é eliminado.</div>
         <div class="tournament-board-toolbar">
-          <button class="btn btn-ghost btn-small" id="boardSuggestButton">Sugerir estrutura</button>
+          <button class="btn btn-ghost btn-small" id="boardAddMatchButton">＋ Adicionar partida</button>
           <button class="btn btn-ghost btn-small" id="boardClearButton">Limpar quadro</button>
           <span id="boardSaveState" class="board-save-state">Carregando organização...</span>
         </div>
         <div class="board-canvas-wrap"><div id="tournamentBoardCanvas" class="tournament-board-canvas">
           <svg id="tournamentBoardWires" class="tournament-board-wires" aria-hidden="true"></svg>
           <div id="tournamentBoardNodes" class="tournament-board-nodes"></div>
-          <div class="board-empty-hint">Arraste equipes para cá para começar a desenhar o campeonato.</div>
+          <div class="board-empty-hint">Clique em “Adicionar partida” para criar as primeiras caixas do chaveamento.</div>
         </div></div>
         <section class="board-team-dock"><div class="board-dock-head"><div><span class="eyebrow">EQUIPES APROVADAS</span><h3>Times disponíveis</h3></div><span id="boardTeamCount" class="muted small">0 equipes</span></div><div id="tournamentTeamTray" class="board-team-tray"><div class="market-empty">Carregando equipes aprovadas...</div></div></section>
       </section>
@@ -390,9 +390,9 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
   <script src="app.js?v=acs8-market-salary-fix-2"></script>
-  <script src="acs5.js?v=acs9.2-review-fix"></script>
-  <script src="match-entry.js"></script>
-  <script src="acs6.js"></script>
+  <script src="acs5.js?v=acs9.2-bracket-builder"></script>
+  <script src="match-entry.js?v=acs9.2-bracket-builder"></script>
+  <script src="acs6.js?v=acs9.2-bracket-builder-2"></script>
   <script src="acs7-economy.js"></script>
   <script src="acs8-cosmetics.js?v=acs9.1"></script>
 </body>
