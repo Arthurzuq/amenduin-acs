@@ -571,3 +571,81 @@ grant execute on function public.economy_set_player_salary(uuid,uuid,numeric) to
 grant execute on function public.economy_pay_team_payroll(uuid) to authenticated;
 grant execute on function public.economy_transfer_player_balance(uuid,numeric,text) to authenticated;
 grant execute on function public.economy_award_tournament_prize(uuid,uuid,integer,text) to authenticated;
+
+
+-- Query-plan indexes and initplan-friendly RLS predicates.
+create index if not exists economy_transactions_created_by_idx on public.economy_transactions(created_by);
+create index if not exists team_salary_contracts_player_id_idx on public.team_salary_contracts(player_id);
+create index if not exists team_salary_contracts_set_by_idx on public.team_salary_contracts(set_by);
+create index if not exists team_salary_runs_paid_by_idx on public.team_salary_runs(paid_by);
+create index if not exists tournament_prize_awards_team_id_idx on public.tournament_prize_awards(team_id);
+create index if not exists tournament_prize_awards_awarded_by_idx on public.tournament_prize_awards(awarded_by);
+create index if not exists player_map_stats_player_id_idx on public.player_map_stats(player_id);
+
+drop policy if exists "Team captains and admins read salary treasury" on public.team_economy_accounts;
+create policy "Team captains and admins read salary treasury"
+on public.team_economy_accounts for select to authenticated
+using (
+  (select public.acs_is_admin())
+  or exists (
+    select 1 from public.team_members tm
+    join public.players p on p.id=tm.player_id
+    where tm.team_id=team_economy_accounts.team_id
+      and tm.role='captain' and p.user_id=(select auth.uid())
+  )
+);
+
+drop policy if exists "Players and admins read personal wallets" on public.player_wallets;
+create policy "Players and admins read personal wallets"
+on public.player_wallets for select to authenticated
+using (
+  (select public.acs_is_admin())
+  or exists (select 1 from public.players p where p.id=player_wallets.player_id and p.user_id=(select auth.uid()))
+);
+
+drop policy if exists "Players captains and admins read salary contracts" on public.team_salary_contracts;
+create policy "Players captains and admins read salary contracts"
+on public.team_salary_contracts for select to authenticated
+using (
+  (select public.acs_is_admin())
+  or exists (select 1 from public.players p where p.id=team_salary_contracts.player_id and p.user_id=(select auth.uid()))
+  or exists (
+    select 1 from public.team_members tm
+    join public.players p on p.id=tm.player_id
+    where tm.team_id=team_salary_contracts.team_id
+      and tm.role='captain' and p.user_id=(select auth.uid())
+  )
+);
+
+drop policy if exists "Captains and admins read salary runs" on public.team_salary_runs;
+create policy "Captains and admins read salary runs"
+on public.team_salary_runs for select to authenticated
+using (
+  (select public.acs_is_admin())
+  or exists (
+    select 1 from public.team_members tm
+    join public.players p on p.id=tm.player_id
+    where tm.team_id=team_salary_runs.team_id
+      and tm.role='captain' and p.user_id=(select auth.uid())
+  )
+);
+
+drop policy if exists "Users read their own and captained team transactions" on public.economy_transactions;
+create policy "Users read their own and captained team transactions"
+on public.economy_transactions for select to authenticated
+using (
+  (select public.acs_is_admin())
+  or (
+    wallet_type='player'
+    and exists (select 1 from public.players p where p.id=economy_transactions.player_id and p.user_id=(select auth.uid()))
+  )
+  or (
+    wallet_type='team'
+    and exists (
+      select 1 from public.team_members tm
+      join public.players p on p.id=tm.player_id
+      where tm.team_id=economy_transactions.team_id
+        and tm.role='captain' and p.user_id=(select auth.uid())
+    )
+  )
+);
