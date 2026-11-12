@@ -253,19 +253,24 @@
     svg.innerHTML='<defs><marker id="boardArrow" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z"/></marker></defs>'+paths+temporary;
   }
   function validateConnection(from,result,to,slot,allowCompleted){
-    if(from===to){notify("Uma partida não pode alimentar uma vaga dela mesma.");return false;}
-    if(!nodeById(from)||!nodeById(to)){notify("Partida de origem ou destino não encontrada.");return false;}
-    if(!["winner","loser"].includes(result)||!["A","B"].includes(slot)){notify("Tipo de conexão inválido.");return false;}
+    const source=nodeById(from),target=nodeById(to);
+    if(from===to){notify("Uma fase não pode alimentar uma vaga dela mesma.");return false;}
+    if(!source||!target||target.type==="group"){notify("Partida de origem ou destino não encontrada.");return false;}
+    const validResult=source.type==="group"?/^place_[1-8]$/.test(result):["winner","loser"].includes(result);
+    if(!validResult||!["A","B"].includes(slot)){notify("Tipo de conexão inválido.");return false;}
     const seen=new Set();
-    const reaches=(current,target)=>{
-      if(current===target)return true;
+    const reaches=(current,targetId)=>{
+      if(current===targetId)return true;
       if(seen.has(current))return false;
       seen.add(current);
-      return board.edges.filter(e=>e.from===current).some(e=>reaches(e.to,target));
+      return board.edges.filter(e=>e.from===current).some(e=>reaches(e.to,targetId));
     };
     if(reaches(to,from)){notify("Essa ligação criaria um ciclo no chaveamento.");return false;}
     const row=rowForNode(from);
-    if(!allowCompleted&&row?.status==="completed"){notify("Esta partida já tem resultado. Não altere suas saídas.");return false;}
+    if(source.type!=="group"&&!allowCompleted&&row?.status==="completed"){
+      notify("Esta partida já tem resultado. Não altere suas saídas.");
+      return false;
+    }
     return true;
   }
   function connectOutputToSlot(targetId,slot){
@@ -287,14 +292,25 @@
       });
       btn.addEventListener("pointerdown",e=>startBoardDrag(e,{kind:"team",teamId:btn.dataset.trayTeam}));
     });
+    $$("[data-group-drop]").forEach(target=>target.addEventListener("click",()=>{
+      if(selectedTeamId)setTeamInGroup(selectedTeamId,target.dataset.groupId);
+    }));
+    $$("[data-remove-group-team]").forEach(btn=>btn.addEventListener("click",()=>{
+      const group=nodeById(btn.dataset.groupId);
+      if(!group||groupHasResults(group)){notify("Não é possível alterar equipes depois que o grupo já tem resultados.");return;}
+      group.teamIds=group.teamIds.filter(id=>id!==btn.dataset.removeGroupTeam);
+      rebuildGroupFixtures(group);queueSave();
+    }));
     $$("[data-board-drag-handle]").forEach(handle=>handle.addEventListener("pointerdown",e=>{
       if(e.target.closest("button"))return;
       startBoardDrag(e,{kind:"node",nodeId:handle.closest("[data-board-node]")?.dataset.boardNode});
     }));
     $$("[data-delete-board-node]").forEach(btn=>btn.addEventListener("click",()=>{
-      const id=btn.dataset.deleteBoardNode,row=rowForNode(id);
-      if(row?.match_id||row?.status==="completed"){notify("Não é possível remover uma partida que já possui resultado registrado.");return;}
-      if(!confirm("Remover esta partida e as conexões ligadas a ela?"))return;
+      const id=btn.dataset.deleteBoardNode,node=nodeById(id),row=rowForNode(id);
+      if(row?.match_id||row?.status==="completed"||(node?.type==="group"&&groupHasResults(node))){
+        notify("Não é possível remover uma partida ou grupo que já possui resultados registrados.");return;
+      }
+      if(!confirm(node?.type==="group"?"Remover este grupo e seus confrontos ainda não disputados?":"Remover esta partida e as conexões ligadas a ela?"))return;
       board.nodes=board.nodes.filter(n=>n.id!==id);
       board.edges=board.edges.filter(e=>e.from!==id&&e.to!==id);
       pendingOutput=null;queueSave();
@@ -305,7 +321,7 @@
         if(suppressConnectorClick){suppressConnectorClick=false;return;}
         pendingOutput={id:btn.dataset.nodeId,result:btn.dataset.connectOut};selectedTeamId=null;
         renderBoard();
-        $("#boardSaveState").textContent="Saída selecionada: "+resultLabel(btn.dataset.connectOut)+". Clique numa entrada A/B ou arraste esta saída até ela.";
+        $("#boardSaveState").textContent="Saída selecionada: "+resultLabel(btn.dataset.connectOut)+". Clique numa entrada A/B ou arraste até ela.";
       });
     });
     $$("[data-connect-in]").forEach(btn=>btn.addEventListener("click",()=>{
@@ -319,12 +335,36 @@
       node.slots[btn.dataset.clearTeamSlot]=null;queueSave();
     }));
   }
+  function setTeamInGroup(teamId,groupId){
+    const group=nodeById(groupId);if(!group||group.type!=="group")return;
+    if(groupHasResults(group)){notify("Este grupo já possui resultados. Não é possível alterar sua composição.");return;}
+    const oldGroup=board.nodes.find(n=>n.type==="group"&&n.id!==groupId&&(n.teamIds||[]).includes(teamId));
+    if(oldGroup&&groupHasResults(oldGroup)){notify("O time já está em um grupo com partidas concluídas.");return;}
+    const oldMatch=board.nodes.find(n=>n.type!=="group"&&["A","B"].some(slot=>n.slots?.[slot]===teamId));
+    if(oldMatch){
+      const oldRow=rowForNode(oldMatch.id);
+      if(oldRow?.match_id||oldRow?.status==="completed"){notify("O time já participa de uma partida concluída.");return;}
+    }
+    board.nodes.filter(n=>n.type==="group"&&n.id!==groupId).forEach(n=>{
+      n.teamIds=(n.teamIds||[]).filter(id=>id!==teamId);rebuildGroupFixtures(n);
+    });
+    board.nodes.filter(n=>n.type!=="group").forEach(n=>{
+      ["A","B"].forEach(slot=>{if(n.slots?.[slot]===teamId)n.slots[slot]=null;});
+    });
+    if(!group.teamIds.includes(teamId))group.teamIds.push(teamId);
+    rebuildGroupFixtures(group);selectedTeamId=null;pendingOutput=null;queueSave();
+  }
   function setTeamInSlot(teamId,nodeId,slot){
     const node=nodeById(nodeId);if(!node||incomingFor(nodeId,slot))return;
+    const oldGroup=board.nodes.find(n=>n.type==="group"&&(n.teamIds||[]).includes(teamId));
+    if(oldGroup&&groupHasResults(oldGroup)){notify("O time está em uma fase de grupos com resultados concluídos.");return;}
     const existing=board.nodes.find(n=>n.type!=="group"&&["A","B"].some(s=>n.slots?.[s]===teamId));
     if(existing){
+      const existingRow=rowForNode(existing.id);
+      if(existingRow?.match_id||existingRow?.status==="completed"){notify("O time já participa de uma partida concluída.");return;}
       ["A","B"].forEach(s=>{if(existing.slots?.[s]===teamId)existing.slots[s]=null;});
     }
+    if(oldGroup){oldGroup.teamIds=oldGroup.teamIds.filter(id=>id!==teamId);rebuildGroupFixtures(oldGroup);}
     node.slots[slot]=teamId;selectedTeamId=null;pendingOutput=null;queueSave();
   }
   function startConnectionDrag(e,payload){
@@ -370,8 +410,10 @@
       if(state.kind==="team"){
         suppressTrayClick=true;
         setTimeout(()=>{suppressTrayClick=false;},0);
+        const groupTarget=document.elementFromPoint(ev.clientX,ev.clientY)?.closest("[data-group-drop]");
+        if(groupTarget){setTeamInGroup(state.teamId,groupTarget.dataset.groupId);return;}
         const target=document.elementFromPoint(ev.clientX,ev.clientY)?.closest("[data-team-slot]");
-        if(!target){notify("Solte o time em uma vaga inicial A ou B, não no espaço vazio.");return;}
+        if(!target){notify("Solte o time em uma vaga inicial A/B ou dentro de um grupo.");return;}
         setTeamInSlot(state.teamId,target.dataset.nodeId,target.dataset.teamSlot);
       }else if(state.kind==="node"){
         const node=nodeById(state.nodeId);if(!node)return;
@@ -382,12 +424,19 @@
     };
     document.addEventListener("pointermove",move);document.addEventListener("pointerup",up);
   }
+  function addGroupNode(){
+    const groups=board.nodes.filter(n=>n.type==="group");
+    const index=groups.length;
+    const group={id:uuid(),type:"group",name:"Grupo "+String.fromCharCode(65+index),teamIds:[],fixtures:[],x:65+(index%3)*430,y:70+Math.floor(index/3)*430};
+    board.nodes.push(group);selectedTeamId=null;pendingOutput=null;queueSave();
+  }
   function addMatchNode(){
     const index=board.nodes.filter(n=>n.type!=="group").length;
     const node={id:uuid(),type:"match",slots:{A:null,B:null},x:65+(index%4)*390,y:55+Math.floor(index/4)*245};
     board.nodes.push(node);selectedTeamId=null;pendingOutput=null;queueSave();
   }
   function nodeRound(id,seen){
+    if(nodeById(id)?.type==="group")return 0;
     const visited=seen||new Set();
     if(visited.has(id))return 1;
     visited.add(id);
