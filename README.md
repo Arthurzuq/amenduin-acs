@@ -118,3 +118,25 @@ Atualização incremental sobre a ACS 4.3. **Se você já aplicou a 4.3 e a 4.3.
 - Os arquivos `acs-3.3` e `acs-4.1` foram corrigidos: o PIN de ativação não fica mais salvo no arquivo (defina o seu ao instalar do zero) e as aspas escapadas que quebravam o SQL foram removidas.
 
 Instalação em um projeto novo: execute as migrations em ordem (3.0, 3.1, 3.2, 3.3, 4.0, 4.1, 4.2, 4.2.1, 4.3, 4.3.1). Mantenha o seu `supabase-config.js` atual.
+
+## ACS 7.0 — partidas livres e economia
+
+### Partidas
+- O registro aceita equipes cadastradas ou equipes avulsas. Para uma equipe avulsa, selecione Equipe avulsa ou deixe a equipe sem cadastro e preencha o campo de nome manual.
+- Partidas cadastradas podem ser abertas pelo histórico para consultar placares, estatísticas agregadas e estatísticas individuais de cada mapa.
+- Administradores podem excluir uma partida pelo botão Excluir. A exclusão remove os dados dependentes por cascata e recalcula as estatísticas oficiais dos jogadores.
+
+### Economia
+- Cada equipe recebe $1.000 por semana na tesouraria reservada à folha salarial. O repasse é contabilizado ao abrir a página Economia pela conta do capitão; semanas não acessadas são acumuladas e creditadas uma única vez.
+- O capitão define o salário semanal de cada integrante e aciona Pagar folha semanal. O pagamento só pode ocorrer uma vez por semana, debita a tesouraria e credita a carteira individual em uma única transação.
+- Jogadores podem transferir dinheiro entre carteiras individuais para negociações.
+- A administração distribui premiações do campeonato para a tesouraria da equipe:
+  - 1º: E $400 · D $750 · C $1.500 · B $5.000 · A $10.000 · S $50.000
+  - 2º: E $150 · D $300 · C $800 · B $2.700 · A $5.300 · S $28.500
+  - 3º e 4º: E $40 · D $140 · C $300 · B $1.400 · A $3.100 · S $12.800
+  - 5º (prêmio simbólico): E $10 · D $25 · C $50 · B $100 · A $200 · S $500
+- Carteiras, salários e histórico são protegidos por RLS. Alterações de saldo são feitas exclusivamente pelas funções autorizadas do banco; usuários não recebem permissão de escrita direta nas tabelas financeiras.
+
+### Banco
+- A migration desta versão está em acs-7.0-economy-migration.sql. Ela já foi aplicada ao projeto Supabase conectado durante o desenvolvimento desta versão. Não a execute novamente nesse mesmo projeto apenas para atualizar o site.
+- O repasse semanal usa o fuso America/Sao_Paulo e é atualizado de forma idempotente quando o capitão abre Economia.
