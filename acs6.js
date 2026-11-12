@@ -251,9 +251,10 @@
     }
     svg.innerHTML='<defs><marker id="boardArrow" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z"/></marker></defs>'+paths+temporary;
   }
-  function validateConnection(from,result,to,slot){
+  function validateConnection(from,result,to,slot,allowCompleted){
     if(from===to){notify("Uma partida não pode alimentar uma vaga dela mesma.");return false;}
     if(!nodeById(from)||!nodeById(to)){notify("Partida de origem ou destino não encontrada.");return false;}
+    if(!["winner","loser"].includes(result)||!["A","B"].includes(slot)){notify("Tipo de conexão inválido.");return false;}
     const seen=new Set();
     const reaches=(current,target)=>{
       if(current===target)return true;
@@ -263,7 +264,7 @@
     };
     if(reaches(to,from)){notify("Essa ligação criaria um ciclo no chaveamento.");return false;}
     const row=rowForNode(from);
-    if(row?.status==="completed"){notify("Esta partida já tem resultado. Não altere suas saídas.");return false;}
+    if(!allowCompleted&&row?.status==="completed"){notify("Esta partida já tem resultado. Não altere suas saídas.");return false;}
     return true;
   }
   function connectOutputToSlot(targetId,slot){
@@ -472,7 +473,7 @@
         const targetKey=edge.to+":"+edge.slot,sourceKey=edge.from+":"+edge.result;
         if(usedSlots.has(targetKey)||sourcePorts.has(sourceKey))throw new Error("Cada entrada e cada saída só podem ter uma conexão.");
         usedSlots.add(targetKey);sourcePorts.add(sourceKey);
-        if(!validateConnection(edge.from,edge.result,edge.to,edge.slot))throw new Error("Revise as conexões do chaveamento.");
+        if(!validateConnection(edge.from,edge.result,edge.to,edge.slot,true))throw new Error("Revise as conexões do chaveamento.");
       }
       const assigned=[];
       for(const n of board.nodes.filter(item=>item.type!=="group")){
