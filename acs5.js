@@ -411,6 +411,10 @@
       supabaseClient.from("tournament_groups").select("id,stage_id,name,sort_order").in("stage_id",stageIds).order("sort_order"),
       supabaseClient.from("tournament_standings").select("group_id,team_id,played,wins,draws,losses,points,rank").in("stage_id",stageIds).order("rank")
     ]):[{data:[],error:null},{data:[],error:null}];
+    if(groupsRes.error||standingsRes.error){
+      host.innerHTML='<div class="market-empty">Não foi possível carregar a fase de grupos: '+safe5((groupsRes.error||standingsRes.error).message)+'</div>';
+      return;
+    }
     if(!tournamentStages.length){host.innerHTML='<div class="market-empty">O chaveamento será exibido após a organização do campeonato.</div>';await loadTournamentMatchChoices();return;}
 
     const approved=registrations.filter(r=>r.status==="approved").map(r=>({
@@ -530,13 +534,12 @@
     const groupFixtureCounters=new Map();
     const labels=matches.map(node=>{
       const stage=tournamentStages.find(item=>item.id===node.stage_id)?.name||"Campeonato";
-      const groupName=node.bracket_side==="groups"
-        ?(groupNames.get(node.group_id||node.config?.group_node_id)||"Fase de grupos")
-        :null;
+      const groupId=node.bracket_side==="groups"?(node.group_id||node.config?.group_node_id):null;
+      const groupName=groupId?(groupNames.get(groupId)||"Fase de grupos"):null;
       const nameA=cloudTeams.find(team=>team.id===node.team_a_id)?.name||"Equipe A";
       const nameB=cloudTeams.find(team=>team.id===node.team_b_id)?.name||"Equipe B";
       const phaseLabel=groupName?groupName+" · "+stage:"Mata-mata · "+stage;
-      const groupMatchNumber=groupName?(groupFixtureCounters.set(groupName,(groupFixtureCounters.get(groupName)||0)+1),groupFixtureCounters.get(groupName)):node.match_number;
+      const groupMatchNumber=groupId?(groupFixtureCounters.set(groupId,(groupFixtureCounters.get(groupId)||0)+1),groupFixtureCounters.get(groupId)):node.match_number;
       return {id:node.id,label:phaseLabel+" · R"+node.round_number+"/J"+groupMatchNumber+" · "+nameA+" × "+nameB};
     });
     select.innerHTML='<option value="">Partida avulsa (não vinculada)</option>'+labels.map(item=>'<option value="'+safe5(item.id)+'">'+safe5(item.label)+'</option>').join("");
