@@ -24,7 +24,7 @@
   const styleField=(scope,slot)=>slots.find(s=>s.key===slot).column[scope];
   const activeState={};
   async function renderEditor(scope,ownerId,host){
-    if(!host||!window.supabaseClient){if(host)host.innerHTML='<p class="form-note">Entre na conta para acessar a loja de personalizações.</p>';return;}
+    if(!host||typeof supabaseClient==="undefined"||!supabaseClient){if(host)host.innerHTML='<p class="form-note">Entre na conta para acessar a loja de personalizações.</p>';return;}
     host.innerHTML='<p class="form-note">Carregando loja de personalizações...</p>';
     const [unlockRes,walletRes,ownerRes]=await Promise.all([
       supabaseClient.from("acs_cosmetic_unlocks").select("item_key").eq("scope",scope).eq("owner_id",ownerId),
