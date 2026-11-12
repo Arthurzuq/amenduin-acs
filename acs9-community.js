@@ -124,14 +124,60 @@
   }
   async function openTeamDetail(team){
     if(!team||!supabaseClient)return;
-    const [{data:members},{data:matches}]=await Promise.all([
+    const [{data:members},{data:matches},{data:awards}]=await Promise.all([
       supabaseClient.from("team_members").select("player_id,role,players(id,nickname,main_role,avatar_url)").eq("team_id",team.id),
-      supabaseClient.from("matches").select("id,played_at,team_a_name,team_b_name,team_a_score,team_b_score,status").or("team_a_id.eq."+team.id+",team_b_id.eq."+team.id).eq("status","completed").order("played_at",{ascending:false}).limit(10)
+      supabaseClient.from("matches").select("id,played_at,team_a_name,team_b_name,team_a_score,team_b_score,status").or("team_a_id.eq."+team.id+",team_b_id.eq."+team.id).eq("status","completed").order("played_at",{ascending:false}).limit(10),
+      supabaseClient.from("tournament_prize_awards").select("placement,tier,amount,awarded_at,tournaments(name)").eq("team_id",team.id).order("awarded_at",{ascending:false}).limit(10)
     ]);
     let modal=$("#acsTeamDetailModal");
     if(!modal){modal=document.createElement("div");modal.id="acsTeamDetailModal";modal.className="modal-backdrop";modal.innerHTML='<div class="modal detail-modal"><div id="acsTeamDetailContent"></div></div>';document.body.append(modal);modal.addEventListener("click",e=>{if(e.target===modal||e.target.closest("[data-team-close]"))modal.classList.remove("open");});}
-    const roster=members||[],history=matches||[];
-    $("#acsTeamDetailContent").innerHTML='<div class="modal-head"><div><span class="eyebrow">TEAM PROFILE</span><h2>'+esc(team.name)+'</h2></div><button class="icon-button" data-team-close>×</button></div><section class="detail-section"><h3>Elenco atual</h3><div class="team-detail-roster">'+(roster.length?roster.map(m=>'<button data-team-player="'+esc(m.player_id)+'"><b>'+esc(m.players?.nickname||"Jogador")+'</b><small>'+esc(m.role==="captain"?"Capitão":m.players?.main_role||"Integrante")+'</small></button>').join(""):'<p class="muted">Nenhum integrante cadastrado.</p>')+'</div></section><section class="detail-section"><h3>Últimos resultados</h3><div class="community-list">'+(history.length?history.map(m=>'<article class="community-item"><div><b>'+esc(m.team_a_name)+' '+m.team_a_score+' × '+m.team_b_score+' '+esc(m.team_b_name)+'</b><small>'+fmtDate(m.played_at)+'</small></div></article>').join(""):'<p class="muted">Ainda não há partidas concluídas registradas para esta equipe.</p>')+'</div></section>';
+    const roster=members||[],history=matches||[],honors=awards||[];
+    const wins=history.filter(m=>(m.team_a_id===team.id?m.team_a_score>m.team_b_score:m.team_b_score>m.team_a_score)).length;
+    $("#acsTeamDetailContent").innerHTML='<div class="modal-head"><div><span class="eyebrow">TEAM PROFILE</span><h2>'+esc(team.name)+'</h2></div><button class="icon-button" data-team-close>×</button></div><section class="detail-section"><h3>Elenco atual</h3><div class="team-detail-roster">'+(roster.length?roster.map(m=>'<button data-team-player="'+esc(m.player_id)+'"><b>'+esc(m.players?.nickname||"Jogador")+'</b><small>'+esc(m.role==="captain"?"Capitão":m.players?.main_role||"Integrante")+'</small></button>').join(""):'<p class="muted">Nenhum integrante cadastrado.</p>')+'</div></section><section class="detail-section"><h3>Conquistas e premiações</h3><div class="community-list">'+(honors.length?honors.map(a=>'<article class="community-item"><div><b>'+(Number(a.placement)===1?'Campeã':Number(a.placement)===2?'Vice-campeã':'Top '+a.placement)+' · '+esc(a.tournaments?.name||'Campeonato')+'</b><small>Tier '+esc(a.tier)+' · '+fmtDate(a.awarded_at)+'</small></div><strong><div class="community-list">'+(history.length?history.map(m=>'<article class="community-item"><div><b>'+esc(m.team_a_name)+' '+m.team_a_score+' × '+m.team_b_score+' '+esc(m.team_b_name)+'</b><small>'+fmtDate(m.played_at)+'</small></div></article>').join(""):'<p class="muted">Ainda não há partidas concluídas registradas para esta equipe.</p>')+'</div></section>';
+    modal.classList.add("open");
+    $("#acsTeamDetailContent").querySelectorAll("[data-team-player]").forEach(b=>b.addEventListener("click",()=>{const id=b.dataset.teamPlayer;const p=(players||[]).find(x=>x.id===id);if(p){modal.classList.remove("open");openDetail(id);}}));
+  }
+  async function loadAdminActivity(){
+    const panel=$("#acsAdminActivityPanel"),host=$("#acsAdminActivity");if(!panel||!host)return;
+    panel.hidden=!isAdmin;if(!isAdmin||!supabaseClient)return;
+    const {data,error}=await supabaseClient.from("acs_admin_audit_log").select("id,action,old_values,new_values,created_at,player_id,players(nickname)").order("created_at",{ascending:false}).limit(30);
+    if(error){host.innerHTML='<div class="community-empty">Não foi possível carregar auditoria: '+esc(error.message)+'</div>';return;}
+    host.innerHTML=(data||[]).length?data.map(a=>'<article class="community-item"><div><b>'+esc(a.action)+'</b><small>'+esc(a.players?.nickname||"Registro geral")+' · '+fmtDate(a.created_at)+'</small></div><small>'+esc(JSON.stringify(a.new_values||{}).slice(0,110))+'</small></article>').join(""):'<div class="community-empty">Nenhuma alteração administrativa registrada.</div>';
+  }
+  $("#acsScheduleForm")?.addEventListener("submit",async e=>{
+    e.preventDefault();
+    if(!isAdmin||!supabaseClient){toast("Somente administradores podem agendar partidas.");return;}
+    const teamA=$("#acsScheduleTeamA").value,teamB=$("#acsScheduleTeamB").value,raw=$("#acsScheduleDate").value;
+    if(!teamA||!teamB||teamA===teamB||!raw){toast("Selecione duas equipes diferentes e informe a data.");return;}
+    const date=new Date(raw);
+    if(Number.isNaN(date.getTime())||date<=new Date()){toast("Escolha uma data futura.");return;}
+    const button=e.submitter;if(button){button.disabled=true;button.textContent="Agendando...";}
+    const {error}=await supabaseClient.rpc("acs_admin_schedule_match",{p_team_a_id:teamA,p_team_b_id:teamB,p_played_at:date.toISOString(),p_best_of:Number($("#acsScheduleBo").value)});
+    if(button){button.disabled=false;button.textContent="Agendar partida";}
+    if(error){toast("Não foi possível agendar: "+error.message);return;}
+    $("#acsScheduleForm").reset();toast("Partida agendada. As equipes receberão uma notificação.");loadCalendar();
+  });
+  $("#acsCommunityRefresh")?.addEventListener("click",loadCommunity);
+  // Refresh account identity periodically; notifications refresh only while the hub is visible.
+  setInterval(()=>{refreshProfileMenu();if($("#page-community")?.classList.contains("active"))loadNotifications();},12000);
+  const oldOpenDetail=window.openDetail;
+  if(typeof openDetail==="function"){
+    const original=openDetail;
+    openDetail=function(id){original(id);const p=(players||[]).find(x=>x.id===id);if(p&&$("#detailContent"))appendCareerToProfile(p);};
+  }
+  function appendCareerToProfile(p){
+    const target=$("#detailContent");if(!target||target.querySelector(".acs-career-inline"))return;
+    const node=document.createElement("section");node.className="detail-section acs-career-inline";node.innerHTML='<h3>Carreira ACS</h3><p class="detail-bio">'+Number(p.matches||0)+' partidas · '+Number(p.kills||0)+' eliminações · '+Number(p.mvps||0)+' MVPs</p><button class="text-button" data-open-career>Ver conquistas e histórico →</button>';target.append(node);
+    node.querySelector("[data-open-career]").addEventListener("click",()=>{go("community");renderCareer();});
+  }
+  const oldGo=go;
+  go=function(page){oldGo(page);if(page==="community")loadCommunity();};
+  refreshProfileMenu();
+  setTimeout(refreshProfileMenu,500);
+  setTimeout(refreshProfileMenu,1800);
+  window.ACS9Community={refresh:loadCommunity,refreshProfile:refreshProfileMenu,openTeam:openTeamDetail};
+})();
++Number(a.amount||0).toLocaleString('pt-BR')+'</strong></article>').join(''):'<p class="muted">Nenhuma premiação registrada para esta equipe.</p>')+'</div></section><section class="detail-section"><h3>Últimos resultados</h3><div class="community-list">'+(history.length?history.map(m=>'<article class="community-item"><div><b>'+esc(m.team_a_name)+' '+m.team_a_score+' × '+m.team_b_score+' '+esc(m.team_b_name)+'</b><small>'+fmtDate(m.played_at)+'</small></div></article>').join(""):'<p class="muted">Ainda não há partidas concluídas registradas para esta equipe.</p>')+'</div></section>';
     modal.classList.add("open");
     $("#acsTeamDetailContent").querySelectorAll("[data-team-player]").forEach(b=>b.addEventListener("click",()=>{const id=b.dataset.teamPlayer;const p=(players||[]).find(x=>x.id===id);if(p){modal.classList.remove("open");openDetail(id);}}));
   }
