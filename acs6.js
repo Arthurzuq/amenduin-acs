@@ -437,15 +437,15 @@
       f.bracketId=f.bracketId||f.id;
       rows.push({id:f.bracketId,tournament_id:tid,stage_id:boardStageId,bracket_side:"groups",round_number:1,match_number:parseInt(f.id.replace(/-/g,"").slice(0,7),16),team_a_id:f.teamA,team_b_id:f.teamB,status:"ready",config:{group_node_id:g.id,round:f.round}});
     }));
-    if(rows.length){
-      const {error}=await supabaseClient.from("tournament_bracket_nodes").upsert(rows,{onConflict:"id"});
-      if(error)throw error;
-    }
     const currentBoardIds=new Set(games.map(n=>n.bracketId));
     const stale=(existingRows||[]).filter(row=>row.config?.board_node_id&&!currentBoardIds.has(row.id));
     if(stale.some(row=>row.match_id||row.status==="completed"))throw new Error("Há partidas antigas com resultados. Não removi esses registros.");
     if(stale.length){
       const {error}=await supabaseClient.from("tournament_bracket_nodes").delete().in("id",stale.map(row=>row.id));
+      if(error)throw error;
+    }
+    if(rows.length){
+      const {error}=await supabaseClient.from("tournament_bracket_nodes").upsert(rows,{onConflict:"id"});
       if(error)throw error;
     }
     for(const node of games){
