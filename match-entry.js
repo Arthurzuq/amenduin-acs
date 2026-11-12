@@ -214,6 +214,21 @@
     if (remaining.length!==1) return {rows,error:"O veto deve deixar exatamente um mapa para o decider.",decider:null,picks:[]};
     return {rows,error:null,decider:remaining[0],picks:rows.filter(row=>row.action_type==="pick")};
   }
+  function updateFlowVisibility() {
+    const format=Number($("#matchBestOf")?.value||0);
+    const hasTeams=!!teamId("A")&&!!teamId("B")&&teamId("A")!==teamId("B");
+    const vetoComplete=format>0&&hasTeams&&!readVeto().error;
+    const rosterComplete=selectedRoster("A").length>0&&selectedRoster("B").length>0;
+    const visibility={
+      veto:format>0&&hasTeams,
+      roster:vetoComplete,
+      stats:vetoComplete&&rosterComplete
+    };
+    Object.entries(visibility).forEach(([step,visible])=>{
+      const section=$(`[data-match-step="${step}"]`);
+      if(section)section.hidden=!visible;
+    });
+  }
   function renderVetoSummary() {
     const host=$("#matchVetoSummary");
     if (!host) return;
@@ -246,11 +261,13 @@
     };
   }
   function scorePreview(card) {
+    const required=["a_first_half","b_first_half","a_second_half","b_second_half"];
+    const missing=required.some(key=>card.querySelector(`[data-map-key="${key}"]`)?.value==="");
     const value=key=>Number(card.querySelector(`[data-map-key="${key}"]`)?.value||0);
     const a=value("a_first_half")+value("a_second_half")+value("a_ot_tr")+value("a_ot_ct");
     const b=value("b_first_half")+value("b_second_half")+value("b_ot_tr")+value("b_ot_ct");
     const target=$("[data-map-preview]",card);
-    if (target) target.innerHTML=`Placar final <b>${a} : ${b}</b>`;
+    if(target)target.innerHTML=missing?'Placar final <b>— : —</b>':`Placar final <b>${a} : ${b}</b>`;
   }
   function updateScorePreviews(){$$("#matchMapsEditor [data-map-card]").forEach(scorePreview);}
 
@@ -263,11 +280,13 @@
     if (plan.error) {
       host.innerHTML=`<div class="match-empty-state">Complete o veto acima para gerar uma tabela por mapa.<small>${esc(plan.error)}</small></div>`;
       renderVetoSummary();
+      updateFlowVisibility();
       return;
     }
     if (!sideA.length || !sideB.length) {
       host.innerHTML='<div class="match-empty-state">Selecione ao menos um jogador de cada equipe na etapa de elencos. As tabelas serão preenchidas automaticamente.</div>';
       renderVetoSummary();
+      updateFlowVisibility();
       return;
     }
     const statInput=(map,player,side,key,label,type="number",attrs="")=>
@@ -346,6 +365,7 @@
     });
     updateScorePreviews();
     renderVetoSummary();
+    updateFlowVisibility();
   }
 
   function renderAll() {
@@ -585,7 +605,7 @@
       if (target.matches("[data-roster-choice]")) {
         const player=roster[target.dataset.rosterChoice].find(row=>row.key===target.dataset.rosterKey);
         if (player) player.selected=target.checked;
-        renderRosterEditor();renderMapTables();persistMatchDraft();return;
+        renderRosterEditor();renderMapTables();updateFlowVisibility();persistMatchDraft();return;
       }
       if (target.matches("[data-map-played]")) {
         const card=target.closest("[data-map-card]");
