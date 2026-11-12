@@ -92,11 +92,24 @@
     const p=ownProfile();
     if(!p){host.innerHTML='<div class="community-empty">Vincule um perfil de jogador à sua conta para visualizar sua carreira.</div>';return;}
     let matchCount=Number(p.matches||0),kills=Number(p.kills||0),mvps=Number(p.mvps||0),rating=Number(p.rating||0),win=Number(p.win||0);
+    let ratingHistory=[],mapRows=[],prizes=[];
     if(supabaseClient){
-      const {data}=await supabaseClient.from("player_match_stats").select("match_id,kills,deaths,mvps,matches(played_at,team_a_name,team_b_name,team_a_score,team_b_score,status)").eq("player_id",p.id).order("match_id",{ascending:false}).limit(100);
-      careerRows=data||[];
+      const [matchRes,ratingRes,mapRes,teamRes]=await Promise.all([
+        supabaseClient.from("player_match_stats").select("match_id,kills,deaths,assists,mvps,matches(played_at,team_a_name,team_b_name,team_a_score,team_b_score,status)").eq("player_id",p.id).order("match_id",{ascending:false}).limit(100),
+        supabaseClient.from("acs_player_rating_history").select("rating_am,recorded_at").eq("player_id",p.id).order("recorded_at",{ascending:true}).limit(40),
+        supabaseClient.from("player_map_stats").select("map_name,kills,deaths,adr").eq("player_id",p.id).limit(500),
+        supabaseClient.from("team_members").select("team_id").eq("player_id",p.id).limit(1)
+      ]);
+      careerRows=matchRes.data||[];ratingHistory=ratingRes.data||[];mapRows=mapRes.data||[];
+      if(teamRes.data?.[0]?.team_id){
+        const awardRes=await supabaseClient.from("tournament_prize_awards").select("placement,tier,amount,awarded_at,tournaments(name)").eq("team_id",teamRes.data[0].team_id).order("awarded_at",{ascending:false}).limit(10);
+        prizes=awardRes.data||[];
+      }
       if(careerRows.length){matchCount=Math.max(matchCount,careerRows.length);kills=Math.max(kills,careerRows.reduce((a,r)=>a+Number(r.kills||0),0));mvps=Math.max(mvps,careerRows.reduce((a,r)=>a+Number(r.mvps||0),0));}
     }
+    const mapTotals={};
+    mapRows.forEach(r=>{const name=r.map_name||"Desconhecido";mapTotals[name]??={games:0,kills:0,deaths:0,adr:0,adrCount:0};const m=mapTotals[name];m.games++;m.kills+=Number(r.kills||0);m.deaths+=Number(r.deaths||0);if(r.adr!=null){m.adr+=Number(r.adr);m.adrCount++;}});
+    const bestMaps=Object.entries(mapTotals).sort((a,b)=>(b[1].kills/Math.max(1,b[1].games))-(a[1].kills/Math.max(1,a[1].games))).slice(0,4);
     const ach=[
       achievementMarkup("⚔️","Primeiro confronto","Dispute sua primeira partida oficial.",matchCount>=1),
       achievementMarkup("🎯","Veterano","Alcance 10 partidas oficiais.",matchCount>=10),
@@ -105,7 +118,12 @@
       achievementMarkup("🔥","Alta performance","Alcance 60% de win rate com pelo menos 5 partidas.",win>=60&&matchCount>=5),
       achievementMarkup("👑","Elite ACS","Alcance Rating AM de 80.",rating>=80)
     ];
-    host.innerHTML='<div class="community-item community-career-summary"><div><b>'+esc(p.nickname)+'</b><small>'+matchCount+' partidas · '+kills+' kills · '+mvps+' MVPs</small></div><button data-career-profile>Ver perfil completo</button></div><div class="achievement-grid">'+ach.join("")+'</div><div class="detail-section"><h3>Partidas recentes</h3><div class="community-list">'+(careerRows.length?careerRows.slice(0,8).map(r=>{const m=r.matches||{};return '<article class="community-item"><div><b>'+esc(m.team_a_name||"Equipe A")+' vs '+esc(m.team_b_name||"Equipe B")+'</b><small>'+fmtDate(m.played_at)+' · '+Number(r.kills||0)+' / '+Number(r.deaths||0)+' / '+Number(r.assists||0)+'</small></div><span>'+(m.status==="completed"?"Concluída":"Registrada")+'</span></article>';}).join(""):'<div class="community-empty">O histórico detalhado aparecerá após suas próximas partidas oficiais.</div>')+'</div></div>';
+    const values=ratingHistory.map(r=>Number(r.rating_am));
+    const minRating=values.length?Math.min(...values):0,maxRating=values.length?Math.max(...values):100;
+    const points=values.map((v,i)=>{const x=24+(i/Math.max(1,values.length-1))*552;const y=130-((v-minRating)/Math.max(1,maxRating-minRating))*100;return x.toFixed(1)+","+y.toFixed(1);}).join(" ");
+    const chart=values.length>1?'<svg class="career-chart" viewBox="0 0 600 155" role="img" aria-label="Evolução do Rating AM"><line x1="24" y1="130" x2="576" y2="130" stroke="#34465c"/><polyline points="'+points+'" fill="none" stroke="#77b8ed" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><text x="24" y="148" fill="#8ea0b5" font-size="10">'+esc(fmtDate(ratingHistory[0].recorded_at))+'</text><text x="576" y="148" text-anchor="end" fill="#8ea0b5" font-size="10">'+esc(fmtDate(ratingHistory[ratingHistory.length-1].recorded_at))+'</text></svg>':'<div class="community-empty">A evolução do Rating AM começará a aparecer após novas avaliações oficiais.</div>';
+    const recent=careerRows.length?careerRows.slice(0,8).map(r=>{const m=r.matches||{};return '<article class="community-item"><div><b>'+esc(m.team_a_name||"Equipe A")+' vs '+esc(m.team_b_name||"Equipe B")+'</b><small>'+fmtDate(m.played_at)+' · '+Number(r.kills||0)+' / '+Number(r.deaths||0)+' / '+Number(r.assists||0)+'</small></div><span>'+(m.status==="completed"?"Concluída":"Registrada")+'</span></article>';}).join(""):'<div class="community-empty">O histórico detalhado aparecerá após suas próximas partidas oficiais.</div>';
+    host.innerHTML='<div class="community-item community-career-summary"><div><b>'+esc(p.nickname)+'</b><small>'+matchCount+' partidas · '+kills+' kills · '+mvps+' MVPs · '+prizes.length+' premiações da equipe atual</small></div><button data-career-profile>Ver perfil completo</button></div><div class="achievement-grid">'+ach.join("")+'</div><div class="detail-section"><h3>Evolução do Rating AM</h3>'+chart+'</div><div class="detail-section"><h3>Desempenho por mapa</h3><div class="community-list">'+(bestMaps.length?bestMaps.map(([name,m])=>'<article class="community-item"><div><b>'+esc(name)+'</b><small>'+m.games+' mapas disputados · '+(m.adrCount?(m.adr/m.adrCount).toFixed(1)+' ADR médio':'ADR não informado')+'</small></div><strong>'+(m.kills/Math.max(1,m.deaths)).toFixed(2)+' K/D</strong></article>').join(""):'<div class="community-empty">Sem estatísticas por mapa.</div>')+'</div></div><div class="detail-section"><h3>Partidas recentes</h3><div class="community-list">'+recent+'</div></div><div class="detail-section"><h3>Títulos e premiações</h3><div class="community-list">'+(prizes.length?prizes.map(a=>'<article class="community-item"><div><b>'+esc(a.tournaments?.name||"Campeonato")+' · '+a.placement+'º lugar</b><small>Tier '+esc(a.tier)+' · '+fmtDate(a.awarded_at)+'</small></div><strong>$'+Number(a.amount||0).toLocaleString("pt-BR")+'</strong></article>').join(""):'<div class="community-empty">Nenhuma premiação vinculada à equipe atual.</div>')+'</div></div>';
     host.querySelector("[data-career-profile]")?.addEventListener("click",()=>openDetail(p.id));
   }
   async function loadHallOfFame(){
