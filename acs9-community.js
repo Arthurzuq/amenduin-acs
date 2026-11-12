@@ -126,7 +126,7 @@
     if(!team||!supabaseClient)return;
     const [{data:members},{data:matches},{data:awards}]=await Promise.all([
       supabaseClient.from("team_members").select("player_id,role,players(id,nickname,main_role,avatar_url)").eq("team_id",team.id),
-      supabaseClient.from("matches").select("id,played_at,team_a_name,team_b_name,team_a_score,team_b_score,status").or("team_a_id.eq."+team.id+",team_b_id.eq."+team.id).eq("status","completed").order("played_at",{ascending:false}).limit(10),
+      supabaseClient.from("matches").select("id,played_at,team_a_id,team_b_id,team_a_name,team_b_name,team_a_score,team_b_score,status").or("team_a_id.eq."+team.id+",team_b_id.eq."+team.id).eq("status","completed").order("played_at",{ascending:false}).limit(10),
       supabaseClient.from("tournament_prize_awards").select("placement,tier,amount,awarded_at,tournaments(name)").eq("team_id",team.id).order("awarded_at",{ascending:false}).limit(10)
     ]);
     let modal=$("#acsTeamDetailModal");
