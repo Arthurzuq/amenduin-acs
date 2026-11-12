@@ -637,11 +637,18 @@
     renderBoard();$("#boardSaveState").textContent="Alterações pendentes · salvando automaticamente...";
     clearTimeout(saveTimer);saveTimer=setTimeout(saveBoard,650);
   }
+  async function refreshAfterMatch(){
+    if(!supabaseClient||!currentUser||!isAdmin)return;
+    await loadBoard();
+    await refreshGroupAdvancements(false);
+    if(typeof window.ACS5_REFRESH_BRACKET_CHOICES==="function")await window.ACS5_REFRESH_BRACKET_CHOICES();
+  }
   async function openBoard(){
     if(!isAdmin){notify("Somente administradores podem organizar o campeonato.");return;}
     go("tournament-board");
   }
   window.ACS6.openBoard=openBoard;
+  window.ACS6.refreshAfterMatch=refreshAfterMatch;
   $("#boardSaveButton")?.addEventListener("click",saveBoard);
   $("#boardBackButton")?.addEventListener("click",()=>go("tournaments"));
   $("#boardAddMatchButton")?.addEventListener("click",addMatchNode);
