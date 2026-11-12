@@ -80,4 +80,5 @@
     }
   });
   window.ACS8Cosmetics={classFor,renderEditor};
+  if(typeof renderPlayers==="function")renderPlayers();
 })();
