@@ -224,3 +224,6 @@
  .tournament-registration{align-items:flex-start;flex-direction:column}
  .tournament-review-actions{width:100%;display:flex;gap:8px}
 }
+
+/* Progressive match-entry steps */
+#adminMatchForm [data-match-step][hidden]{display:none!important}
