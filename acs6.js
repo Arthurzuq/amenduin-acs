@@ -566,10 +566,16 @@
     const existingGroups=groupRes.data||[];
     bracketRows=existingStageRows;
     const groupIds=new Set(groups.map(group=>group.id));
-    const groupRecords=groups.map((group,index)=>({
-      id:group.id,stage_id:boardStageId,name:group.name||("Grupo "+String.fromCharCode(65+index)),
-      sort_order:index+1,config:{board_node_id:group.id,team_ids:group.teamIds||[]}
-    }));
+    let nextGroupOrder=Math.max(0,...existingGroups.map(group=>Number(group.sort_order)||0))+1;
+    const groupRecords=groups.map((group,index)=>{
+      const saved=existingGroups.find(item=>item.id===group.id);
+      const sortOrder=Number(saved?.sort_order)||nextGroupOrder++;
+      group.sortOrder=sortOrder;
+      return {
+        id:group.id,stage_id:boardStageId,name:group.name||("Grupo "+String.fromCharCode(65+index)),
+        sort_order:sortOrder,config:{board_node_id:group.id,team_ids:group.teamIds||[]}
+      };
+    });
     const groupUpsert=groupRecords.length
       ?await supabaseClient.from("tournament_groups").upsert(groupRecords,{onConflict:"id"})
       :{error:null};
@@ -609,14 +615,13 @@
         config:{board_node_id:node.id}
       });
     });
-    const roundMatchCounts=new Map();
     groups.forEach(group=>{
       rebuildGroupFixtures(group);
+      let groupMatchIndex=0;
       (group.fixtures||[]).forEach(fixture=>{
         fixture.bracketId=fixture.bracketId||fixture.id;
         const round=Math.max(1,Number(fixture.round)||1);
-        const matchNo=(roundMatchCounts.get(round)||0)+1;
-        roundMatchCounts.set(round,matchNo);
+        const matchNo=Number(group.sortOrder||1)*100000+(++groupMatchIndex);
         const current=existingGroupRows.find(row=>row.id===fixture.bracketId);
         rows.push({
           id:fixture.bracketId,tournament_id:tid,stage_id:boardStageId,group_id:group.id,
