@@ -101,3 +101,30 @@ begin
 end; $$;
 revoke all on function public.acs_purchase_cosmetic(text,uuid,text) from public,anon;
 grant execute on function public.acs_purchase_cosmetic(text,uuid,text) to authenticated;
+ 
+-- Prevent direct REST updates from equipping cosmetics that were not purchased.
+create or replace function public.acs_guard_cosmetic_equips()
+returns trigger language plpgsql security definer set search_path=public as $$
+begin
+  if tg_table_name='players' then
+    if new.profile_name_style is distinct from old.profile_name_style and new.profile_name_style<>'default'
+       and not exists(select 1 from public.acs_cosmetic_unlocks u where u.scope='player' and u.owner_id=new.id and u.item_key=new.profile_name_style) then raise exception 'Essa cor de nome ainda não foi desbloqueada.'; end if;
+    if new.profile_frame_style is distinct from old.profile_frame_style and new.profile_frame_style<>'default'
+       and not exists(select 1 from public.acs_cosmetic_unlocks u where u.scope='player' and u.owner_id=new.id and u.item_key=new.profile_frame_style) then raise exception 'Essa moldura ainda não foi desbloqueada.'; end if;
+    if new.profile_background_style is distinct from old.profile_background_style and new.profile_background_style<>'default'
+       and not exists(select 1 from public.acs_cosmetic_unlocks u where u.scope='player' and u.owner_id=new.id and u.item_key=new.profile_background_style) then raise exception 'Esse fundo ainda não foi desbloqueado.'; end if;
+  elsif tg_table_name='teams' then
+    if new.name_style is distinct from old.name_style and new.name_style<>'default'
+       and not exists(select 1 from public.acs_cosmetic_unlocks u where u.scope='team' and u.owner_id=new.id and u.item_key=new.name_style) then raise exception 'Essa cor de nome ainda não foi desbloqueada para a equipe.'; end if;
+    if new.frame_style is distinct from old.frame_style and new.frame_style<>'default'
+       and not exists(select 1 from public.acs_cosmetic_unlocks u where u.scope='team' and u.owner_id=new.id and u.item_key=new.frame_style) then raise exception 'Essa moldura ainda não foi desbloqueada para a equipe.'; end if;
+    if new.background_style is distinct from old.background_style and new.background_style<>'default'
+       and not exists(select 1 from public.acs_cosmetic_unlocks u where u.scope='team' and u.owner_id=new.id and u.item_key=new.background_style) then raise exception 'Esse fundo ainda não foi desbloqueado para a equipe.'; end if;
+  end if;
+  return new;
+end; $$;
+revoke all on function public.acs_guard_cosmetic_equips() from public,anon,authenticated;
+drop trigger if exists acs_guard_player_cosmetic_equips on public.players;
+create trigger acs_guard_player_cosmetic_equips before insert or update of profile_name_style,profile_frame_style,profile_background_style on public.players for each row execute function public.acs_guard_cosmetic_equips();
+drop trigger if exists acs_guard_team_cosmetic_equips on public.teams;
+create trigger acs_guard_team_cosmetic_equips before insert or update of name_style,frame_style,background_style on public.teams for each row execute function public.acs_guard_cosmetic_equips();
