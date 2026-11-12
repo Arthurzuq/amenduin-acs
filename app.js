@@ -240,18 +240,20 @@ function renderMarket(){
       ? "Você está navegando como visitante. Entre na sua conta e vincule seu perfil para enviar propostas."
       : !own
         ? "Sua conta ainda não possui um perfil de jogador vinculado. Crie seu perfil para participar das negociações."
-        : `Conectado como ${own.nickname}. Você pode enviar propostas usando o perfil ${own.nickname}.`;
+        : `Conectado como ${own.nickname}. ${myTeamMembership()?.role==="captain"?"Como capitão, você pode enviar propostas com salário semanal definido.":"Somente o capitão da equipe pode contratar pelo Mercado."}`;
   $("#marketPlayers").innerHTML=listings.length?listings.map(p=>{
     const isSelf=own&&own.id===p.id;
-    return `<div class="market-player"><div class="avatar">${safe(initials(p.nickname))}</div><div class="market-player-info"><b>${safe(p.nickname)}</b><small>${safe(p.mainRole)} · ${safe(p.team||"Sem equipe")}</small><span class="market-status">${safe(p.marketStatus)}</span></div>${isSelf?'<span class="muted small">Seu perfil</span>':`<button class="btn btn-primary btn-small" data-make-offer="${safe(p.id)}" ${!own?"disabled":""}>Propor transferência</button>`}</div>`;
+    return `<div class="market-player"><div class="avatar">${safe(initials(p.nickname))}</div><div class="market-player-info"><b>${safe(p.nickname)}</b><small>${safe(p.mainRole)} · ${safe(p.team||"Sem equipe")}</small><span class="market-status">${safe(p.marketStatus)}</span></div>${isSelf?'<span class="muted small">Seu perfil</span>':`<button class="btn btn-primary btn-small" data-make-offer="${safe(p.id)}" ${!own||myTeamMembership()?.role!=="captain"?"disabled":""}>Convidar para equipe</button>`}</div>`;
   }).join(""):`<div class="market-empty"><b>Nenhum jogador no mercado</b>Quando jogadores cadastrados marcarem seus perfis como disponíveis ou negociáveis, eles aparecerão aqui.</div>`;
   const offers=marketOffers.map(o=>{
     const target=players.find(p=>p.id===o.target_player_id);
     const proposer=players.find(p=>p.id===o.offered_by_player_id);
     const incoming=!!(currentUser&&target?.userId===currentUser.id);
     const statusLabels={pending:"Aguardando resposta",accepted:"Aceita",rejected:"Recusada",cancelled:"Cancelada"};
+    const salary=Number(o.weekly_salary||0);
+    const salaryLabel=salary>0?`Salário oferecido: <b>${new Intl.NumberFormat("pt-BR",{style:"currency",currency:"USD",maximumFractionDigits:0}).format(salary)}/semana</b>`:"Salário não definido (proposta antiga).";
     const actions=o.status==="pending"?(incoming?`<button class="btn btn-primary" data-offer-action="accept" data-offer-id="${o.id}">Aceitar</button><button class="btn btn-ghost" data-offer-action="reject" data-offer-id="${o.id}">Recusar</button>`:`<button class="btn btn-ghost" data-offer-action="cancel" data-offer-id="${o.id}">Cancelar proposta</button>`):"";
-    return `<article class="offer-card"><div class="offer-card-head"><b>${incoming?`Proposta para ${safe(target?.nickname||"jogador")}`:`Sua proposta para ${safe(target?.nickname||"jogador")}`}</b><span class="offer-status">${statusLabels[o.status]||safe(o.status)}</span></div><p><b>${safe(proposer?.nickname||"Jogador")}</b> · ${safe(proposer?.team||"Sem equipe")}<br>${safe(o.message||"Sem mensagem adicional.")}</p><div class="offer-actions">${actions}</div></article>`;
+    return `<article class="offer-card"><div class="offer-card-head"><b>${incoming?`Proposta para ${safe(target?.nickname||"jogador")}`:`Sua proposta para ${safe(target?.nickname||"jogador")}`}</b><span class="offer-status">${statusLabels[o.status]||safe(o.status)}</span></div><p><b>${safe(proposer?.nickname||"Jogador")}</b> · ${safe(proposer?.team||"Sem equipe")}<br>${salaryLabel}<br>${safe(o.message||"Sem mensagem adicional.")}</p><div class="offer-actions">${actions}</div></article>`;
   });
   $("#myOffers").innerHTML=offers.length?offers.join(""):`<div class="market-empty"><b>Nenhuma proposta ainda</b>As propostas recebidas e enviadas aparecerão nesta área.</div>`;
   $$('[data-make-offer]').forEach(btn=>btn.addEventListener("click",()=>openOffer(btn.dataset.makeOffer)));
@@ -268,10 +270,10 @@ function openOffer(targetId){
   if(!currentUser){$("#authModal").classList.add("open");return;}
   const own=currentPlayerProfile(),target=players.find(p=>p.id===targetId);
   if(!own){toast("Crie seu perfil de jogador antes de enviar propostas.");return;}
-  if(!own.team||own.team==="Sem equipe"){toast("Entre em uma equipe antes de enviar propostas de transferência.");return;}
+  const membership=myTeamMembership();if(!membership||membership.role!=="captain"){toast("Somente o capitão da equipe pode contratar jogadores pelo Mercado.");return;}
   if(!target||target.id===own.id){toast("Esse jogador não pode receber esta proposta.");return;}if(target.team&&target.team===own.team){toast("Esse jogador já está na sua equipe.");return;}
   $("#offerTargetId").value=target.id;$("#offerTargetName").textContent=`Proposta destinada a ${target.nickname} (${target.team||"Sem equipe"}). Sua equipe: ${own.team||"Sem equipe"}.`;
-  $("#offerMessage").value="";$("#offerModal").classList.add("open");
+  $("#offerWeeklySalary").value="";$("#offerMessage").value="";$("#offerModal").classList.add("open");
 }
 $("#closeOffer")?.addEventListener("click",()=>$("#offerModal").classList.remove("open"));
 $("#cancelOffer")?.addEventListener("click",()=>$("#offerModal").classList.remove("open"));
@@ -282,7 +284,8 @@ $("#offerForm")?.addEventListener("submit",async e=>{
   const own=currentPlayerProfile(),targetId=$("#offerTargetId").value;
   if(!own){toast("Sua conta não possui um perfil de jogador.");return;}
   const button=$("#sendOfferButton");button.disabled=true;
-  const {error}=await supabaseClient.from("transfer_offers").insert({target_player_id:targetId,offered_by_player_id:own.id,message:$("#offerMessage").value.trim()||null});
+  const salary=Number($("#offerWeeklySalary").value);if(!Number.isFinite(salary)||salary<=0||salary>1000000){toast("Defina um salário semanal maior que $0 e de até $1.000.000.");button.disabled=false;return;}
+  const {error}=await supabaseClient.rpc("acs_create_transfer_offer",{p_target_player_id:targetId,p_weekly_salary:salary,p_message:$("#offerMessage").value.trim()||null});
   button.disabled=false;
   if(error){toast("Não foi possível enviar a proposta: "+error.message);return;}
   $("#offerModal").classList.remove("open");toast("Proposta enviada.");await loadMarketData();
