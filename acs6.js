@@ -103,7 +103,7 @@
   }
 
   // Tournament bracket builder: create every match box first, connect result ports, then seed initial slots.
-  let board={version:2,nodes:[],edges:[]},approvedTeams=[],boardStageId=null,pendingOutput=null,selectedTeamId=null,saveTimer=null,boardBusy=false,suppressTrayClick=false,dragState=null,connectionDrag=null,suppressConnectorClick=false,bracketRows=[];
+  let board={version:3,nodes:[],edges:[]},approvedTeams=[],boardStageId=null,pendingOutput=null,selectedTeamId=null,saveTimer=null,boardBusy=false,suppressTrayClick=false,dragState=null,connectionDrag=null,suppressConnectorClick=false,bracketRows=[],groupStandings=new Map(),boardLoaded=false;
   const canvas=()=>$("#tournamentBoardCanvas");
   const nodeById=id=>board.nodes.find(n=>n.id===id);
   const teamById=id=>approvedTeams.find(t=>t.id===id)||cloudTeams.find(t=>t.id===id)||{id,name:"Equipe"};
@@ -112,22 +112,49 @@
     return bracketRows.find(r=>r.config?.board_node_id===id||r.id===node?.bracketId||r.id===id)||null;
   };
   const incomingFor=(nodeId,slot)=>board.edges.find(e=>e.to===nodeId&&e.slot===slot)||null;
+  const roundRobinPairs=ids=>{
+    const list=[...ids];if(list.length%2)list.push(null);
+    const fixtures=[],count=list.length;
+    for(let round=1;round<count;round++){
+      for(let i=0;i<count/2;i++){
+        const teamA=list[i],teamB=list[count-1-i];
+        if(teamA&&teamB)fixtures.push({teamA,teamB,round});
+      }
+      list.splice(1,0,list.pop());
+    }
+    return fixtures;
+  };
+  function rebuildGroupFixtures(group){
+    const previous=new Map((group.fixtures||[]).map(f=>[[f.teamA,f.teamB].sort().join(":"),f.id||f.bracketId]));
+    group.fixtures=roundRobinPairs(group.teamIds||[]).map(f=>{
+      const id=previous.get([f.teamA,f.teamB].sort().join(":"))||uuid();
+      return {...f,id,bracketId:id};
+    });
+  }
   function normalizeBoard(){
-    if(!board||typeof board!=="object")board={version:2,nodes:[],edges:[]};
+    if(!board||typeof board!=="object")board={version:3,nodes:[],edges:[]};
     if(!Array.isArray(board.nodes))board.nodes=[];
     if(!Array.isArray(board.edges))board.edges=[];
-    board.nodes=board.nodes.map((node,index)=>{
+    const originalNodes=board.nodes;
+    board.nodes=originalNodes.map((node,index)=>{
       const next={...node};
       if(next.type==="solo")next.type="match";
-      if(next.type!=="group")next.type="match";
-      next.slots=next.slots&&typeof next.slots==="object"
-        ?{A:next.slots.A||null,B:next.slots.B||null}
-        :{A:next.teamIds?.[0]||null,B:next.teamIds?.[1]||null};
+      if(next.type==="group"){
+        next.name=next.name||("Grupo "+String.fromCharCode(65+originalNodes.filter(n=>n.type==="group").indexOf(node)));
+        next.teamIds=Array.isArray(next.teamIds)?[...new Set(next.teamIds.filter(Boolean))]:[];
+        next.fixtures=Array.isArray(next.fixtures)?next.fixtures:[];
+        if(!next.fixtures.length&&next.teamIds.length>1)rebuildGroupFixtures(next);
+      }else{
+        next.type="match";
+        next.slots=next.slots&&typeof next.slots==="object"
+          ?{A:next.slots.A||null,B:next.slots.B||null}
+          :{A:next.teamIds?.[0]||null,B:next.teamIds?.[1]||null};
+      }
       next.x=Number.isFinite(Number(next.x))?Number(next.x):70+(index%4)*390;
-      next.y=Number.isFinite(Number(next.y))?Number(next.y):70+Math.floor(index/4)*230;
+      next.y=Number.isFinite(Number(next.y))?Number(next.y):70+Math.floor(index/4)*260;
       return next;
     });
-    board.version=2;
+    board.version=3;
   }
   async function loadBoard(){
     if(!supabaseClient)return;
@@ -136,25 +163,45 @@
       supabaseClient.from("tournament_registrations").select("team_id,teams(id,name,tag,logo_url,frame_color,name_color)").eq("tournament_id",tid).eq("status","approved"),
       supabaseClient.from("tournament_board_documents").select("board_json,updated_at").eq("tournament_id",tid).maybeSingle(),
       supabaseClient.from("tournament_stages").select("id,name,stage_order").eq("tournament_id",tid).eq("name","Quadro personalizado").maybeSingle(),
-      supabaseClient.from("tournament_bracket_nodes").select("*").eq("tournament_id",tid).eq("bracket_side","main")
+      supabaseClient.from("tournament_bracket_nodes").select("*").eq("tournament_id",tid)
     ]);
     if(teamsRes.error){$("#boardSaveState").textContent="Erro ao carregar equipes: "+teamsRes.error.message;return;}
     if(docRes.error){$("#boardSaveState").textContent="Erro ao carregar o quadro: "+docRes.error.message;return;}
     if(stageRes.error){$("#boardSaveState").textContent="Erro ao carregar a fase: "+stageRes.error.message;return;}
-    if(rowsRes.error){$("#boardSaveState").textContent="Erro ao carregar os resultados: "+rowsRes.error.message;return;}
+    if(rowsRes.error){$("#boardSaveState").textContent="Erro ao carregar resultados: "+rowsRes.error.message;return;}
     approvedTeams=(teamsRes.data||[]).map(r=>r.teams).filter(Boolean);
-    board=docRes.data?.board_json||{version:2,nodes:[],edges:[]};
+    board=docRes.data?.board_json||{version:3,nodes:[],edges:[]};
     normalizeBoard();
     boardStageId=stageRes.data?.id||null;
     bracketRows=(rowsRes.data||[]).filter(row=>!boardStageId||row.stage_id===boardStageId);
-    selectedTeamId=null;pendingOutput=null;
+    groupStandings=new Map();
+    if(boardStageId){
+      const [groupsRes,standingsRes]=await Promise.all([
+        supabaseClient.from("tournament_groups").select("*").eq("stage_id",boardStageId).order("sort_order"),
+        supabaseClient.from("tournament_standings").select("group_id,team_id,played,wins,draws,losses,points,maps_for,maps_against,rounds_for,rounds_against,rank").eq("stage_id",boardStageId).order("rank")
+      ]);
+      if(groupsRes.error){$("#boardSaveState").textContent="Erro ao carregar grupos: "+groupsRes.error.message;return;}
+      if(standingsRes.error){$("#boardSaveState").textContent="Erro ao carregar classificação: "+standingsRes.error.message;return;}
+      const savedGroups=new Map((groupsRes.data||[]).map(group=>[group.id,group]));
+      board.nodes.filter(node=>node.type==="group").forEach(group=>{
+        const saved=savedGroups.get(group.id);
+        if(saved)group.name=saved.name||group.name;
+        if(!group.fixtures.length&&group.teamIds.length>1)rebuildGroupFixtures(group);
+      });
+      (standingsRes.data||[]).forEach(row=>{
+        if(!groupStandings.has(row.group_id))groupStandings.set(row.group_id,[]);
+        groupStandings.get(row.group_id).push(row);
+      });
+    }
+    selectedTeamId=null;pendingOutput=null;boardLoaded=true;
     renderBoard();
     $("#boardSaveState").textContent=docRes.data?.updated_at
       ?"Última edição: "+new Date(docRes.data.updated_at).toLocaleString("pt-BR")
-      :"Crie as partidas e conecte os caminhos antes de posicionar as equipes.";
+      :"Crie grupos e partidas, conecte os caminhos e distribua as equipes.";
     if(typeof window.ACS5_REFRESH_BRACKET_CHOICES==="function")await window.ACS5_REFRESH_BRACKET_CHOICES();
   }
   function nodeLabel(node){
+    if(node?.type==="group")return node.name||"Fase de grupos";
     const index=board.nodes.filter(n=>n.type!=="group").indexOf(node)+1;
     return node.label||("PARTIDA "+String(index).padStart(2,"0"));
   }
@@ -182,43 +229,93 @@
       (!edge&&team?'<button type="button" class="board-slot-clear" data-clear-team-slot="'+slot+'" data-node-id="'+esc(node.id)+'" title="Remover equipe desta vaga">×</button>':'')+
     '</div>';
   }
+  function groupRows(group){
+    return bracketRows.filter(row=>row.bracket_side==="groups"&&(row.group_id===group.id||row.config?.group_node_id===group.id));
+  }
+  function groupHasResults(group){
+    return groupRows(group).some(row=>row.match_id||row.status==="completed");
+  }
+  function groupIsComplete(group){
+    const fixtures=group.fixtures||[];
+    if(!fixtures.length)return false;
+    return fixtures.every(f=>{
+      const row=bracketRows.find(item=>item.id===(f.bracketId||f.id));
+      return row?.status==="completed"&&!!row.winner_team_id;
+    });
+  }
+  function groupPlacementTeam(group,position){
+    if(!groupIsComplete(group))return null;
+    return (groupStandings.get(group.id)||[]).find(row=>Number(row.rank)===Number(position))?.team_id||null;
+  }
+  function groupCardMarkup(group){
+    const standings=groupStandings.get(group.id)||[];
+    const fixtures=group.fixtures||[];
+    const teamRows=(group.teamIds||[]).map(id=>{
+      const team=teamById(id);
+      return '<div class="board-group-team"><span class="board-chip-logo">'+(team.logo_url?'<img src="'+esc(team.logo_url)+'" alt="">':esc((team.tag||team.name||"ACS").slice(0,2).toUpperCase()))+'</span>'+
+        '<b>'+esc(team.name)+'</b><button type="button" data-remove-group-team="'+esc(id)+'" data-group-id="'+esc(group.id)+'" title="Remover do grupo" '+(groupHasResults(group)?"disabled":"")+'>×</button></div>';
+    }).join("");
+    const fixtureRows=fixtures.map(fixture=>{
+      const row=bracketRows.find(item=>item.id===(fixture.bracketId||fixture.id));
+      const state=row?.status==="completed"?"Concluída":"Aguardando placar";
+      return '<div class="board-group-fixture"><span>R'+Number(fixture.round||1)+'</span><b>'+esc(teamById(fixture.teamA).name)+'</b><i>×</i><b>'+esc(teamById(fixture.teamB).name)+'</b><small class="'+(row?.status==="completed"?"done":"")+'">'+state+'</small></div>';
+    }).join("");
+    const table=standings.length
+      ?'<div class="board-group-table"><div class="board-group-head"><b>#</b><b>Equipe</b><b>J</b><b>V</b><b>D</b><b>Pts</b></div>'+
+        standings.map(row=>'<div><b>'+esc(row.rank??"—")+'</b><span>'+esc(teamById(row.team_id).name)+'</span><span>'+Number(row.played||0)+'</span><span>'+Number(row.wins||0)+'</span><span>'+Number(row.losses||0)+'</span><strong>'+Number(row.points||0)+'</strong></div>').join("")+'</div>'
+      :'<div class="board-group-empty">A classificação aparecerá conforme os placares forem registrados.</div>';
+    const complete=groupIsComplete(group);
+    const qualifierCount=Math.max(2,Math.min(8,group.teamIds.length||2));
+    const outputs=Array.from({length:qualifierCount},(_,i)=>{
+      const result="place_"+(i+1),teamId=groupPlacementTeam(group,i+1);
+      return '<button type="button" class="board-output board-group-output '+(pendingOutput?.id===group.id&&pendingOutput.result===result?"active":"")+'" data-connect-out="'+result+'" data-node-id="'+esc(group.id)+'" title="Conectar o '+(i+1)+'º colocado a uma vaga do mata-mata">'+
+        (i+1)+'º lugar'+(teamId?" · "+esc(teamById(teamId).name):"")+'</button>';
+    }).join("");
+    return '<article class="board-node board-node-group" data-board-node="'+esc(group.id)+'" style="left:'+group.x+'px;top:'+group.y+'px">'+
+      '<header data-board-drag-handle><span>'+esc(group.name||"Grupo")+'</span><span class="board-node-status '+(complete?"done":"")+'">'+(complete?"CONCLUÍDO":"FASE DE GRUPOS")+'</span><button type="button" data-delete-board-node="'+esc(group.id)+'" title="Remover grupo">×</button></header>'+
+      '<div class="board-group-content">'+
+        '<div class="board-group-teams">'+(teamRows||'<small class="board-group-empty">Nenhuma equipe neste grupo.</small>')+
+          '<button type="button" class="board-group-drop" data-group-drop="true" data-group-id="'+esc(group.id)+'" '+(groupHasResults(group)?"disabled":"")+'>'+
+            (selectedTeamId?"Adicionar "+esc(teamById(selectedTeamId).name)+" aqui":"＋ Arraste ou selecione equipes para este grupo")+'</button></div>'+
+        '<div class="board-group-section"><b>CONFRONTOS · TODOS CONTRA TODOS</b>'+
+          (fixtureRows||'<small class="board-group-empty">Adicione pelo menos duas equipes para gerar os confrontos.</small>')+'</div>'+
+        '<div class="board-group-section"><b>CLASSIFICAÇÃO</b>'+table+'</div>'+
+        '<div class="board-group-section"><b>AVANÇO PARA O MATA-MATA</b>'+
+          '<small class="board-group-advance-note">'+(complete?"Grupo concluído. Conecte as colocações às vagas iniciais das partidas.":"As colocações serão liberadas depois que todos os confrontos do grupo tiverem placar.")+'</small>'+
+          '<div class="board-connectors">'+outputs+'</div></div>'+
+      '</div></article>';
+  }
   function renderBoard(){
     const tray=$("#tournamentTeamTray"),count=$("#boardTeamCount"),nodes=$("#tournamentBoardNodes"),empty=$(".board-empty-hint");
     if(!tray||!nodes)return;
     const assigned=new Set();
-    board.nodes.filter(n=>n.type!=="group").forEach(n=>{
-      ["A","B"].forEach(slot=>{if(!incomingFor(n.id,slot)&&n.slots?.[slot])assigned.add(n.slots[slot]);});
+    board.nodes.filter(node=>node.type==="group").forEach(group=>(group.teamIds||[]).forEach(id=>assigned.add(id)));
+    board.nodes.filter(node=>node.type!=="group").forEach(node=>{
+      ["A","B"].forEach(slot=>{if(!incomingFor(node.id,slot)&&node.slots?.[slot])assigned.add(node.slots[slot]);});
     });
-    const available=approvedTeams.filter(t=>!assigned.has(t.id));
+    const available=approvedTeams.filter(team=>!assigned.has(team.id));
     count.textContent=approvedTeams.length+" equipe(s) aprovadas";
-    tray.innerHTML=available.length?available.map(t=>
-      '<button type="button" class="board-team-chip profile-'+esc(t.frame_color||"blue")+(selectedTeamId===t.id?" selected":"")+'" data-tray-team="'+esc(t.id)+'">'+
-        '<span class="board-chip-logo">'+(t.logo_url?'<img src="'+esc(t.logo_url)+'" alt="">':esc((t.tag||t.name).slice(0,2).toUpperCase()))+'</span>'+
-        '<b class="name-'+esc(t.name_color||"white")+'">'+esc(t.name)+'</b><small>'+(selectedTeamId===t.id?"Selecionado · clique numa vaga inicial":"Arraste ou selecione")+'</small></button>'
-    ).join(""):'<div class="market-empty">Todos os times aprovados já foram posicionados nas vagas iniciais.</div>';
-    nodes.innerHTML=board.nodes.map(n=>{
-      if(n.type==="group"){
-        const teamNames=(n.teamIds||[]).map(id=>teamById(id).name);
-        return '<article class="board-node board-node-group" data-board-node="'+esc(n.id)+'" style="left:'+n.x+'px;top:'+n.y+'px">'+
-          '<header data-board-drag-handle><span>FASE DE GRUPOS</span><button type="button" data-delete-board-node="'+esc(n.id)+'" title="Remover">×</button></header>'+
-          '<div class="board-node-teams"><p>'+esc(teamNames.join(" · ")||"Grupo legado")+'</p></div>'+
-          '<small class="board-legacy-note">Grupo criado na versão anterior do organizador.</small></article>';
-      }
-      const row=rowForNode(n.id);
+    tray.innerHTML=available.length?available.map(team=>
+      '<button type="button" class="board-team-chip profile-'+esc(team.frame_color||"blue")+(selectedTeamId===team.id?" selected":"")+'" data-tray-team="'+esc(team.id)+'">'+
+        '<span class="board-chip-logo">'+(team.logo_url?'<img src="'+esc(team.logo_url)+'" alt="">':esc((team.tag||team.name).slice(0,2).toUpperCase()))+'</span>'+
+        '<b class="name-'+esc(team.name_color||"white")+'">'+esc(team.name)+'</b><small>'+(selectedTeamId===team.id?"Selecionado · clique numa vaga inicial ou grupo":"Arraste ou selecione")+'</small></button>'
+    ).join(""):'<div class="market-empty">Todos os times aprovados já foram distribuídos.</div>';
+    nodes.innerHTML=board.nodes.map(node=>{
+      if(node.type==="group")return groupCardMarkup(node);
+      const row=rowForNode(node.id);
       const state=row?.status==="completed"?"CONCLUÍDA":row?.status==="ready"?"PRONTA PARA PLACAR":"AGUARDANDO TIMES";
       const winner=row?.winner_team_id?teamById(row.winner_team_id).name:null;
       const loser=row?.winner_team_id?teamById(row.winner_team_id===row.team_a_id?row.team_b_id:row.team_a_id).name:null;
-      const outgoing=board.edges.filter(e=>e.from===n.id);
-      const loserEdge=outgoing.find(e=>e.result==="loser");
+      const loserEdge=board.edges.find(edge=>edge.from===node.id&&edge.result==="loser");
       const resultSummary=row?.status==="completed"
         ?'<div class="board-match-result"><b>Vencedor: '+esc(winner||"—")+'</b><small>Perdedor: '+esc(loser||"—")+(loserEdge?" · encaminhado":" · eliminado")+'</small></div>'
         :'';
-      return '<article class="board-node board-node-match" data-board-node="'+esc(n.id)+'" style="left:'+n.x+'px;top:'+n.y+'px">'+
-        '<header data-board-drag-handle><span>'+esc(nodeLabel(n))+'</span><span class="board-node-status '+(row?.status==="completed"?"done":row?.status==="ready"?"ready":"")+'">'+state+'</span><button type="button" data-delete-board-node="'+esc(n.id)+'" title="Remover">×</button></header>'+
-        '<div class="board-node-slots">'+slotMarkup(n,"A")+slotMarkup(n,"B")+'</div>'+resultSummary+
+      return '<article class="board-node board-node-match" data-board-node="'+esc(node.id)+'" style="left:'+node.x+'px;top:'+node.y+'px">'+
+        '<header data-board-drag-handle><span>'+esc(nodeLabel(node))+'</span><span class="board-node-status '+(row?.status==="completed"?"done":row?.status==="ready"?"ready":"")+'">'+state+'</span><button type="button" data-delete-board-node="'+esc(node.id)+'" title="Remover">×</button></header>'+
+        '<div class="board-node-slots">'+slotMarkup(node,"A")+slotMarkup(node,"B")+'</div>'+resultSummary+
         '<div class="board-connectors">'+
-          '<button type="button" class="board-output '+(pendingOutput?.id===n.id&&pendingOutput.result==="winner"?"active":"")+'" data-connect-out="winner" data-node-id="'+esc(n.id)+'" title="Arraste até uma vaga de outra partida ou clique para selecionar">↗ Vencedor</button>'+
-          '<button type="button" class="board-output '+(pendingOutput?.id===n.id&&pendingOutput.result==="loser"?"active":"")+'" data-connect-out="loser" data-node-id="'+esc(n.id)+'" title="Arraste até uma vaga de outra partida ou clique para selecionar">↘ Perdedor</button>'+
+          '<button type="button" class="board-output '+(pendingOutput?.id===node.id&&pendingOutput.result==="winner"?"active":"")+'" data-connect-out="winner" data-node-id="'+esc(node.id)+'">↗ Vencedor</button>'+
+          '<button type="button" class="board-output '+(pendingOutput?.id===node.id&&pendingOutput.result==="loser"?"active":"")+'" data-connect-out="loser" data-node-id="'+esc(node.id)+'">↘ Perdedor</button>'+
         '</div></article>';
     }).join("");
     if(empty)empty.style.display=board.nodes.length?"none":"block";
@@ -253,19 +350,24 @@
     svg.innerHTML='<defs><marker id="boardArrow" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z"/></marker></defs>'+paths+temporary;
   }
   function validateConnection(from,result,to,slot,allowCompleted){
-    if(from===to){notify("Uma partida não pode alimentar uma vaga dela mesma.");return false;}
-    if(!nodeById(from)||!nodeById(to)){notify("Partida de origem ou destino não encontrada.");return false;}
-    if(!["winner","loser"].includes(result)||!["A","B"].includes(slot)){notify("Tipo de conexão inválido.");return false;}
+    const source=nodeById(from),target=nodeById(to);
+    if(from===to){notify("Uma fase não pode alimentar uma vaga dela mesma.");return false;}
+    if(!source||!target||target.type==="group"){notify("Partida de origem ou destino não encontrada.");return false;}
+    const validResult=source.type==="group"?/^place_[1-8]$/.test(result):["winner","loser"].includes(result);
+    if(!validResult||!["A","B"].includes(slot)){notify("Tipo de conexão inválido.");return false;}
     const seen=new Set();
-    const reaches=(current,target)=>{
-      if(current===target)return true;
+    const reaches=(current,targetId)=>{
+      if(current===targetId)return true;
       if(seen.has(current))return false;
       seen.add(current);
-      return board.edges.filter(e=>e.from===current).some(e=>reaches(e.to,target));
+      return board.edges.filter(e=>e.from===current).some(e=>reaches(e.to,targetId));
     };
     if(reaches(to,from)){notify("Essa ligação criaria um ciclo no chaveamento.");return false;}
     const row=rowForNode(from);
-    if(!allowCompleted&&row?.status==="completed"){notify("Esta partida já tem resultado. Não altere suas saídas.");return false;}
+    if(source.type!=="group"&&!allowCompleted&&row?.status==="completed"){
+      notify("Esta partida já tem resultado. Não altere suas saídas.");
+      return false;
+    }
     return true;
   }
   function connectOutputToSlot(targetId,slot){
@@ -287,14 +389,25 @@
       });
       btn.addEventListener("pointerdown",e=>startBoardDrag(e,{kind:"team",teamId:btn.dataset.trayTeam}));
     });
+    $$("[data-group-drop]").forEach(target=>target.addEventListener("click",()=>{
+      if(selectedTeamId)setTeamInGroup(selectedTeamId,target.dataset.groupId);
+    }));
+    $$("[data-remove-group-team]").forEach(btn=>btn.addEventListener("click",()=>{
+      const group=nodeById(btn.dataset.groupId);
+      if(!group||groupHasResults(group)){notify("Não é possível alterar equipes depois que o grupo já tem resultados.");return;}
+      group.teamIds=group.teamIds.filter(id=>id!==btn.dataset.removeGroupTeam);
+      rebuildGroupFixtures(group);queueSave();
+    }));
     $$("[data-board-drag-handle]").forEach(handle=>handle.addEventListener("pointerdown",e=>{
       if(e.target.closest("button"))return;
       startBoardDrag(e,{kind:"node",nodeId:handle.closest("[data-board-node]")?.dataset.boardNode});
     }));
     $$("[data-delete-board-node]").forEach(btn=>btn.addEventListener("click",()=>{
-      const id=btn.dataset.deleteBoardNode,row=rowForNode(id);
-      if(row?.match_id||row?.status==="completed"){notify("Não é possível remover uma partida que já possui resultado registrado.");return;}
-      if(!confirm("Remover esta partida e as conexões ligadas a ela?"))return;
+      const id=btn.dataset.deleteBoardNode,node=nodeById(id),row=rowForNode(id);
+      if(row?.match_id||row?.status==="completed"||(node?.type==="group"&&groupHasResults(node))){
+        notify("Não é possível remover uma partida ou grupo que já possui resultados registrados.");return;
+      }
+      if(!confirm(node?.type==="group"?"Remover este grupo e seus confrontos ainda não disputados?":"Remover esta partida e as conexões ligadas a ela?"))return;
       board.nodes=board.nodes.filter(n=>n.id!==id);
       board.edges=board.edges.filter(e=>e.from!==id&&e.to!==id);
       pendingOutput=null;queueSave();
@@ -305,7 +418,7 @@
         if(suppressConnectorClick){suppressConnectorClick=false;return;}
         pendingOutput={id:btn.dataset.nodeId,result:btn.dataset.connectOut};selectedTeamId=null;
         renderBoard();
-        $("#boardSaveState").textContent="Saída selecionada: "+resultLabel(btn.dataset.connectOut)+". Clique numa entrada A/B ou arraste esta saída até ela.";
+        $("#boardSaveState").textContent="Saída selecionada: "+resultLabel(btn.dataset.connectOut)+". Clique numa entrada A/B ou arraste até ela.";
       });
     });
     $$("[data-connect-in]").forEach(btn=>btn.addEventListener("click",()=>{
@@ -319,12 +432,36 @@
       node.slots[btn.dataset.clearTeamSlot]=null;queueSave();
     }));
   }
+  function setTeamInGroup(teamId,groupId){
+    const group=nodeById(groupId);if(!group||group.type!=="group")return;
+    if(groupHasResults(group)){notify("Este grupo já possui resultados. Não é possível alterar sua composição.");return;}
+    const oldGroup=board.nodes.find(n=>n.type==="group"&&n.id!==groupId&&(n.teamIds||[]).includes(teamId));
+    if(oldGroup&&groupHasResults(oldGroup)){notify("O time já está em um grupo com partidas concluídas.");return;}
+    const oldMatch=board.nodes.find(n=>n.type!=="group"&&["A","B"].some(slot=>n.slots?.[slot]===teamId));
+    if(oldMatch){
+      const oldRow=rowForNode(oldMatch.id);
+      if(oldRow?.match_id||oldRow?.status==="completed"){notify("O time já participa de uma partida concluída.");return;}
+    }
+    board.nodes.filter(n=>n.type==="group"&&n.id!==groupId).forEach(n=>{
+      n.teamIds=(n.teamIds||[]).filter(id=>id!==teamId);rebuildGroupFixtures(n);
+    });
+    board.nodes.filter(n=>n.type!=="group").forEach(n=>{
+      ["A","B"].forEach(slot=>{if(n.slots?.[slot]===teamId)n.slots[slot]=null;});
+    });
+    if(!group.teamIds.includes(teamId))group.teamIds.push(teamId);
+    rebuildGroupFixtures(group);selectedTeamId=null;pendingOutput=null;queueSave();
+  }
   function setTeamInSlot(teamId,nodeId,slot){
     const node=nodeById(nodeId);if(!node||incomingFor(nodeId,slot))return;
+    const oldGroup=board.nodes.find(n=>n.type==="group"&&(n.teamIds||[]).includes(teamId));
+    if(oldGroup&&groupHasResults(oldGroup)){notify("O time está em uma fase de grupos com resultados concluídos.");return;}
     const existing=board.nodes.find(n=>n.type!=="group"&&["A","B"].some(s=>n.slots?.[s]===teamId));
     if(existing){
+      const existingRow=rowForNode(existing.id);
+      if(existingRow?.match_id||existingRow?.status==="completed"){notify("O time já participa de uma partida concluída.");return;}
       ["A","B"].forEach(s=>{if(existing.slots?.[s]===teamId)existing.slots[s]=null;});
     }
+    if(oldGroup){oldGroup.teamIds=oldGroup.teamIds.filter(id=>id!==teamId);rebuildGroupFixtures(oldGroup);}
     node.slots[slot]=teamId;selectedTeamId=null;pendingOutput=null;queueSave();
   }
   function startConnectionDrag(e,payload){
@@ -370,8 +507,10 @@
       if(state.kind==="team"){
         suppressTrayClick=true;
         setTimeout(()=>{suppressTrayClick=false;},0);
+        const groupTarget=document.elementFromPoint(ev.clientX,ev.clientY)?.closest("[data-group-drop]");
+        if(groupTarget){setTeamInGroup(state.teamId,groupTarget.dataset.groupId);return;}
         const target=document.elementFromPoint(ev.clientX,ev.clientY)?.closest("[data-team-slot]");
-        if(!target){notify("Solte o time em uma vaga inicial A ou B, não no espaço vazio.");return;}
+        if(!target){notify("Solte o time em uma vaga inicial A/B ou dentro de um grupo.");return;}
         setTeamInSlot(state.teamId,target.dataset.nodeId,target.dataset.teamSlot);
       }else if(state.kind==="node"){
         const node=nodeById(state.nodeId);if(!node)return;
@@ -382,12 +521,25 @@
     };
     document.addEventListener("pointermove",move);document.addEventListener("pointerup",up);
   }
+  function addGroupNode(){
+    const groups=board.nodes.filter(n=>n.type==="group");
+    const usedNames=new Set(groups.map(group=>String(group.name||"").trim().toLocaleLowerCase("pt-BR")));
+    let letter=0,name="";
+    do{
+      name=letter<26?"Grupo "+String.fromCharCode(65+letter):"Grupo "+(letter+1);
+      letter++;
+    }while(usedNames.has(name.toLocaleLowerCase("pt-BR")));
+    const index=groups.length;
+    const group={id:uuid(),type:"group",name,teamIds:[],fixtures:[],x:65+(index%3)*430,y:620+Math.floor(index/3)*430};
+    board.nodes.push(group);selectedTeamId=null;pendingOutput=null;queueSave();
+  }
   function addMatchNode(){
     const index=board.nodes.filter(n=>n.type!=="group").length;
     const node={id:uuid(),type:"match",slots:{A:null,B:null},x:65+(index%4)*390,y:55+Math.floor(index/4)*245};
     board.nodes.push(node);selectedTeamId=null;pendingOutput=null;queueSave();
   }
   function nodeRound(id,seen){
+    if(nodeById(id)?.type==="group")return 0;
     const visited=seen||new Set();
     if(visited.has(id))return 1;
     visited.add(id);
@@ -402,57 +554,113 @@
     if(!boardStageId){
       const {data:last,error:lastError}=await supabaseClient.from("tournament_stages").select("stage_order").eq("tournament_id",tid).order("stage_order",{ascending:false}).limit(1);
       if(lastError)throw lastError;
-      const {data,error}=await supabaseClient.from("tournament_stages").insert({tournament_id:tid,stage_order:Number(last?.[0]?.stage_order||0)+1,name:"Quadro personalizado",format:"single_elimination",status:"draft",config:{editor:"custom_board",version:2}}).select("id").single();
+      const {data,error}=await supabaseClient.from("tournament_stages").insert({
+        tournament_id:tid,stage_order:Number(last?.[0]?.stage_order||0)+1,name:"Quadro personalizado",
+        format:"single_elimination",status:"draft",config:{editor:"custom_board",version:3}
+      }).select("id").single();
       if(error)throw error;boardStageId=data.id;
     }
-    const {data:existingStageRows,error:existingError}=await supabaseClient.from("tournament_bracket_nodes").select("*").eq("stage_id",boardStageId);
-    if(existingError)throw existingError;
-    const existingRows=(existingStageRows||[]).filter(row=>row.bracket_side==="main");
-    const existingGroupRows=(existingStageRows||[]).filter(row=>row.bracket_side==="groups");
-    bracketRows=existingRows;
-    let mainNo=0;
+    const [existingRes,groupRes]=await Promise.all([
+      supabaseClient.from("tournament_bracket_nodes").select("*").eq("stage_id",boardStageId),
+      supabaseClient.from("tournament_groups").select("*").eq("stage_id",boardStageId)
+    ]);
+    if(existingRes.error)throw existingRes.error;
+    if(groupRes.error)throw groupRes.error;
+    const existingStageRows=existingRes.data||[];
+    const existingRows=existingStageRows.filter(row=>row.bracket_side==="main");
+    const existingGroupRows=existingStageRows.filter(row=>row.bracket_side==="groups");
+    const existingGroups=groupRes.data||[];
+    bracketRows=existingStageRows;
+    const groupIds=new Set(groups.map(group=>group.id));
+    let nextGroupOrder=Math.max(0,...existingGroups.map(group=>Number(group.sort_order)||0))+1;
+    const groupRecords=groups.map((group,index)=>{
+      const saved=existingGroups.find(item=>item.id===group.id);
+      const sortOrder=Number(saved?.sort_order)||nextGroupOrder++;
+      group.sortOrder=sortOrder;
+      return {
+        id:group.id,stage_id:boardStageId,name:group.name||("Grupo "+String.fromCharCode(65+index)),
+        sort_order:sortOrder,config:{board_node_id:group.id,team_ids:group.teamIds||[]}
+      };
+    });
+    const groupUpsert=groupRecords.length
+      ?await supabaseClient.from("tournament_groups").upsert(groupRecords,{onConflict:"id"})
+      :{error:null};
+    if(groupUpsert.error)throw groupUpsert.error;
+
     const rows=[];
-    games.forEach(n=>{
-      n.bracketId=n.bracketId||n.id;mainNo++;
-      const incomingA=incomingFor(n.id,"A"),incomingB=incomingFor(n.id,"B");
-      const current=bracketRows.find(r=>r.id===n.bracketId);
+    games.forEach(node=>{
+      node.bracketId=node.bracketId||node.id;
+      const incomingA=incomingFor(node.id,"A"),incomingB=incomingFor(node.id,"B");
+      const current=existingRows.find(row=>row.id===node.bracketId);
       const sourceTeam=edge=>{
         if(!edge)return null;
         const sourceNode=nodeById(edge.from);
-        const sourceRow=bracketRows.find(r=>r.config?.board_node_id===edge.from||r.id===sourceNode?.bracketId||r.id===edge.from);
+        if(sourceNode?.type==="group"){
+          const match=String(edge.result||"").match(/^place_(\d+)$/);
+          return match?groupPlacementTeam(sourceNode,Number(match[1])):null;
+        }
+        const sourceRow=existingRows.find(row=>row.config?.board_node_id===edge.from||row.id===sourceNode?.bracketId||row.id===edge.from);
         if(!sourceRow?.winner_team_id)return null;
         if(edge.result==="winner")return sourceRow.winner_team_id;
         if(edge.result==="loser")return sourceRow.winner_team_id===sourceRow.team_a_id?sourceRow.team_b_id:sourceRow.team_a_id;
         return null;
       };
-      const teamA=incomingA?sourceTeam(incomingA):(n.slots?.A||null);
-      const teamB=incomingB?sourceTeam(incomingB):(n.slots?.B||null);
-      const round=nodeRound(n.id);
-      const matchNumber=games.filter(item=>nodeRound(item.id)===round).indexOf(n)+1;
+      const teamA=incomingA?sourceTeam(incomingA):(node.slots?.A||null);
+      const teamB=incomingB?sourceTeam(incomingB):(node.slots?.B||null);
+      const round=nodeRound(node.id);
+      const matchNumber=games.filter(item=>nodeRound(item.id)===round).indexOf(node)+1;
       rows.push({
-        id:n.bracketId,tournament_id:tid,stage_id:boardStageId,bracket_side:"main",round_number:round,match_number:matchNumber,
-        team_a_id:teamA,team_b_id:teamB,
+        id:node.bracketId,tournament_id:tid,stage_id:boardStageId,bracket_side:"main",
+        round_number:Math.max(1,round),match_number:matchNumber,team_a_id:teamA,team_b_id:teamB,
         team_a_source_node_id:incomingA&&["winner","loser"].includes(incomingA.result)?nodeById(incomingA.from)?.bracketId||incomingA.from:null,
         team_a_source_result:incomingA&&["winner","loser"].includes(incomingA.result)?incomingA.result:null,
         team_b_source_node_id:incomingB&&["winner","loser"].includes(incomingB.result)?nodeById(incomingB.from)?.bracketId||incomingB.from:null,
         team_b_source_result:incomingB&&["winner","loser"].includes(incomingB.result)?incomingB.result:null,
+        match_id:current?.match_id||null,winner_team_id:current?.winner_team_id||null,
         status:current?.status==="completed"?"completed":teamA&&teamB?"ready":"pending",
-        config:{board_node_id:n.id}
+        config:{board_node_id:node.id}
       });
     });
-    groups.forEach(g=>(g.fixtures||[]).forEach(f=>{
-      f.bracketId=f.bracketId||f.id;
-      rows.push({id:f.bracketId,tournament_id:tid,stage_id:boardStageId,bracket_side:"groups",round_number:1,match_number:parseInt(f.id.replace(/-/g,"").slice(0,7),16),team_a_id:f.teamA,team_b_id:f.teamB,status:"ready",config:{group_node_id:g.id,round:f.round}});
-    }));
-    const currentBoardIds=new Set(games.map(n=>n.bracketId));
-    const stale=(existingRows||[]).filter(row=>row.config?.board_node_id&&!currentBoardIds.has(row.id));
-    const currentGroupIds=new Set(groups.map(group=>group.id));
-    const staleGroups=(existingGroupRows||[]).filter(row=>row.config?.group_node_id&&!currentGroupIds.has(row.config.group_node_id));
-    if(stale.some(row=>row.match_id||row.status==="completed")||staleGroups.some(row=>row.match_id||row.status==="completed"))
-      throw new Error("Há partidas antigas com resultados. Não removi esses registros.");
-    const staleIds=[...stale,...staleGroups].map(row=>row.id);
+    groups.forEach(group=>{
+      rebuildGroupFixtures(group);
+      let groupMatchIndex=0;
+      (group.fixtures||[]).forEach(fixture=>{
+        fixture.bracketId=fixture.bracketId||fixture.id;
+        const round=Math.max(1,Number(fixture.round)||1);
+        const matchNo=Number(group.sortOrder||1)*100000+(++groupMatchIndex);
+        const current=existingGroupRows.find(row=>row.id===fixture.bracketId);
+        rows.push({
+          id:fixture.bracketId,tournament_id:tid,stage_id:boardStageId,group_id:group.id,
+          bracket_side:"groups",round_number:round,match_number:matchNo,
+          team_a_id:fixture.teamA,team_b_id:fixture.teamB,
+          match_id:current?.match_id||null,winner_team_id:current?.winner_team_id||null,
+          status:current?.status==="completed"?"completed":fixture.teamA&&fixture.teamB?"ready":"pending",
+          config:{group_node_id:group.id,round}
+        });
+      });
+    });
+
+    const mainIds=new Set(games.map(node=>node.bracketId));
+    const desiredGroups=new Map(groups.map(group=>[group.id,new Map((group.fixtures||[]).map(fixture=>[fixture.bracketId||fixture.id,fixture]))]));
+    const staleMain=existingRows.filter(row=>row.config?.board_node_id&&!mainIds.has(row.id));
+    const staleGroupRows=existingGroupRows.filter(row=>{
+      const desired=rows.find(item=>item.bracket_side==="groups"&&item.id===row.id);
+      if(!desired)return true;
+      return row.round_number!==desired.round_number||
+        row.match_number!==desired.match_number||
+        row.team_a_id!==desired.team_a_id||
+        row.team_b_id!==desired.team_b_id;
+    });
+    const staleGroupRecords=existingGroups.filter(group=>!groupIds.has(group.id));
+    const staleHasResults=[...staleMain,...staleGroupRows].some(row=>row.match_id||["completed","live"].includes(row.status));
+    if(staleHasResults)throw new Error("Há partidas antigas com resultados. Não removi esses registros.");
+    const staleIds=[...staleMain,...staleGroupRows].map(row=>row.id);
     if(staleIds.length){
       const {error}=await supabaseClient.from("tournament_bracket_nodes").delete().in("id",staleIds);
+      if(error)throw error;
+    }
+    if(staleGroupRecords.length){
+      const {error}=await supabaseClient.from("tournament_groups").delete().in("id",staleGroupRecords.map(group=>group.id));
       if(error)throw error;
     }
     if(rows.length){
@@ -460,8 +668,8 @@
       if(error)throw error;
     }
     for(const node of games){
-      const winnerEdge=board.edges.find(e=>e.from===node.id&&e.result==="winner");
-      const loserEdge=board.edges.find(e=>e.from===node.id&&e.result==="loser");
+      const winnerEdge=board.edges.find(edge=>edge.from===node.id&&edge.result==="winner");
+      const loserEdge=board.edges.find(edge=>edge.from===node.id&&edge.result==="loser");
       const {error}=await supabaseClient.from("tournament_bracket_nodes").update({
         next_winner_node_id:winnerEdge?(nodeById(winnerEdge.to)?.bracketId||winnerEdge.to):null,
         next_winner_slot:winnerEdge?winnerEdge.slot:null,
@@ -473,6 +681,39 @@
     const {data:refreshed,error:refreshError}=await supabaseClient.from("tournament_bracket_nodes").select("*").eq("stage_id",boardStageId);
     if(refreshError)throw refreshError;
     bracketRows=refreshed||[];
+    await refreshGroupAdvancements(false);
+  }
+  async function refreshGroupAdvancements(render=true){
+    if(!supabaseClient||!boardStageId)return;
+    const [rowsRes,standingsRes]=await Promise.all([
+      supabaseClient.from("tournament_bracket_nodes").select("*").eq("stage_id",boardStageId),
+      supabaseClient.from("tournament_standings").select("group_id,team_id,played,wins,draws,losses,points,maps_for,maps_against,rounds_for,rounds_against,rank").eq("stage_id",boardStageId).order("rank")
+    ]);
+    if(rowsRes.error)throw rowsRes.error;
+    if(standingsRes.error)throw standingsRes.error;
+    bracketRows=rowsRes.data||[];
+    groupStandings=new Map();
+    (standingsRes.data||[]).forEach(row=>{
+      if(!groupStandings.has(row.group_id))groupStandings.set(row.group_id,[]);
+      groupStandings.get(row.group_id).push(row);
+    });
+    for(const edge of board.edges.filter(item=>/^place_[1-8]$/.test(item.result||""))){
+      const group=nodeById(edge.from),target=nodeById(edge.to);
+      if(!group||group.type!=="group"||!target)continue;
+      const teamId=groupPlacementTeam(group,Number(edge.result.slice(6)));
+      const targetRow=bracketRows.find(row=>row.config?.board_node_id===target.id||row.id===target.bracketId);
+      if(!targetRow)continue;
+      if(targetRow.status==="completed")continue;
+      const teamA=edge.slot==="A"?teamId:targetRow.team_a_id;
+      const teamB=edge.slot==="B"?teamId:targetRow.team_b_id;
+      if(targetRow.team_a_id===teamA&&targetRow.team_b_id===teamB)continue;
+      const {error}=await supabaseClient.from("tournament_bracket_nodes").update({
+        team_a_id:teamA,team_b_id:teamB,status:teamA&&teamB?"ready":"pending"
+      }).eq("id",targetRow.id);
+      if(error)throw error;
+      targetRow.team_a_id=teamA;targetRow.team_b_id=teamB;targetRow.status=teamA&&teamB?"ready":"pending";
+    }
+    if(render)renderBoard();
   }
   async function saveBoard(){
     if(!isAdmin||!currentUser||!supabaseClient){notify("Entre como administrador para salvar o quadro.");return;}
@@ -487,11 +728,17 @@
         if(!validateConnection(edge.from,edge.result,edge.to,edge.slot,true))throw new Error("Revise as conexões do chaveamento.");
       }
       const assigned=[];
+      for(const group of board.nodes.filter(item=>item.type==="group")){
+        for(const id of group.teamIds||[]){
+          if(assigned.includes(id))throw new Error("Uma equipe não pode estar em mais de um grupo ou vaga inicial.");
+          assigned.push(id);
+        }
+      }
       for(const n of board.nodes.filter(item=>item.type!=="group")){
         ["A","B"].forEach(slot=>{
           if(incomingFor(n.id,slot))return;
           const id=n.slots?.[slot];
-          if(id){if(assigned.includes(id))throw new Error("Uma equipe não pode ocupar duas vagas iniciais.");assigned.push(id);}
+          if(id){if(assigned.includes(id))throw new Error("Uma equipe não pode estar em mais de um grupo ou vaga inicial.");assigned.push(id);}
         });
       }
       await syncBracketRows();
@@ -507,19 +754,30 @@
     renderBoard();$("#boardSaveState").textContent="Alterações pendentes · salvando automaticamente...";
     clearTimeout(saveTimer);saveTimer=setTimeout(saveBoard,650);
   }
+  async function refreshAfterMatch(){
+    if(!supabaseClient||!currentUser||!isAdmin)return;
+    await loadBoard();
+    await refreshGroupAdvancements(false);
+    if(typeof window.ACS5_REFRESH_BRACKET_CHOICES==="function")await window.ACS5_REFRESH_BRACKET_CHOICES();
+  }
   async function openBoard(){
     if(!isAdmin){notify("Somente administradores podem organizar o campeonato.");return;}
     go("tournament-board");
   }
   window.ACS6.openBoard=openBoard;
+  window.ACS6.refreshAfterMatch=refreshAfterMatch;
   $("#boardSaveButton")?.addEventListener("click",saveBoard);
   $("#boardBackButton")?.addEventListener("click",()=>go("tournaments"));
   $("#boardAddMatchButton")?.addEventListener("click",addMatchNode);
+  $("#boardAddGroupButton")?.addEventListener("click",addGroupNode);
   $("#boardClearButton")?.addEventListener("click",()=>{
-    const completed=board.nodes.some(n=>{const row=rowForNode(n.id);return row?.match_id||row?.status==="completed";});
-    if(completed){notify("O quadro possui resultados registrados. Remova ou ajuste apenas as partidas ainda não disputadas.");return;}
-    if(!confirm("Limpar todas as partidas e conexões do quadro? As equipes voltarão à lista de disponíveis."))return;
-    board={version:2,nodes:[],edges:[]};pendingOutput=null;selectedTeamId=null;queueSave();
+    const completed=board.nodes.some(n=>{
+      const row=rowForNode(n.id);
+      return row?.match_id||row?.status==="completed"||(n.type==="group"&&groupHasResults(n));
+    });
+    if(completed){notify("O quadro possui resultados registrados. Remova ou ajuste apenas as partidas e grupos ainda não disputados.");return;}
+    if(!confirm("Limpar todas as partidas, grupos e conexões? As equipes voltarão à lista de disponíveis."))return;
+    board={version:3,nodes:[],edges:[]};pendingOutput=null;selectedTeamId=null;queueSave();
   });
   const oldGo=go;
   go=function(page){oldGo(page);if(page==="tournament-board")loadBoard();};

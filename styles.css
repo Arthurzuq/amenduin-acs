@@ -366,3 +366,58 @@
 .board-instructions{line-height:1.8}
 .board-empty-hint{max-width:460px;line-height:1.6}
 @media(max-width:700px){.board-node-match{width:285px}.board-slot{min-height:62px}.board-connectors{gap:5px}.board-output{font-size:7px}}
+
+
+/* ACS 9.3 — interactive group-stage builder */
+.board-node-group{width:340px;border:1px solid #c5a15f;background:#fff}
+.board-node-group>header{background:#fff3dc;color:#76531b;gap:7px}
+.board-node-group .board-node-status{white-space:nowrap}
+.board-group-content{display:grid;gap:10px;padding:10px}
+.board-group-teams{display:grid;gap:5px}
+.board-group-team{display:grid;grid-template-columns:28px minmax(0,1fr) 22px;align-items:center;gap:7px;padding:5px 7px;border:1px solid #dce4ec;border-radius:5px;background:#f6f8fb;color:#29394b}
+.board-group-team .board-chip-logo{width:27px;height:27px}
+.board-group-team>b,.board-group-team b{font-size:10px;overflow-wrap:anywhere}
+.board-group-team>button{border:0;border-radius:4px;background:#e7edf4;color:#64758a;font-size:14px;cursor:pointer}
+.board-group-team>button:disabled{opacity:.35;cursor:not-allowed}
+.board-group-drop{width:100%;min-height:43px;border:1px dashed #b48c42;border-radius:6px;background:#fff9ed;color:#876220;font:700 9px Inter,sans-serif;padding:8px;cursor:pointer}
+.board-group-drop:disabled{opacity:.45;cursor:not-allowed}
+.board-group-section{display:grid;gap:6px;padding-top:8px;border-top:1px solid #e3e9ef}
+.board-group-section> b{font:800 8px Inter,sans-serif;letter-spacing:.08em;color:#7b8795}
+.board-group-fixture{display:grid;grid-template-columns:20px minmax(0,1fr) 12px minmax(0,1fr);align-items:center;gap:4px;padding:5px 6px;border-radius:4px;background:#f4f7fa;color:#36495d;font-size:8px}
+.board-group-fixture>span{font-weight:800;color:#9b793f}
+.board-group-fixture>b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:8px}
+.board-group-fixture>i{text-align:center;color:#9aa7b5;font-style:normal}
+.board-group-fixture>small{grid-column:2/-1;text-align:right;font-size:7px;color:#a17834}
+.board-group-fixture>small.done{color:#2b8757}
+.board-group-table{display:grid;gap:3px;overflow:auto}
+.board-group-table>div{display:grid;grid-template-columns:18px minmax(72px,1fr) 18px 18px 18px 34px;gap:5px;align-items:center;padding:4px 5px;border-bottom:1px solid #e7ebf0;font-size:8px;color:#536274}
+.board-group-table .board-group-head{font-size:7px;color:#8a96a5;text-transform:uppercase;font-weight:800}
+.board-group-table strong{color:#244d78;text-align:right}
+.board-group-empty{display:block;padding:5px 2px;color:#8793a1;font-size:8px;line-height:1.5}
+.board-group-advance-note{font-size:8px;color:#8793a1;line-height:1.5}
+.board-group-output{background:#fff5e3;border-color:#ddc18a;color:#795a22}
+.board-group-output.active{background:#8d692b;border-color:#8d692b;color:#fff}
+.board-node-group .board-connectors{grid-template-columns:repeat(2,minmax(0,1fr));padding:0}
+.board-node-group .board-connectors button{min-width:0}
+.board-team-chip.selected{outline:2px solid #7db7ee;outline-offset:1px}
+@media(max-width:700px){.board-node-group{width:320px}.board-group-fixture{grid-template-columns:18px minmax(0,1fr) 10px minmax(0,1fr);font-size:7px}.board-group-team b{font-size:9px}}
+
+
+/* ACS 9.3 — public group-stage standings */
+.public-group-panel{margin:12px 0;padding:15px;border:1px solid var(--line);border-radius:8px;background:#101923}
+.public-group-panel header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.public-group-panel header h4{margin:0;font:800 18px var(--display)}
+.public-group-panel header small{font-size:9px;color:var(--muted)}
+.public-group-panel h5{margin:13px 0 7px;font:800 9px Inter,sans-serif;letter-spacing:.09em;color:#9eabbc;text-transform:uppercase}
+.public-group-table{display:grid;gap:3px;overflow:auto}
+.public-group-table>div{display:grid;grid-template-columns:22px minmax(100px,1fr) 24px 24px 24px 44px;gap:7px;align-items:center;padding:6px 8px;border-bottom:1px solid #263345;color:#c7d2df;font-size:9px}
+.public-group-table>div:first-child{color:#8493a6;font-size:8px;text-transform:uppercase;font-weight:800}
+.public-group-table strong{text-align:right;color:#8fd9ad}
+.public-group-fixtures{display:grid;gap:5px}
+.public-group-fixtures>div{display:grid;grid-template-columns:35px minmax(0,1fr) 14px minmax(0,1fr) auto;gap:7px;align-items:center;padding:8px 9px;border:1px solid #253447;border-radius:5px;background:#0c141e;color:#d6e0ed;font-size:9px}
+.public-group-fixtures>div>span,.public-group-fixtures>div>small{color:#8798ad;font-size:8px}
+.public-group-fixtures>div>i{color:#71849b;text-align:center;font-style:normal}
+.public-group-fixtures>div>small.done{color:#70d69a}
+.public-group-empty{font-size:9px;color:var(--muted);margin:6px 0}
+.tournament-board-canvas{height:1800px}
+@media(max-width:700px){.public-group-fixtures>div{grid-template-columns:25px minmax(0,1fr) 12px minmax(0,1fr);font-size:8px}.public-group-fixtures>div>small{grid-column:2/-1;text-align:right}}

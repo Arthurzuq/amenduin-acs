@@ -406,6 +406,15 @@
     if(sRes.error||nRes.error){host.innerHTML=`<div class="market-empty">Não foi possível carregar as fases: ${safe5((sRes.error||nRes.error).message)}</div>`;return;}
     tournamentStages=sRes.data||[];
     tournamentNodes=nRes.data||[];
+    const stageIds=tournamentStages.map(stage=>stage.id);
+    const [groupsRes,standingsRes]=stageIds.length?await Promise.all([
+      supabaseClient.from("tournament_groups").select("id,stage_id,name,sort_order").in("stage_id",stageIds).order("sort_order"),
+      supabaseClient.from("tournament_standings").select("group_id,team_id,played,wins,draws,losses,points,rank").in("stage_id",stageIds).order("rank")
+    ]):[{data:[],error:null},{data:[],error:null}];
+    if(groupsRes.error||standingsRes.error){
+      host.innerHTML='<div class="market-empty">Não foi possível carregar a fase de grupos: '+safe5((groupsRes.error||standingsRes.error).message)+'</div>';
+      return;
+    }
     if(!tournamentStages.length){host.innerHTML='<div class="market-empty">O chaveamento será exibido após a organização do campeonato.</div>';await loadTournamentMatchChoices();return;}
 
     const approved=registrations.filter(r=>r.status==="approved").map(r=>({
@@ -421,16 +430,36 @@
     let classificationSaveChain=Promise.resolve();
 
     const stageHtml=tournamentStages.map(stage=>{
-      const nodes=tournamentNodes.filter(node=>node.stage_id===stage.id);
+      const nodes=tournamentNodes.filter(node=>node.stage_id===stage.id&&node.bracket_side!=="groups");
       return `<div class="tournament-stage"><h4>${safe5(stage.name)} <small>· ${safe5(stage.format)} · ${safe5(stage.status)}</small></h4>${nodes.length?nodes.map(node=>{
         const teamA=cloudTeams.find(team=>team.id===node.team_a_id)?.name||"A definir";
         const teamB=cloudTeams.find(team=>team.id===node.team_b_id)?.name||"A definir";
         const status=({ready:"Pronto",completed:"Concluído",bye:"Avanço automático",pending:"Aguardando",live:"Em andamento"})[node.status]||node.status;
         const slot=(which,teamId,name)=>`<div class="tournament-slot ${teamId?"filled":""}" data-bracket-node="${safe5(node.id)}" data-bracket-slot="${which}">${safe5(name)}</div>`;
         return `<article class="tournament-node"><div><small>${safe5(node.bracket_side)} · Rodada ${node.round_number} · Jogo ${node.match_number} · ${safe5(status)}</small>${slot("A",node.team_a_id,teamA)}</div><div>${slot("B",node.team_b_id,teamB)}</div></article>`;
-      }).join(""):'<div class="market-empty">Fase sem confrontos gerados.</div>'}</div>`;
+      }).join(""):(groupsRes.data||[]).some(group=>group.stage_id===stage.id)?'':'<div class="market-empty">Fase sem confrontos gerados.</div>'}</div>`;
     }).join("");
 
+    const publicGroupHtml=(groupsRes.data||[]).map(group=>{
+      const groupMatches=tournamentNodes.filter(node=>node.group_id===group.id&&node.bracket_side==="groups");
+      const groupRows=(standingsRes.data||[]).filter(row=>row.group_id===group.id);
+      const table=groupRows.length
+        ?'<div class="public-group-table"><div><b>#</b><b>Equipe</b><b>J</b><b>V</b><b>D</b><b>Pts</b></div>'+
+          groupRows.map(row=>{
+            const name=cloudTeams.find(team=>team.id===row.team_id)?.name||"Equipe";
+            return '<div><b>'+safe5(row.rank??"—")+'</b><span>'+safe5(name)+'</span><span>'+Number(row.played||0)+'</span><span>'+Number(row.wins||0)+'</span><span>'+Number(row.losses||0)+'</span><strong>'+Number(row.points||0)+'</strong></div>';
+          }).join("")+'</div>'
+        :'<p class="public-group-empty">A classificação aparecerá após os primeiros resultados.</p>';
+      const fixtures=groupMatches.length
+        ?'<div class="public-group-fixtures">'+groupMatches.map((node,index)=>{
+            const teamA=cloudTeams.find(team=>team.id===node.team_a_id)?.name||"A definir";
+            const teamB=cloudTeams.find(team=>team.id===node.team_b_id)?.name||"A definir";
+            const status=({ready:"Pronto",completed:"Concluído",pending:"Aguardando",live:"Em andamento"})[node.status]||node.status;
+            return '<div><span>R'+node.round_number+' · J'+(index+1)+'</span><b>'+safe5(teamA)+'</b><i>×</i><b>'+safe5(teamB)+'</b><small>'+(node.status==="completed"?"Concluído":safe5(status))+'</small></div>';
+          }).join("")+'</div>'
+        :'<p class="public-group-empty">Aguardando duas ou mais equipes para montar os confrontos.</p>';
+      return '<section class="public-group-panel"><header><h4>'+safe5(group.name)+'</h4><small>'+groupMatches.filter(node=>node.status==="completed").length+'/'+groupMatches.length+' confrontos concluídos</small></header><h5>Classificação</h5>'+table+'<h5>Confrontos</h5>'+fixtures+'</section>';
+    }).join("");
     const qualificationPanel=isAdmin&&playoffStage&&!playoffsGenerated?`<div class="tournament-stage tournament-qualification">
       <h4>Classificação manual para os playoffs</h4>
       <p class="form-note">Conclua todos os jogos da fase de grupos e classifique cada equipe aprovada em Upper ou Lower. A classificação é salva no campeonato e pode ser retomada depois de atualizar a página.</p>
@@ -443,7 +472,7 @@
       <button class="btn btn-primary btn-small" type="button" id="createPlayoffsButton" ${approved.length<2||!groupsReady?"disabled":""}>Gerar playoffs Upper/Lower</button>
     </div>`:"";
 
-    host.innerHTML=qualificationPanel+stageHtml;
+    host.innerHTML=qualificationPanel+stageHtml+publicGroupHtml;
 
     if(isAdmin&&playoffStage&&!playoffsGenerated){
       const saveClassificationDraft=()=>{
@@ -493,20 +522,27 @@
     if(!select||!supabaseClient)return;
     const keep=select.value;
     const {data,error}=await supabaseClient.from("tournament_bracket_nodes")
-      .select("id,stage_id,bracket_side,round_number,match_number,team_a_id,team_b_id,status")
+      .select("id,stage_id,group_id,bracket_side,round_number,match_number,team_a_id,team_b_id,status,config")
       .eq("tournament_id",tournamentId).eq("status","ready")
       .order("round_number").order("match_number");
     select.dataset.tournamentId=tournamentId;
     if(error){select.innerHTML='<option value="">Partida avulsa (não vinculada)</option>';return;}
+    const {data:groupRows}=await supabaseClient.from("tournament_groups").select("id,name");
+    const groupNames=new Map((groupRows||[]).map(group=>[group.id,group.name]));
     const matches=(data||[]).filter(node=>node.team_a_id&&node.team_b_id);
     select._acsBracketNodes=matches;
+    const groupFixtureCounters=new Map();
     const labels=matches.map(node=>{
       const stage=tournamentStages.find(item=>item.id===node.stage_id)?.name||"Campeonato";
+      const groupId=node.bracket_side==="groups"?(node.group_id||node.config?.group_node_id):null;
+      const groupName=groupId?(groupNames.get(groupId)||"Fase de grupos"):null;
       const nameA=cloudTeams.find(team=>team.id===node.team_a_id)?.name||"Equipe A";
       const nameB=cloudTeams.find(team=>team.id===node.team_b_id)?.name||"Equipe B";
-      return {id:node.id,label:`${stage} · ${node.bracket_side} · R${node.round_number}/J${node.match_number} · ${nameA} × ${nameB}`};
+      const phaseLabel=groupName?groupName+" · "+stage:"Mata-mata · "+stage;
+      const groupMatchNumber=groupId?(groupFixtureCounters.set(groupId,(groupFixtureCounters.get(groupId)||0)+1),groupFixtureCounters.get(groupId)):node.match_number;
+      return {id:node.id,label:phaseLabel+" · R"+node.round_number+"/J"+groupMatchNumber+" · "+nameA+" × "+nameB};
     });
-    select.innerHTML='<option value="">Partida avulsa (não vinculada)</option>'+labels.map(item=>`<option value="${safe5(item.id)}">${safe5(item.label)}</option>`).join("");
+    select.innerHTML='<option value="">Partida avulsa (não vinculada)</option>'+labels.map(item=>'<option value="'+safe5(item.id)+'">'+safe5(item.label)+'</option>').join("");
     select.value=labels.some(item=>item.id===keep)?keep:"";
     if(select.dataset.acsBound!=="true"){
       select.dataset.acsBound="true";

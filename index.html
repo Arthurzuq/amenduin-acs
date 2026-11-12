@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=acs9.2-bracket-builder">
+  <link rel="stylesheet" href="styles.css?v=acs9.3-group-stage-2">
 </head>
 <body>
   <div class="app-shell">
@@ -229,9 +229,10 @@
           <div><span class="eyebrow">ACS / TOURNAMENT STUDIO</span><h1>ORGANIZAR CAMPEONATO</h1><p>Monte confrontos, fases de grupos e caminhos de classificação no quadro.</p></div>
           <div class="board-head-actions"><button class="btn btn-ghost" id="boardBackButton">← Voltar ao campeonato</button><button class="btn btn-primary" id="boardSaveButton">Salvar organização</button></div>
         </div>
-        <div class="board-instructions"><b>Etapa 1 — monte a chave:</b> clique em “Adicionar partida” para criar todas as caixas. Arraste a saída “Vencedor” ou “Perdedor” de uma partida até a vaga A/B de outra (ou clique na saída e depois na vaga). <b>Etapa 2 — coloque os times:</b> arraste cada equipe aprovada apenas para as vagas iniciais, que não têm uma seta de entrada. Depois, registre os placares: o vencedor e, quando houver conexão, o perdedor avançam automaticamente. Sem conexão de perdedor, ele é eliminado.</div>
+        <div class="board-instructions"><b>Fase de grupos:</b> clique em “Criar fase de grupos” para adicionar um grupo. Adicione outros grupos conforme necessário e distribua as equipes neles; os confrontos de todos contra todos serão criados automaticamente. Conecte os 1º/2º colocados às vagas do mata-mata. <b>Chave eliminatória:</b> crie partidas, conecte vencedores/perdedores e só então distribua os times nas vagas iniciais. Ao registrar os placares, a classificação dos grupos e o avanço para as chaves são atualizados automaticamente.</div>
         <div class="tournament-board-toolbar">
           <button class="btn btn-ghost btn-small" id="boardAddMatchButton">＋ Adicionar partida</button>
+          <button class="btn btn-ghost btn-small" id="boardAddGroupButton">＋ Criar fase de grupos</button>
           <button class="btn btn-ghost btn-small" id="boardClearButton">Limpar quadro</button>
           <span id="boardSaveState" class="board-save-state">Carregando organização...</span>
         </div>
@@ -390,9 +391,9 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
   <script src="app.js?v=acs8-market-salary-fix-2"></script>
-  <script src="acs5.js?v=acs9.2-bracket-builder"></script>
-  <script src="match-entry.js?v=acs9.2-bracket-builder"></script>
-  <script src="acs6.js?v=acs9.2-bracket-builder-2"></script>
+  <script src="acs5.js?v=acs9.3-group-stage-2"></script>
+  <script src="match-entry.js?v=acs9.3-group-stage"></script>
+  <script src="acs6.js?v=acs9.3-group-stage-2"></script>
   <script src="acs7-economy.js"></script>
   <script src="acs8-cosmetics.js?v=acs9.1"></script>
 </body>
