@@ -611,11 +611,17 @@
         if(!validateConnection(edge.from,edge.result,edge.to,edge.slot,true))throw new Error("Revise as conexões do chaveamento.");
       }
       const assigned=[];
+      for(const group of board.nodes.filter(item=>item.type==="group")){
+        for(const id of group.teamIds||[]){
+          if(assigned.includes(id))throw new Error("Uma equipe não pode estar em mais de um grupo ou vaga inicial.");
+          assigned.push(id);
+        }
+      }
       for(const n of board.nodes.filter(item=>item.type!=="group")){
         ["A","B"].forEach(slot=>{
           if(incomingFor(n.id,slot))return;
           const id=n.slots?.[slot];
-          if(id){if(assigned.includes(id))throw new Error("Uma equipe não pode ocupar duas vagas iniciais.");assigned.push(id);}
+          if(id){if(assigned.includes(id))throw new Error("Uma equipe não pode estar em mais de um grupo ou vaga inicial.");assigned.push(id);}
         });
       }
       await syncBracketRows();
@@ -639,11 +645,15 @@
   $("#boardSaveButton")?.addEventListener("click",saveBoard);
   $("#boardBackButton")?.addEventListener("click",()=>go("tournaments"));
   $("#boardAddMatchButton")?.addEventListener("click",addMatchNode);
+  $("#boardAddGroupButton")?.addEventListener("click",addGroupNode);
   $("#boardClearButton")?.addEventListener("click",()=>{
-    const completed=board.nodes.some(n=>{const row=rowForNode(n.id);return row?.match_id||row?.status==="completed";});
-    if(completed){notify("O quadro possui resultados registrados. Remova ou ajuste apenas as partidas ainda não disputadas.");return;}
-    if(!confirm("Limpar todas as partidas e conexões do quadro? As equipes voltarão à lista de disponíveis."))return;
-    board={version:2,nodes:[],edges:[]};pendingOutput=null;selectedTeamId=null;queueSave();
+    const completed=board.nodes.some(n=>{
+      const row=rowForNode(n.id);
+      return row?.match_id||row?.status==="completed"||(n.type==="group"&&groupHasResults(n));
+    });
+    if(completed){notify("O quadro possui resultados registrados. Remova ou ajuste apenas as partidas e grupos ainda não disputados.");return;}
+    if(!confirm("Limpar todas as partidas, grupos e conexões? As equipes voltarão à lista de disponíveis."))return;
+    board={version:3,nodes:[],edges:[]};pendingOutput=null;selectedTeamId=null;queueSave();
   });
   const oldGo=go;
   go=function(page){oldGo(page);if(page==="tournament-board")loadBoard();};
