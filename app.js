@@ -459,9 +459,21 @@ function openMatchDetail(match){
     const name=p.players?.nickname||p.player_name_snapshot||"Jogador convidado";
     return `<tr><td><b>${safe(name)}</b>${p.is_guest?'<small>Convidado</small>':""}</td><td>${p.team_side==="A"?safe(match.team_a_name):p.team_side==="B"?safe(match.team_b_name):"—"}</td><td>${p.kills}/${p.deaths}/${p.assists}</td><td>${p.adr==null?"—":Number(p.adr).toFixed(1)}</td><td>${p.headshot_pct==null?"—":Number(p.headshot_pct).toFixed(1)+"%"}</td><td>${p.mvps||0}</td></tr>`;
   }).join("")}</tbody></table></div>`:'<p class="muted">Sem estatísticas individuais registradas.</p>';
+
+  const mapStats=(match.player_map_stats||[]).slice().sort((a,b)=>a.map_number-b.map_number||(a.team_side||'').localeCompare(b.team_side||'')||String(a.player_name_snapshot||'').localeCompare(String(b.player_name_snapshot||'')));
+  const mapStatHtml=maps.map(m=>{
+    const rows=mapStats.filter(row=>row.map_number===m.map_number);
+    const body=rows.map(p=>{
+      const name=p.players?.nickname||p.player_name_snapshot||'Jogador convidado';
+      const team=p.team_side==='A'?match.team_a_name:p.team_side==='B'?match.team_b_name:'—';
+      return '<tr><td><b>'+safe(name)+'</b>'+(p.is_guest?'<small>Convidado</small>':'')+'</td><td>'+safe(team)+'</td><td>'+p.kills+'/'+p.deaths+'/'+p.assists+'</td><td>'+(p.adr==null?'—':Number(p.adr).toFixed(1))+'</td><td>'+(p.headshot_pct==null?'—':Number(p.headshot_pct).toFixed(1)+'%')+'</td><td>'+(p.mvps||0)+'</td></tr>';
+    }).join('');
+    const table=rows.length?'<div class="public-stats-table-wrap"><table class="public-stats-table"><thead><tr><th>Jogador</th><th>Equipe</th><th>K/D/A</th><th>ADR</th><th>HS%</th><th>MVP</th></tr></thead><tbody>'+body+'</tbody></table></div>':'<p class="muted">Sem estatísticas individuais neste mapa.</p>';
+    return '<section class="match-detail-map-stats"><h4>Mapa '+m.map_number+' · '+safe(m.map_name)+'</h4>'+table+'</section>';
+  }).join('');
   const vetoHtml=veto.length?`<div class="match-detail-veto">${veto.map(v=>`<span><b>${v.sequence_no}.</b> ${safe(v.action_type.toUpperCase())} · ${safe(v.map_name)} · ${safe(v.team_name_snapshot||"Equipe não informada")}${v.starting_side?" · "+safe(v.starting_side):""}</span>`).join("")}</div>`:'<p class="muted">Não há ações de veto registradas.</p>';
   $("#matchDetailTitle").textContent=`${match.team_a_name} ${match.team_a_score} × ${match.team_b_score} ${match.team_b_name}`;
-  $("#matchDetailContent").innerHTML=`<p class="form-note">${safe(date)} · MD${match.best_of||1}</p><section class="detail-section"><h3>Mapas e rounds</h3>${mapHtml}</section><section class="detail-section"><h3>Estatísticas individuais</h3>${playerHtml}</section><section class="detail-section"><h3>Veto, picks e decider</h3>${vetoHtml}</section>${match.notes?`<section class="detail-section"><h3>Observações</h3><p class="detail-bio">${safe(match.notes)}</p></section>`:""}`;
+  $("#matchDetailContent").innerHTML=`<p class="form-note">${safe(date)} · MD${match.best_of||1}</p><section class="detail-section"><h3>Mapas e rounds</h3>${mapHtml}</section><section class="detail-section"><h3>Resumo da série</h3>${playerHtml}</section><section class="detail-section"><h3>Estatísticas por mapa</h3>${mapStatHtml||'<p class="muted">Sem estatísticas por mapa disponíveis.</p>'}</section><section class="detail-section"><h3>Veto, picks e decider</h3>${vetoHtml}</section>${match.notes?`<section class="detail-section"><h3>Observações</h3><p class="detail-bio">${safe(match.notes)}</p></section>`:""}`;
   overlay.classList.add("open");
 }
 async function loadMatches(){
