@@ -364,10 +364,37 @@
       </article>`;
     }).join("");
     $('[data-review-registration]').forEach(btn => btn.addEventListener("click", async () => {
-      const { error } = await supabaseClient.rpc("acs_admin_review_tournament_registration", { p_registration_id: btn.dataset.reviewRegistration, p_status: btn.dataset.reviewStatus, p_admin_note: null });
-      if (error) { toast5("Não foi possível revisar a inscrição: " + error.message); return; }
-      toast5(btn.dataset.reviewStatus === "approved" ? "Equipe aprovada." : "Inscrição rejeitada.");
-      await loadTournament();
+      if (!isAdmin || !supabaseClient) {
+        toast5("Sua sessão administrativa expirou. Entre novamente e tente de novo.");
+        return;
+      }
+      const registrationId = btn.dataset.reviewRegistration;
+      const reviewStatus = btn.dataset.reviewStatus;
+      if (!registrationId || !["approved", "rejected"].includes(reviewStatus)) {
+        toast5("Não foi possível identificar a inscrição ou a ação solicitada.");
+        return;
+      }
+      const actionButtons = $('[data-review-registration]');
+      actionButtons.forEach(button => { button.disabled = true; });
+      try {
+        const { data, error } = await supabaseClient.rpc("acs_admin_review_tournament_registration", {
+          p_registration_id: registrationId,
+          p_status: reviewStatus,
+          p_admin_note: null
+        });
+        if (error) throw error;
+        if (data !== true) {
+          toast5("A inscrição não foi atualizada. Atualize a lista e tente novamente.");
+          return;
+        }
+        toast5(reviewStatus === "approved" ? "Equipe aprovada." : "Inscrição rejeitada.");
+        await loadTournament();
+      } catch (error) {
+        console.error("ACS tournament registration review:", error);
+        toast5("Não foi possível revisar a inscrição: " + (error?.message || "erro inesperado"));
+      } finally {
+        actionButtons.forEach(button => { button.disabled = false; });
+      }
     }));
   }
   async function loadTournamentStructure() {
