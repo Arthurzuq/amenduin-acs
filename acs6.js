@@ -224,7 +224,8 @@
     const n=nodeById(nodeId);if(!n)return;
     if(n.type==="solo"){n.type="match";n.teamIds=[...(n.teamIds||[]),teamId];}
     else if(n.type==="match"||n.type==="group"){
-      n.type="group";n.teamIds=[...(n.teamIds||[]),teamId];n.fixtures=pairings(n.teamIds);
+      const previous=new Map((n.fixtures||[]).map(f=>[[f.teamA,f.teamB].sort().join(":"),f.id]));
+      n.type="group";n.teamIds=[...(n.teamIds||[]),teamId];n.fixtures=pairings(n.teamIds).map(f=>({...f,id:previous.get([f.teamA,f.teamB].sort().join(":"))||f.id}));delete n.bracketId;
     }
     queueSave();
   }
