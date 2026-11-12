@@ -14,6 +14,11 @@ const $$ = s => [...document.querySelectorAll(s)];
 const initials = n => (n||"?").slice(0,2).toUpperCase();
 const safe = s => String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const roleShort = r => r==="Entry-Fragger"?"ENTRY":r==="Support"?"SUPPORT":r==="AWPer"?"AWPER":r==="Lurker"?"LURKER":r==="Rifler"?"RIFLER":"IGL";
+
+ // These adapters keep early auth/session callbacks safe before match-entry.js finishes loading.
+ function renderMatchPlayerRows(){window.ACS5_MATCH_ENTRY?.renderRosterEditor?.();}
+ function renderMapEditors(){window.ACS5_MATCH_ENTRY?.renderMapTables?.();}
+
 function toast(msg){const t=$("#toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2600)}
 function go(page){$$(".page").forEach(p=>p.classList.toggle("active",p.id===`page-${page}`));$$(".nav-link").forEach(a=>a.classList.toggle("active",a.dataset.page===page));$("#crumb").textContent=({home:"VISÃO GERAL",players:"JOGADORES",rankings:"RANKINGS",matches:"PARTIDAS",teams:"EQUIPES",market:"MERCADO"})[page]||page.toUpperCase();$(".sidebar").classList.remove("open");if(page==="players")renderPlayers();if(page==="rankings")renderRanking();if(page==="matches"){loadMatches();renderPublicStats();if(isAdmin){renderMatchPlayerRows();renderMapEditors();$("#matchesAdminPanel").style.display="block";loadTeamsData();}}if(page==="market")loadMarketData();if(page==="teams")loadTeamsData();window.scrollTo(0,0)}
 $$("[data-page]").forEach(a=>a.addEventListener("click",e=>{e.preventDefault();go(a.dataset.page)}));
