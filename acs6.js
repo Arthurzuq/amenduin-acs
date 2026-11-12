@@ -507,6 +507,7 @@
         team_a_source_result:incomingA&&["winner","loser"].includes(incomingA.result)?incomingA.result:null,
         team_b_source_node_id:incomingB&&["winner","loser"].includes(incomingB.result)?nodeById(incomingB.from)?.bracketId||incomingB.from:null,
         team_b_source_result:incomingB&&["winner","loser"].includes(incomingB.result)?incomingB.result:null,
+        match_id:current?.match_id||null,winner_team_id:current?.winner_team_id||null,
         status:current?.status==="completed"?"completed":teamA&&teamB?"ready":"pending",
         config:{board_node_id:node.id}
       });
@@ -524,6 +525,7 @@
           id:fixture.bracketId,tournament_id:tid,stage_id:boardStageId,group_id:group.id,
           bracket_side:"groups",round_number:round,match_number:matchNo,
           team_a_id:fixture.teamA,team_b_id:fixture.teamB,
+          match_id:current?.match_id||null,winner_team_id:current?.winner_team_id||null,
           status:current?.status==="completed"?"completed":fixture.teamA&&fixture.teamB?"ready":"pending",
           config:{group_node_id:group.id,round}
         });
