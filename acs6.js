@@ -524,7 +524,7 @@
   function addGroupNode(){
     const groups=board.nodes.filter(n=>n.type==="group");
     const index=groups.length;
-    const group={id:uuid(),type:"group",name:"Grupo "+String.fromCharCode(65+index),teamIds:[],fixtures:[],x:65+(index%3)*430,y:70+Math.floor(index/3)*430};
+    const group={id:uuid(),type:"group",name:"Grupo "+String.fromCharCode(65+index),teamIds:[],fixtures:[],x:65+(index%3)*430,y:620+Math.floor(index/3)*430};
     board.nodes.push(group);selectedTeamId=null;pendingOutput=null;queueSave();
   }
   function addMatchNode(){
