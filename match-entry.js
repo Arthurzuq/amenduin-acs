@@ -261,11 +261,13 @@
     };
   }
   function scorePreview(card) {
+    const required=["a_first_half","b_first_half","a_second_half","b_second_half"];
+    const missing=required.some(key=>card.querySelector(`[data-map-key="${key}"]`)?.value==="");
     const value=key=>Number(card.querySelector(`[data-map-key="${key}"]`)?.value||0);
     const a=value("a_first_half")+value("a_second_half")+value("a_ot_tr")+value("a_ot_ct");
     const b=value("b_first_half")+value("b_second_half")+value("b_ot_tr")+value("b_ot_ct");
     const target=$("[data-map-preview]",card);
-    if (target) target.innerHTML=`Placar final <b>${a} : ${b}</b>`;
+    if(target)target.innerHTML=missing?'Placar final <b>— : —</b>':`Placar final <b>${a} : ${b}</b>`;
   }
   function updateScorePreviews(){$$("#matchMapsEditor [data-map-card]").forEach(scorePreview);}
 
