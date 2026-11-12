@@ -2,7 +2,7 @@ name: ACS 5.0 validation
 
 on:
   push:
-    branches: [acs5/materialize, acs6/profile-team-tournament-board]
+    branches: [acs5/materialize, acs6/profile-team-tournament-board, acs7/match-fix-and-economy]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -26,6 +26,7 @@ jobs:
           node --check acs5.js
           node --check match-entry.js
           node --check acs6.js
+          node --check acs7-economy.js
           node --check supabase-config.js
       - name: Check required frontend integrations
         run: |
@@ -35,6 +36,7 @@ jobs:
           app = Path("app.js").read_text()
           acs = Path("acs5.js").read_text()
           acs6 = Path("acs6.js").read_text()
+          acs7 = Path("acs7-economy.js").read_text()
           match = Path("match-entry.js").read_text()
           config = Path("supabase-config.js").read_text()
           assert 'id="matchBracketNode"' in html
@@ -50,7 +52,17 @@ jobs:
           assert 'acs_create_team' in acs6
           assert 'name-black' in Path("styles.css").read_text()
           assert 'qualification_draft' in acs
+          assert "$('[data-delete-match]')" in app
+          assert 'player_map_stats(player_id,map_number' in app
+          assert 'toLocaleLowerCase("pt-BR")' in match
+          assert 'economy_claim_weekly_grant' in acs7
+          assert 'economy_set_player_salary' in acs7
+          assert 'economy_pay_team_payroll' in acs7
+          assert 'economy_transfer_player_balance' in acs7
+          assert 'economy_award_tournament_prize' in acs7
+          assert 'id="page-economy"' in html
+          assert Path("acs-7.0-economy-migration.sql").exists()
           assert 'sb_secret_' not in config
           assert 'service_role\n' not in config
-          print("ACS 5.0 integration checks passed.")
+          print("ACS 7.0 integration checks passed.")
           PY
