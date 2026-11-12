@@ -425,7 +425,7 @@
 
 /* ACS 9.4 — community hub and account profile shortcut */
 .top-actions{position:relative;display:flex;align-items:center;gap:10px}
-.profile-menu-trigger{width:38px;height:38px;padding:2px;border:1px solid #46566a;border-radius:50%;background:#121d2a;color:#fff;display:grid;place-items:center;cursor:pointer;overflow:hidden;font-weight:800}
+.profile-menu-trigger{position:relative;width:38px;height:38px;padding:2px;border:1px solid #46566a;border-radius:50%;background:#121d2a;color:#fff;display:grid;place-items:center;cursor:pointer;overflow:hidden;font-weight:800}
 .profile-menu-trigger img{width:100%;height:100%;object-fit:cover;border-radius:50%}
 .profile-menu{position:absolute;z-index:80;right:0;top:calc(100% + 10px);width:230px;padding:8px;background:#111b28;border:1px solid #304155;border-radius:10px;box-shadow:0 16px 45px #0008}
 .profile-menu[hidden]{display:none}.profile-menu button{width:100%;padding:10px;border:0;border-radius:6px;background:transparent;color:#dce7f4;text-align:left;cursor:pointer}.profile-menu button:hover{background:#223349}.profile-menu .profile-menu-user{padding:10px;border-bottom:1px solid #2a3b50;margin-bottom:5px}.profile-menu-user b{display:block;color:#fff}.profile-menu-user small{color:#92a2b6}
