@@ -554,7 +554,7 @@
     refreshMaps:renderMapTables,
     updatePreviews:updateScorePreviews,
     syncRosterFromControls:()=>{
-      $("#matchRosterEditor [data-roster-choice]").forEach(input=>{
+      $$("#matchRosterEditor [data-roster-choice]").forEach(input=>{
         const side=input.dataset.rosterChoice;
         const player=roster[side]?.find(row=>row.key===input.dataset.rosterKey);
         if(player)player.selected=input.checked;
