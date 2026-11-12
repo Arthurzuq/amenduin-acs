@@ -447,11 +447,11 @@
           }).join("")+'</div>'
         :'<p class="public-group-empty">A classificação aparecerá após os primeiros resultados.</p>';
       const fixtures=groupMatches.length
-        ?'<div class="public-group-fixtures">'+groupMatches.map(node=>{
+        ?'<div class="public-group-fixtures">'+groupMatches.map((node,index)=>{
             const teamA=cloudTeams.find(team=>team.id===node.team_a_id)?.name||"A definir";
             const teamB=cloudTeams.find(team=>team.id===node.team_b_id)?.name||"A definir";
             const status=({ready:"Pronto",completed:"Concluído",pending:"Aguardando",live:"Em andamento"})[node.status]||node.status;
-            return '<div><span>R'+node.round_number+'</span><b>'+safe5(teamA)+'</b><i>×</i><b>'+safe5(teamB)+'</b><small>'+(node.status==="completed"?"Concluído":safe5(status))+'</small></div>';
+            return '<div><span>R'+node.round_number+' · J'+(index+1)+'</span><b>'+safe5(teamA)+'</b><i>×</i><b>'+safe5(teamB)+'</b><small>'+(node.status==="completed"?"Concluído":safe5(status))+'</small></div>';
           }).join("")+'</div>'
         :'<p class="public-group-empty">Aguardando duas ou mais equipes para montar os confrontos.</p>';
       return '<section class="public-group-panel"><header><h4>'+safe5(group.name)+'</h4><small>'+groupMatches.filter(node=>node.status==="completed").length+'/'+groupMatches.length+' confrontos concluídos</small></header><h5>Classificação</h5>'+table+'<h5>Confrontos</h5>'+fixtures+'</section>';
@@ -527,6 +527,7 @@
     const groupNames=new Map((groupRows||[]).map(group=>[group.id,group.name]));
     const matches=(data||[]).filter(node=>node.team_a_id&&node.team_b_id);
     select._acsBracketNodes=matches;
+    const groupFixtureCounters=new Map();
     const labels=matches.map(node=>{
       const stage=tournamentStages.find(item=>item.id===node.stage_id)?.name||"Campeonato";
       const groupName=node.bracket_side==="groups"
@@ -535,7 +536,8 @@
       const nameA=cloudTeams.find(team=>team.id===node.team_a_id)?.name||"Equipe A";
       const nameB=cloudTeams.find(team=>team.id===node.team_b_id)?.name||"Equipe B";
       const phaseLabel=groupName?groupName+" · "+stage:"Mata-mata · "+stage;
-      return {id:node.id,label:phaseLabel+" · R"+node.round_number+"/J"+node.match_number+" · "+nameA+" × "+nameB};
+      const groupMatchNumber=groupName?(groupFixtureCounters.set(groupName,(groupFixtureCounters.get(groupName)||0)+1),groupFixtureCounters.get(groupName)):node.match_number;
+      return {id:node.id,label:phaseLabel+" · R"+node.round_number+"/J"+groupMatchNumber+" · "+nameA+" × "+nameB};
     });
     select.innerHTML='<option value="">Partida avulsa (não vinculada)</option>'+labels.map(item=>'<option value="'+safe5(item.id)+'">'+safe5(item.label)+'</option>').join("");
     select.value=labels.some(item=>item.id===keep)?keep:"";
