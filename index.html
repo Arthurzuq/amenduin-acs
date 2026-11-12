@@ -134,10 +134,10 @@
                 <label class="field match-format-field">FORMATO DA SÉRIE
                   <select id="matchBestOf" required data-draft-key="matchBestOf"><option value="">Escolha MD1, MD3 ou MD5...</option><option value="1">MD1 · Melhor de 1</option><option value="3">MD3 · Melhor de 3</option><option value="5">MD5 · Melhor de 5</option></select>
                 </label>
-                <label class="field">EQUIPE A<select id="matchTeamA" required data-draft-key="matchTeamA"><option value="">Selecione a equipe A...</option></select></label>
-                <label class="field">EQUIPE B<select id="matchTeamB" required data-draft-key="matchTeamB"><option value="">Selecione a equipe B...</option></select></label>
-                <label class="field custom-team-field" id="customTeamAWrap" style="display:none">NOME DA EQUIPE A<input id="customTeamAName" maxlength="60" data-draft-key="customTeamAName" placeholder="Nome da equipe avulsa"></label>
-                <label class="field custom-team-field" id="customTeamBWrap" style="display:none">NOME DA EQUIPE B<input id="customTeamBName" maxlength="60" data-draft-key="customTeamBName" placeholder="Nome da equipe avulsa"></label>
+                <label class="field">EQUIPE A<select id="matchTeamA" data-draft-key="matchTeamA"><option value="">Usar nome manual abaixo ou escolher equipe cadastrada...</option><option value="custom">Equipe avulsa</option></select></label>
+                <label class="field">EQUIPE B<select id="matchTeamB" data-draft-key="matchTeamB"><option value="">Usar nome manual abaixo ou escolher equipe cadastrada...</option><option value="custom">Equipe avulsa</option></select></label>
+                <label class="field custom-team-field" id="customTeamAWrap" style="display:none">NOME MANUAL DA EQUIPE A (opcional)<input id="customTeamAName" maxlength="60" data-draft-key="customTeamAName" placeholder="Preencha somente se a equipe não estiver cadastrada"></label>
+                <label class="field custom-team-field" id="customTeamBWrap" style="display:none">NOME MANUAL DA EQUIPE B (opcional)<input id="customTeamBName" maxlength="60" data-draft-key="customTeamBName" placeholder="Preencha somente se a equipe não estiver cadastrada"></label>
                 <label class="field span-2">VINCULAR AO CAMPEONATO<select id="matchBracketNode" data-draft-key="matchBracketNode"><option value="">Partida avulsa (não vinculada)</option></select></label>
                 <label class="field">DATA E HORA<input id="matchPlayedAt" type="datetime-local" data-draft-key="matchPlayedAt"></label>
                 <label class="field span-2">OBSERVAÇÕES<textarea id="matchNotes" rows="2" maxlength="500" data-draft-key="matchNotes" placeholder="Opcional"></textarea></label>
