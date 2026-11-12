@@ -254,6 +254,26 @@
       const {error}=await supabaseClient.from("tournament_bracket_nodes").upsert(rows,{onConflict:"id"});
       if(error)throw error;
     }
+    for(const group of groups){
+      const {data:groupRows,error:groupError}=await supabaseClient.from("tournament_bracket_nodes")
+        .select("team_a_id,team_b_id,winner_team_id,config").eq("tournament_id",tid).eq("bracket_side","groups");
+      if(groupError)throw groupError;
+      const played=(groupRows||[]).filter(row=>row.config?.group_node_id===group.id);
+      if(!played.length||played.some(row=>!row.winner_team_id))continue;
+      const tally=new Map((group.teamIds||[]).map(id=>[id,{id,points:0,wins:0}]));
+      played.forEach(row=>{const winner=tally.get(row.winner_team_id);if(winner){winner.points+=3;winner.wins++;}});
+      const ranking=[...tally.values()].sort((a,b)=>b.points-a.points||b.wins-a.wins||teamById(a.id).name.localeCompare(teamById(b.id).name));
+      for(const edge of board.edges.filter(item=>item.from===group.id&&item.result.startsWith("place_"))){
+        const target=nodeById(edge.to),team=ranking[Number(edge.result.slice(6))-1]?.id;
+        if(!target?.bracketId||!team)continue;
+        const {data:targetRow,error:targetError}=await supabaseClient.from("tournament_bracket_nodes").select("team_a_id,team_b_id").eq("id",target.bracketId).single();
+        if(targetError)throw targetError;
+        const team_a_id=edge.slot==="A"?team:targetRow.team_a_id;
+        const team_b_id=edge.slot==="B"?team:targetRow.team_b_id;
+        const {error}=await supabaseClient.from("tournament_bracket_nodes").update({team_a_id,team_b_id,status:team_a_id&&team_b_id?"ready":"pending"}).eq("id",target.bracketId);
+        if(error)throw error;
+      }
+    }
     for(const e of board.edges){
       const source=nodeById(e.from),target=nodeById(e.to);
       if(!source||!target||source.type!=="match"||!target.bracketId||!["winner","loser"].includes(e.result))continue;
