@@ -101,7 +101,7 @@
   }
 
   // Visual board document. The canvas is deliberately free-form; no bracket format is forced.
-  let board={version:1,nodes:[],edges:[]},approvedTeams=[],boardStageId=null,pendingOutput=null,saveTimer=null,boardBusy=false;
+  let board={version:1,nodes:[],edges:[]},approvedTeams=[],boardStageId=null,pendingOutput=null,saveTimer=null,boardBusy=false,suppressTrayClick=false;
   const canvas=()=>$("#tournamentBoardCanvas");
   const nodeById=id=>board.nodes.find(n=>n.id===id);
   const teamById=id=>approvedTeams.find(t=>t.id===id)||cloudTeams.find(t=>t.id===id)||{id,name:"Equipe"};
@@ -167,7 +167,7 @@
   }
   function bindBoardControls(){
     $$("[data-tray-team]").forEach(btn=>{
-      btn.addEventListener("click",()=>addSolo(btn.dataset.trayTeam,80+board.nodes.length*28,70+board.nodes.length*22));
+      btn.addEventListener("click",()=>{if(suppressTrayClick){suppressTrayClick=false;return;}addSolo(btn.dataset.trayTeam,80+board.nodes.length*28,70+board.nodes.length*22);});
       btn.addEventListener("pointerdown",e=>startBoardDrag(e,{kind:"team",teamId:btn.dataset.trayTeam}));
     });
     $$("[data-board-node]").forEach(el=>el.addEventListener("pointerdown",e=>{
@@ -200,7 +200,7 @@
     };
     const up=ev=>{
       document.removeEventListener("pointermove",move);document.removeEventListener("pointerup",up);
-      const state=dragState;dragState=null;if(!state||!state.moved)return;
+      const state=dragState;dragState=null;if(!state||!state.moved)return;suppressTrayClick=state.kind==="team";
       const target=document.elementFromPoint(ev.clientX,ev.clientY)?.closest("[data-board-node]");
       if(state.kind==="team"){
         if(target)mergeTeamIntoNode(state.teamId,target.dataset.boardNode);
@@ -241,14 +241,14 @@
     games.forEach(n=>{
       n.bracketId=n.bracketId||n.id;mainNo++;
       const incomingA=board.edges.find(e=>e.to===n.id&&e.slot==="A"),incomingB=board.edges.find(e=>e.to===n.id&&e.slot==="B");
-      rows.push({id:n.bracketId,tournament_id:tid,stage_id:boardStageId,bracket_side:"main",round_number:1,match_number:mainNo,team_a_id:n.teamIds?.[0]||null,team_b_id:n.teamIds?.[1]||null,
+      rows.push({id:n.bracketId,tournament_id:tid,stage_id:boardStageId,bracket_side:"main",round_number:1,match_number:parseInt(n.id.replace(/-/g,"").slice(0,7),16),team_a_id:incomingA?null:(n.teamIds?.[0]||null),team_b_id:incomingB?null:(n.teamIds?.[1]||null),
         team_a_source_node_id:incomingA&&["winner","loser"].includes(incomingA.result)?incomingA.from:null,team_a_source_result:incomingA&&["winner","loser"].includes(incomingA.result)?incomingA.result:null,
         team_b_source_node_id:incomingB&&["winner","loser"].includes(incomingB.result)?incomingB.from:null,team_b_source_result:incomingB&&["winner","loser"].includes(incomingB.result)?incomingB.result:null,
-        status:(n.teamIds?.length===2||incomingA&&incomingB)?"ready":"pending",config:{board_node_id:n.id}});
+        status:((incomingA||n.teamIds?.[0])&&(incomingB||n.teamIds?.[1]))?"ready":"pending",config:{board_node_id:n.id}});
     });
     groups.forEach(g=>(g.fixtures||[]).forEach(f=>{
       f.bracketId=f.bracketId||f.id;groupNo++;
-      rows.push({id:f.bracketId,tournament_id:tid,stage_id:boardStageId,bracket_side:"groups",round_number:1,match_number:groupNo,team_a_id:f.teamA,team_b_id:f.teamB,status:"ready",config:{group_node_id:g.id,round:f.round}});
+      rows.push({id:f.bracketId,tournament_id:tid,stage_id:boardStageId,bracket_side:"groups",round_number:1,match_number:parseInt(f.id.replace(/-/g,"").slice(0,7),16),team_a_id:f.teamA,team_b_id:f.teamB,status:"ready",config:{group_node_id:g.id,round:f.round}});
     }));
     if(rows.length){
       const {error}=await supabaseClient.from("tournament_bracket_nodes").upsert(rows,{onConflict:"id"});
@@ -269,7 +269,7 @@
     if(boardBusy)return;boardBusy=true;$("#boardSaveButton").disabled=true;$("#boardSaveState").textContent="Salvando...";
     try{
       await syncBracketRows();
-      const {error}=await supabaseClient.from("tournament_board_documents").upsert({tournament_id:tid,board_json:board,updated_by:currentUser.id},{onConflict:"tournament_id"});
+      const {error}=await supabaseClient.from("tournament_board_documents").upsert({tournament_id:tid,board_json:board,updated_by:currentUser.id,updated_at:new Date().toISOString()},{onConflict:"tournament_id"});
       if(error)throw error;
       $("#boardSaveState").textContent="Organização salva · "+new Date().toLocaleTimeString("pt-BR");
     }catch(err){$("#boardSaveState").textContent="Falha ao salvar: "+(err?.message||"erro");}
@@ -281,7 +281,7 @@
   }
   async function openBoard(){
     if(!isAdmin){notify("Somente administradores podem organizar o campeonato.");return;}
-    go("tournament-board");await loadBoard();
+    go("tournament-board");
   }
   window.ACS6.openBoard=openBoard;
   $("#boardSaveButton")?.addEventListener("click",saveBoard);
