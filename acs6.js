@@ -451,57 +451,99 @@
     if(!boardStageId){
       const {data:last,error:lastError}=await supabaseClient.from("tournament_stages").select("stage_order").eq("tournament_id",tid).order("stage_order",{ascending:false}).limit(1);
       if(lastError)throw lastError;
-      const {data,error}=await supabaseClient.from("tournament_stages").insert({tournament_id:tid,stage_order:Number(last?.[0]?.stage_order||0)+1,name:"Quadro personalizado",format:"single_elimination",status:"draft",config:{editor:"custom_board",version:2}}).select("id").single();
+      const {data,error}=await supabaseClient.from("tournament_stages").insert({
+        tournament_id:tid,stage_order:Number(last?.[0]?.stage_order||0)+1,name:"Quadro personalizado",
+        format:"single_elimination",status:"draft",config:{editor:"custom_board",version:3}
+      }).select("id").single();
       if(error)throw error;boardStageId=data.id;
     }
-    const {data:existingStageRows,error:existingError}=await supabaseClient.from("tournament_bracket_nodes").select("*").eq("stage_id",boardStageId);
-    if(existingError)throw existingError;
-    const existingRows=(existingStageRows||[]).filter(row=>row.bracket_side==="main");
-    const existingGroupRows=(existingStageRows||[]).filter(row=>row.bracket_side==="groups");
-    bracketRows=existingRows;
-    let mainNo=0;
+    const [existingRes,groupRes]=await Promise.all([
+      supabaseClient.from("tournament_bracket_nodes").select("*").eq("stage_id",boardStageId),
+      supabaseClient.from("tournament_groups").select("*").eq("stage_id",boardStageId)
+    ]);
+    if(existingRes.error)throw existingRes.error;
+    if(groupRes.error)throw groupRes.error;
+    const existingStageRows=existingRes.data||[];
+    const existingRows=existingStageRows.filter(row=>row.bracket_side==="main");
+    const existingGroupRows=existingStageRows.filter(row=>row.bracket_side==="groups");
+    const existingGroups=groupRes.data||[];
+    bracketRows=existingStageRows;
+    const groupIds=new Set(groups.map(group=>group.id));
+    const groupRecords=groups.map((group,index)=>({
+      id:group.id,stage_id:boardStageId,name:group.name||("Grupo "+String.fromCharCode(65+index)),
+      sort_order:index+1,config:{board_node_id:group.id,team_ids:group.teamIds||[]}
+    }));
+    const groupUpsert=groupRecords.length
+      ?await supabaseClient.from("tournament_groups").upsert(groupRecords,{onConflict:"id"})
+      :{error:null};
+    if(groupUpsert.error)throw groupUpsert.error;
+
     const rows=[];
-    games.forEach(n=>{
-      n.bracketId=n.bracketId||n.id;mainNo++;
-      const incomingA=incomingFor(n.id,"A"),incomingB=incomingFor(n.id,"B");
-      const current=bracketRows.find(r=>r.id===n.bracketId);
+    games.forEach(node=>{
+      node.bracketId=node.bracketId||node.id;
+      const incomingA=incomingFor(node.id,"A"),incomingB=incomingFor(node.id,"B");
+      const current=existingRows.find(row=>row.id===node.bracketId);
       const sourceTeam=edge=>{
         if(!edge)return null;
         const sourceNode=nodeById(edge.from);
-        const sourceRow=bracketRows.find(r=>r.config?.board_node_id===edge.from||r.id===sourceNode?.bracketId||r.id===edge.from);
+        if(sourceNode?.type==="group"){
+          const match=String(edge.result||"").match(/^place_(\d+)$/);
+          return match?groupPlacementTeam(sourceNode,Number(match[1])):null;
+        }
+        const sourceRow=existingRows.find(row=>row.config?.board_node_id===edge.from||row.id===sourceNode?.bracketId||row.id===edge.from);
         if(!sourceRow?.winner_team_id)return null;
         if(edge.result==="winner")return sourceRow.winner_team_id;
         if(edge.result==="loser")return sourceRow.winner_team_id===sourceRow.team_a_id?sourceRow.team_b_id:sourceRow.team_a_id;
         return null;
       };
-      const teamA=incomingA?sourceTeam(incomingA):(n.slots?.A||null);
-      const teamB=incomingB?sourceTeam(incomingB):(n.slots?.B||null);
-      const round=nodeRound(n.id);
-      const matchNumber=games.filter(item=>nodeRound(item.id)===round).indexOf(n)+1;
+      const teamA=incomingA?sourceTeam(incomingA):(node.slots?.A||null);
+      const teamB=incomingB?sourceTeam(incomingB):(node.slots?.B||null);
+      const round=nodeRound(node.id);
+      const matchNumber=games.filter(item=>nodeRound(item.id)===round).indexOf(node)+1;
       rows.push({
-        id:n.bracketId,tournament_id:tid,stage_id:boardStageId,bracket_side:"main",round_number:round,match_number:matchNumber,
-        team_a_id:teamA,team_b_id:teamB,
+        id:node.bracketId,tournament_id:tid,stage_id:boardStageId,bracket_side:"main",
+        round_number:Math.max(1,round),match_number:matchNumber,team_a_id:teamA,team_b_id:teamB,
         team_a_source_node_id:incomingA&&["winner","loser"].includes(incomingA.result)?nodeById(incomingA.from)?.bracketId||incomingA.from:null,
         team_a_source_result:incomingA&&["winner","loser"].includes(incomingA.result)?incomingA.result:null,
         team_b_source_node_id:incomingB&&["winner","loser"].includes(incomingB.result)?nodeById(incomingB.from)?.bracketId||incomingB.from:null,
         team_b_source_result:incomingB&&["winner","loser"].includes(incomingB.result)?incomingB.result:null,
         status:current?.status==="completed"?"completed":teamA&&teamB?"ready":"pending",
-        config:{board_node_id:n.id}
+        config:{board_node_id:node.id}
       });
     });
-    groups.forEach(g=>(g.fixtures||[]).forEach(f=>{
-      f.bracketId=f.bracketId||f.id;
-      rows.push({id:f.bracketId,tournament_id:tid,stage_id:boardStageId,bracket_side:"groups",round_number:1,match_number:parseInt(f.id.replace(/-/g,"").slice(0,7),16),team_a_id:f.teamA,team_b_id:f.teamB,status:"ready",config:{group_node_id:g.id,round:f.round}});
-    }));
-    const currentBoardIds=new Set(games.map(n=>n.bracketId));
-    const stale=(existingRows||[]).filter(row=>row.config?.board_node_id&&!currentBoardIds.has(row.id));
-    const currentGroupIds=new Set(groups.map(group=>group.id));
-    const staleGroups=(existingGroupRows||[]).filter(row=>row.config?.group_node_id&&!currentGroupIds.has(row.config.group_node_id));
-    if(stale.some(row=>row.match_id||row.status==="completed")||staleGroups.some(row=>row.match_id||row.status==="completed"))
-      throw new Error("Há partidas antigas com resultados. Não removi esses registros.");
-    const staleIds=[...stale,...staleGroups].map(row=>row.id);
+    const roundMatchCounts=new Map();
+    groups.forEach(group=>{
+      rebuildGroupFixtures(group);
+      (group.fixtures||[]).forEach(fixture=>{
+        fixture.bracketId=fixture.bracketId||fixture.id;
+        const round=Math.max(1,Number(fixture.round)||1);
+        const matchNo=(roundMatchCounts.get(round)||0)+1;
+        roundMatchCounts.set(round,matchNo);
+        const current=existingGroupRows.find(row=>row.id===fixture.bracketId);
+        rows.push({
+          id:fixture.bracketId,tournament_id:tid,stage_id:boardStageId,group_id:group.id,
+          bracket_side:"groups",round_number:round,match_number:matchNo,
+          team_a_id:fixture.teamA,team_b_id:fixture.teamB,
+          status:current?.status==="completed"?"completed":fixture.teamA&&fixture.teamB?"ready":"pending",
+          config:{group_node_id:group.id,round}
+        });
+      });
+    });
+
+    const mainIds=new Set(games.map(node=>node.bracketId));
+    const groupFixtureIds=new Set(groups.flatMap(group=>(group.fixtures||[]).map(f=>f.bracketId||f.id)));
+    const staleMain=existingRows.filter(row=>row.config?.board_node_id&&!mainIds.has(row.id));
+    const staleGroupRows=existingGroupRows.filter(row=>row.config?.group_node_id&&!groupIds.has(row.config.group_node_id));
+    const staleGroupRecords=existingGroups.filter(group=>!groupIds.has(group.id));
+    const staleHasResults=[...staleMain,...staleGroupRows].some(row=>row.match_id||row.status==="completed");
+    if(staleHasResults)throw new Error("Há partidas antigas com resultados. Não removi esses registros.");
+    const staleIds=[...staleMain,...staleGroupRows].map(row=>row.id);
     if(staleIds.length){
       const {error}=await supabaseClient.from("tournament_bracket_nodes").delete().in("id",staleIds);
+      if(error)throw error;
+    }
+    if(staleGroupRecords.length){
+      const {error}=await supabaseClient.from("tournament_groups").delete().in("id",staleGroupRecords.map(group=>group.id));
       if(error)throw error;
     }
     if(rows.length){
@@ -509,8 +551,8 @@
       if(error)throw error;
     }
     for(const node of games){
-      const winnerEdge=board.edges.find(e=>e.from===node.id&&e.result==="winner");
-      const loserEdge=board.edges.find(e=>e.from===node.id&&e.result==="loser");
+      const winnerEdge=board.edges.find(edge=>edge.from===node.id&&edge.result==="winner");
+      const loserEdge=board.edges.find(edge=>edge.from===node.id&&edge.result==="loser");
       const {error}=await supabaseClient.from("tournament_bracket_nodes").update({
         next_winner_node_id:winnerEdge?(nodeById(winnerEdge.to)?.bracketId||winnerEdge.to):null,
         next_winner_slot:winnerEdge?winnerEdge.slot:null,
@@ -522,6 +564,39 @@
     const {data:refreshed,error:refreshError}=await supabaseClient.from("tournament_bracket_nodes").select("*").eq("stage_id",boardStageId);
     if(refreshError)throw refreshError;
     bracketRows=refreshed||[];
+    await refreshGroupAdvancements(false);
+  }
+  async function refreshGroupAdvancements(render=true){
+    if(!supabaseClient||!boardStageId)return;
+    const [rowsRes,standingsRes]=await Promise.all([
+      supabaseClient.from("tournament_bracket_nodes").select("*").eq("stage_id",boardStageId),
+      supabaseClient.from("tournament_standings").select("group_id,team_id,played,wins,draws,losses,points,maps_for,maps_against,rounds_for,rounds_against,rank").eq("stage_id",boardStageId).order("rank")
+    ]);
+    if(rowsRes.error)throw rowsRes.error;
+    if(standingsRes.error)throw standingsRes.error;
+    bracketRows=rowsRes.data||[];
+    groupStandings=new Map();
+    (standingsRes.data||[]).forEach(row=>{
+      if(!groupStandings.has(row.group_id))groupStandings.set(row.group_id,[]);
+      groupStandings.get(row.group_id).push(row);
+    });
+    for(const edge of board.edges.filter(item=>/^place_[1-8]$/.test(item.result||""))){
+      const group=nodeById(edge.from),target=nodeById(edge.to);
+      if(!group||group.type!=="group"||!target)continue;
+      const teamId=groupPlacementTeam(group,Number(edge.result.slice(6)));
+      const targetRow=bracketRows.find(row=>row.config?.board_node_id===target.id||row.id===target.bracketId);
+      if(!targetRow)continue;
+      if(targetRow.status==="completed")continue;
+      const teamA=edge.slot==="A"?teamId:targetRow.team_a_id;
+      const teamB=edge.slot==="B"?teamId:targetRow.team_b_id;
+      if(targetRow.team_a_id===teamA&&targetRow.team_b_id===teamB)continue;
+      const {error}=await supabaseClient.from("tournament_bracket_nodes").update({
+        team_a_id:teamA,team_b_id:teamB,status:teamA&&teamB?"ready":"pending"
+      }).eq("id",targetRow.id);
+      if(error)throw error;
+      targetRow.team_a_id=teamA;targetRow.team_b_id=teamB;targetRow.status=teamA&&teamB?"ready":"pending";
+    }
+    if(render)renderBoard();
   }
   async function saveBoard(){
     if(!isAdmin||!currentUser||!supabaseClient){notify("Entre como administrador para salvar o quadro.");return;}
