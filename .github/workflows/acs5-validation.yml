@@ -41,7 +41,7 @@ jobs:
           config = Path("supabase-config.js").read_text()
           assert 'id="matchBracketNode"' in html
           assert 'window.ACS5_MATCH_ENTRY?.submit' in app
-          assert 'bracket_node_id:bracket?.value' in match
+          assert 'bracket_node_id:teamA==="custom"' in match
           assert 'data-map-stat' in match
           assert 'headshot_pct' in match
           assert 'from("match_drafts").upsert' in acs
