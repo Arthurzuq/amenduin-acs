@@ -72,10 +72,12 @@
     const host=$("#acsCalendar");if(!host)return;
     const form=$("#acsScheduleForm");
     if(form){
-      form.hidden=!isAdmin;
-      const {data:teams}=await supabaseClient.from("teams").select("id,name").order("name");
-      const options='<option value="">Selecione...</option>'+(teams||[]).map(t=>'<option value="'+esc(t.id)+'">'+esc(t.name)+'</option>').join("");
-      $("#acsScheduleTeamA").innerHTML=options;$("#acsScheduleTeamB").innerHTML=options;
+      form.hidden=!isAdmin||!supabaseClient;
+      if(isAdmin&&supabaseClient){
+        const {data:teams}=await supabaseClient.from("teams").select("id,name").order("name");
+        const options='<option value="">Selecione...</option>'+(teams||[]).map(t=>'<option value="'+esc(t.id)+'">'+esc(t.name)+'</option>').join("");
+        $("#acsScheduleTeamA").innerHTML=options;$("#acsScheduleTeamB").innerHTML=options;
+      }
     }
     if(!supabaseClient){host.innerHTML='<div class="community-empty">Agenda indisponível sem conexão.</div>';return;}
     const now=new Date().toISOString();
