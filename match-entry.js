@@ -559,6 +559,13 @@
       if (typeof loadCloudPlayers==="function") await loadCloudPlayers();
       if (typeof loadMatches==="function") await loadMatches();
       if (typeof loadTeamsData==="function") await loadTeamsData();
+      if (typeof window.ACS6?.refreshAfterMatch==="function") {
+        try { await window.ACS6.refreshAfterMatch(); }
+        catch (bracketError) {
+          console.warn("ACS bracket refresh:", bracketError);
+          notify("Série salva. A atualização automática do chaveamento falhou; abra o organizador para sincronizar os resultados.");
+        }
+      }
       if (typeof window.ACS5_REFRESH_BRACKET_CHOICES==="function") await window.ACS5_REFRESH_BRACKET_CHOICES();
       if (typeof renderAdminPanel==="function") renderAdminPanel();
     } catch (error) {
