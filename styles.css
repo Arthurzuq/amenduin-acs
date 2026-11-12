@@ -270,3 +270,32 @@
 .board-group-table .board-group-head{font-size:7px;color:#8a96a5;text-transform:uppercase;font-weight:800}
 .board-group-table strong{color:#244d78;text-align:right}
 .board-group-empty{padding:5px 10px 8px;font-size:8px;color:#8793a1}
+
+
+/* ACS 7.0 — economy dashboard and match reports */
+.economy-intro{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border:1px solid #35475c;border-radius:7px;background:#111c2a;color:#aebfd2;font-size:10px;line-height:1.6;margin:14px 0}
+.economy-intro b{color:#eef5ff;white-space:nowrap}.economy-balance-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin:14px 0}
+.economy-balance-card{padding:19px;border:1px solid var(--line);border-radius:8px;background:linear-gradient(135deg,#172536,#0d141e);display:grid;gap:7px}
+.economy-balance-card strong{font:800 32px var(--display);color:#8ce2b0;letter-spacing:.01em}
+.economy-balance-card small{font-size:9px;color:var(--muted)}
+.economy-payroll-actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.economy-salary-editor{display:grid;grid-template-columns:minmax(170px,1.5fr) minmax(150px,1fr) auto;gap:10px;align-items:end;padding:13px;border:1px solid var(--line);border-radius:7px;background:#101923}
+.economy-salary-editor .btn{white-space:nowrap}
+.economy-contract,.economy-transaction{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 13px;border:1px solid var(--line);border-radius:6px;background:#0e151f}
+.economy-contract>div,.economy-transaction>div{flex:1;min-width:0}
+.economy-contract b,.economy-transaction b{display:block;font-size:11px}
+.economy-contract small,.economy-transaction small{display:block;margin-top:4px;color:var(--muted);font-size:9px;line-height:1.5}
+.economy-contract>strong,.economy-transaction>strong{font:700 14px var(--display);color:#a9e7c2;white-space:nowrap}
+.economy-transaction.is-debit>strong{color:#f39b9b}.economy-transaction.is-credit>strong{color:#8ce2b0}
+.economy-own-salary{padding:16px;border:1px solid #315d4b;border-radius:7px;background:#10251c;display:grid;gap:6px}
+.economy-own-salary b{font:800 24px var(--display);color:#8ce2b0}.economy-own-salary span{font-size:10px;color:#a9c7b6}
+.economy-transfer-form{display:grid;grid-template-columns:1.3fr .7fr 1.2fr auto;gap:10px;align-items:end}
+.economy-prize-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.economy-prize-preview{display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding:13px 15px;border:1px solid #375b49;background:#10251c;border-radius:7px;color:#a9c7b6;font-size:10px}
+.economy-prize-preview strong{font:800 23px var(--display);color:#8ce2b0}
+.match-detail-map-stats{margin:10px 0;padding:12px;border:1px solid var(--line);border-radius:7px;background:#101923}
+.match-detail-map-stats h4{font:700 15px var(--display);margin:0 0 9px;color:#eaf1f8}
+.match-detail-map-stats .public-stats-table{min-width:600px}
+.match-card[role="button"]{cursor:pointer}.match-card[role="button"]:hover{border-color:#56789c;transform:translateY(-1px)}
+@media(max-width:850px){.economy-transfer-form{grid-template-columns:1fr 1fr}.economy-prize-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.economy-intro{display:grid}.economy-salary-editor{grid-template-columns:1fr}.economy-transfer-form{grid-template-columns:1fr}.economy-prize-grid{grid-template-columns:1fr}.economy-contract,.economy-transaction{align-items:flex-start;flex-wrap:wrap}.economy-contract .btn{width:100%}.economy-balance-card strong{font-size:28px}}

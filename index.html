@@ -24,6 +24,7 @@
         <a href="#" class="nav-link" data-page="rankings"><span>▤</span> Rankings</a>
         <a href="#" class="nav-link" data-page="matches"><span>◷</span> Partidas</a>
         <a href="#" class="nav-link" data-page="teams"><span>⬡</span> Equipes</a>
+        <a href="#" class="nav-link" data-page="economy"><span>$</span> Economia</a>
         <a href="#" class="nav-link" data-page="market"><span>⇄</span> Mercado</a>
         <a href="#" class="nav-link" data-page="tournaments"><span>🏆</span> Campeonatos</a>
         <a href="#" class="nav-link" data-page="admin" style="display:none"><span>⚙</span> Administração</a>
@@ -134,10 +135,10 @@
                 <label class="field match-format-field">FORMATO DA SÉRIE
                   <select id="matchBestOf" required data-draft-key="matchBestOf"><option value="">Escolha MD1, MD3 ou MD5...</option><option value="1">MD1 · Melhor de 1</option><option value="3">MD3 · Melhor de 3</option><option value="5">MD5 · Melhor de 5</option></select>
                 </label>
-                <label class="field">EQUIPE A<select id="matchTeamA" required data-draft-key="matchTeamA"><option value="">Selecione a equipe A...</option></select></label>
-                <label class="field">EQUIPE B<select id="matchTeamB" required data-draft-key="matchTeamB"><option value="">Selecione a equipe B...</option></select></label>
-                <label class="field custom-team-field" id="customTeamAWrap" style="display:none">NOME DA EQUIPE A<input id="customTeamAName" maxlength="60" data-draft-key="customTeamAName" placeholder="Nome da equipe avulsa"></label>
-                <label class="field custom-team-field" id="customTeamBWrap" style="display:none">NOME DA EQUIPE B<input id="customTeamBName" maxlength="60" data-draft-key="customTeamBName" placeholder="Nome da equipe avulsa"></label>
+                <label class="field">EQUIPE A<select id="matchTeamA" data-draft-key="matchTeamA"><option value="">Usar nome manual abaixo ou escolher equipe cadastrada...</option><option value="custom">Equipe avulsa</option></select></label>
+                <label class="field">EQUIPE B<select id="matchTeamB" data-draft-key="matchTeamB"><option value="">Usar nome manual abaixo ou escolher equipe cadastrada...</option><option value="custom">Equipe avulsa</option></select></label>
+                <label class="field custom-team-field" id="customTeamAWrap" style="display:none">NOME MANUAL DA EQUIPE A (opcional)<input id="customTeamAName" maxlength="60" data-draft-key="customTeamAName" placeholder="Preencha somente se a equipe não estiver cadastrada"></label>
+                <label class="field custom-team-field" id="customTeamBWrap" style="display:none">NOME MANUAL DA EQUIPE B (opcional)<input id="customTeamBName" maxlength="60" data-draft-key="customTeamBName" placeholder="Preencha somente se a equipe não estiver cadastrada"></label>
                 <label class="field span-2">VINCULAR AO CAMPEONATO<select id="matchBracketNode" data-draft-key="matchBracketNode"><option value="">Partida avulsa (não vinculada)</option></select></label>
                 <label class="field">DATA E HORA<input id="matchPlayedAt" type="datetime-local" data-draft-key="matchPlayedAt"></label>
                 <label class="field span-2">OBSERVAÇÕES<textarea id="matchNotes" rows="2" maxlength="500" data-draft-key="matchNotes" placeholder="Opcional"></textarea></label>
@@ -270,6 +271,63 @@
 
       </section>
 
+
+      <section class="page" id="page-economy">
+        <div class="page-title-row"><div><span class="eyebrow">ACS / ECONOMY SYSTEM</span><h1>ECONOMIA</h1><p>Salários, tesouraria das equipes, negociações e premiações.</p></div><button class="btn btn-ghost" id="economyRefresh">↻ Atualizar</button></div>
+        <div class="economy-intro"><b>Como funciona</b><span>Cada equipe recebe um repasse de $1.000 por semana para a folha salarial. O capitão define os salários e paga os integrantes. O dinheiro recebido vai para a carteira individual de cada jogador.</span></div>
+        <div id="economyNotice" class="market-help">Entre na sua conta para consultar sua carteira.</div>
+        <div class="economy-balance-grid">
+          <article class="economy-balance-card"><span class="eyebrow">SUA CARTEIRA</span><strong id="economyPersonalBalance">$ 0,00</strong><small>Saldo individual disponível para negociações</small></article>
+          <article class="economy-balance-card" id="economyTeamBalanceCard" style="display:none"><span class="eyebrow">TESOURARIA DA EQUIPE</span><strong id="economyTeamBalance">$ 0,00</strong><small>Saldo reservado exclusivamente para salários</small></article>
+        </div>
+        <section class="panel" id="economySalaryPanel" style="display:none">
+          <div class="panel-head"><div><span class="eyebrow">TEAM PAYROLL</span><h3>Folha salarial da equipe</h3></div><span class="badge-admin" id="economyTeamRole">CAPITÃO</span></div>
+          <p class="form-note">O repasse semanal é acumulado na tesouraria. Defina o salário semanal de cada integrante e pague a folha uma vez por semana.</p>
+          <div class="economy-payroll-actions"><button class="btn btn-ghost" id="economyClaimGrant">Atualizar repasse semanal</button><button class="btn btn-primary" id="economyPayPayroll">Pagar folha semanal</button></div>
+          <div class="economy-salary-editor">
+            <label class="field">JOGADOR<select id="economySalaryPlayer"><option value="">Selecione um integrante...</option></select></label>
+            <label class="field">SALÁRIO SEMANAL<input id="economySalaryAmount" type="number" min="0" max="1000000" step="0.01" placeholder="Ex.: 250"></label>
+            <button class="btn btn-ghost" id="economySaveSalary">Salvar salário</button>
+          </div>
+          <div class="detail-section"><h3>Salários definidos</h3><div id="economySalaryContracts" class="offer-list"><div class="market-empty">Carregando contratos...</div></div></div>
+        </section>
+        <section class="panel" id="economyMemberSalaryPanel" style="display:none">
+          <div class="panel-head"><div><span class="eyebrow">YOUR CONTRACT</span><h3>Seu salário</h3></div></div>
+          <div id="economyOwnSalary" class="market-empty">Nenhum salário cadastrado para esta equipe.</div>
+        </section>
+        <section class="panel">
+          <div class="panel-head"><div><span class="eyebrow">PLAYER TO PLAYER</span><h3>Enviar dinheiro para outro jogador</h3></div></div>
+          <p class="form-note">Use sua carteira individual para transferir valores em uma negociação. As duas carteiras e o histórico são atualizados juntos.</p>
+          <form id="economyTransferForm" class="economy-transfer-form">
+            <label class="field">DESTINATÁRIO<select id="economyTransferRecipient" required><option value="">Selecione um jogador...</option></select></label>
+            <label class="field">VALOR<input id="economyTransferAmount" type="number" min="0.01" max="1000000" step="0.01" required placeholder="Ex.: 100"></label>
+            <label class="field">MOTIVO / NEGOCIAÇÃO<input id="economyTransferDescription" maxlength="120" placeholder="Ex.: taxa de negociação"></label>
+            <button class="btn btn-primary" id="economyTransferSubmit" type="submit">Enviar transferência</button>
+          </form>
+        </section>
+        <section class="panel">
+          <div class="panel-head"><div><span class="eyebrow">WALLET ACTIVITY</span><h3>Histórico da sua carteira</h3></div></div>
+          <div id="economyPersonalHistory" class="offer-list"><div class="market-empty">Nenhuma movimentação registrada.</div></div>
+        </section>
+        <section class="panel" id="economyTeamHistoryPanel" style="display:none">
+          <div class="panel-head"><div><span class="eyebrow">TREASURY ACTIVITY</span><h3>Movimentações da tesouraria</h3></div></div>
+          <div id="economyTeamHistory" class="offer-list"><div class="market-empty">Nenhuma movimentação registrada.</div></div>
+        </section>
+        <section class="panel" id="economyPrizeAdminPanel" style="display:none">
+          <div class="panel-head"><div><span class="eyebrow">ADMIN / TOURNAMENT REWARDS</span><h3>Distribuir premiação</h3></div><span class="badge-admin">ADMINISTRADOR</span></div>
+          <p class="form-note">A premiação é creditada na tesouraria da equipe. Cada equipe e cada colocação podem receber apenas um prêmio por campeonato.</p>
+          <div class="economy-prize-grid">
+            <label class="field">CAMPEONATO<select id="economyPrizeTournament"><option value="">Selecione um campeonato...</option></select></label>
+            <label class="field">EQUIPE APROVADA<select id="economyPrizeTeam"><option value="">Selecione uma equipe...</option></select></label>
+            <label class="field">COLOCAÇÃO<select id="economyPrizePlacement"><option value="1">1º lugar</option><option value="2">2º lugar</option><option value="3">3º lugar</option><option value="4">4º lugar</option><option value="5">5º lugar</option></select></label>
+            <label class="field">TIER<select id="economyPrizeTier"><option value="E">E</option><option value="D">D</option><option value="C">C</option><option value="B">B</option><option value="A">A</option><option value="S">S</option></select></label>
+          </div>
+          <div class="economy-prize-preview"><span>Prêmio a creditar</span><strong id="economyPrizePreview">$ 400,00</strong></div>
+          <div class="admin-save-row"><button class="btn btn-primary" id="economyAwardPrize">Creditar premiação</button></div>
+          <div class="detail-section"><h3>Premiações já distribuídas</h3><div id="economyPrizeHistory" class="offer-list">Carregando...</div></div>
+        </section>
+      </section>
+
       <section class="page" id="page-market">
         <div class="page-title-row"><div><span class="eyebrow">ROSTER MOVES / TRANSFERS</span><h1>MERCADO</h1><p>Movimentações simbólicas de jogadores, sem dinheiro envolvido.</p></div><button class="btn btn-ghost" id="refreshMarket">↻ Atualizar</button></div>
         <div class="market-banner"><div><span class="eyebrow">TRANSFER MARKET</span><h2>O próximo capítulo da sua carreira.</h2><p>Encontre jogadores disponíveis e envie propostas para reforçar sua equipe. As negociações são registradas no ACS e não envolvem dinheiro.</p></div><div class="market-symbol">⇄</div></div>
@@ -335,5 +393,6 @@
   <script src="acs5.js"></script>
   <script src="match-entry.js"></script>
   <script src="acs6.js"></script>
+  <script src="acs7-economy.js"></script>
 </body>
 </html>

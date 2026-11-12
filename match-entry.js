@@ -19,7 +19,11 @@
     if (typeof toast === "function") toast(message);
     else window.alert(message);
   }
-  function teamId(side) { return $("#matchTeam"+side)?.value || ""; }
+  function teamId(side) {
+    const selected=$("#matchTeam"+side)?.value||"";
+    if(selected)return selected;
+    return $("#customTeam"+side+"Name")?.value.trim()?"custom":"";
+  }
   function teamName(side) {
     const id = teamId(side);
     if (id === "custom") return $("#customTeam"+side+"Name")?.value.trim() || "Equipe "+side;
@@ -46,7 +50,7 @@
   function syncCustomNames() {
     ["A","B"].forEach(side=>{
       const wrap = $("#customTeam"+side+"Wrap");
-      if (wrap) wrap.style.display = teamId(side)==="custom" ? "flex" : "none";
+      if (wrap) wrap.style.display = "flex";
     });
   }
   function newRosterPlayer(player) {
@@ -216,7 +220,9 @@
   }
   function updateFlowVisibility() {
     const format=Number($("#matchBestOf")?.value||0);
-    const hasTeams=!!teamId("A")&&!!teamId("B")&&teamId("A")!==teamId("B");
+    const identity=side=>teamId(side)==="custom"?teamName(side).trim().toLocaleLowerCase("pt-BR"):teamId(side);
+    const nameReady=side=>teamId(side)!=="custom"||!!$("#customTeam"+side+"Name")?.value.trim();
+    const hasTeams=!!teamId("A")&&!!teamId("B")&&nameReady("A")&&nameReady("B")&&!!teamName("A").trim()&&!!teamName("B").trim()&&identity("A")!==identity("B");
     const vetoComplete=format>0&&hasTeams&&!readVeto().error;
     const rosterComplete=selectedRoster("A").length>0&&selectedRoster("B").length>0;
     const visibility={
@@ -477,9 +483,13 @@
       notify("Somente administradores podem registrar partidas."); return;
     }
     const teamA=teamId("A"),teamB=teamId("B"),bestOf=Number($("#matchBestOf")?.value);
-    if (!teamA||!teamB||teamA===teamB) { notify("Selecione duas equipes diferentes."); return; }
+    const nameA=teamName("A"),nameB=teamName("B");
+    const identityA=teamA==="custom"?nameA.trim().toLocaleLowerCase("pt-BR"):teamA;
+    const identityB=teamB==="custom"?nameB.trim().toLocaleLowerCase("pt-BR"):teamB;
+    if (!teamA||!teamB) { notify("Escolha uma equipe cadastrada ou informe o nome de uma equipe avulsa em cada lado."); return; }
+    if (identityA===identityB) { notify("As duas equipes precisam ser diferentes."); return; }
     if (![1,3,5].includes(bestOf)) { notify("Escolha MD1, MD3 ou MD5."); return; }
-    if (teamA==="custom"&&!$("#customTeamAName")?.value.trim() || teamB==="custom"&&!$("#customTeamBName")?.value.trim()) {
+    if ((teamA==="custom"&&!nameA.trim()) || (teamB==="custom"&&!nameB.trim())) {
       notify("Informe o nome das equipes avulsas."); return;
     }
     const veto=readVeto();
@@ -523,12 +533,12 @@
     ];
     const bracket=$("#matchBracketNode");
     const match={
-      tournament_id:bracket?.value?(bracket.dataset.tournamentId||null):null,
-      bracket_node_id:bracket?.value||null,
+      tournament_id:bracket?.value&&teamA!=="custom"&&teamB!=="custom"?(bracket.dataset.tournamentId||null):null,
+      bracket_node_id:teamA==="custom"||teamB==="custom"?"":(bracket?.value||null),
       team_a_id:teamA==="custom"?null:teamA,
       team_b_id:teamB==="custom"?null:teamB,
-      team_a_name:teamA==="custom"?$("#customTeamAName").value.trim():null,
-      team_b_name:teamB==="custom"?$("#customTeamBName").value.trim():null,
+      team_a_name:teamA==="custom"?nameA.trim():null,
+      team_b_name:teamB==="custom"?nameB.trim():null,
       best_of:bestOf,played_at:$("#matchPlayedAt")?.value?new Date($("#matchPlayedAt").value).toISOString():null,
       notes:$("#matchNotes")?.value.trim()||null,veto_actions:vetoActions
     };
@@ -593,6 +603,9 @@
       if (target.matches("#matchBestOf")) {
         renderedFormat="";
         renderVetoEditor(true);renderMapTables();persistMatchDraft();return;
+      }
+      if (target.matches("#customTeamAName,#customTeamBName")) {
+        syncCustomNames();renderRosterEditor();renderMapTables();updateFlowVisibility();persistMatchDraft();return;
       }
       if (target.matches("#matchTeamA,#matchTeamB")) {
         const side=target.id.endsWith("A")?"A":"B";
