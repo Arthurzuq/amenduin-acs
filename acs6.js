@@ -152,6 +152,7 @@
     $("#boardSaveState").textContent=docRes.data?.updated_at
       ?"Última edição: "+new Date(docRes.data.updated_at).toLocaleString("pt-BR")
       :"Crie as partidas e conecte os caminhos antes de posicionar as equipes.";
+    if(typeof window.ACS5_REFRESH_BRACKET_CHOICES==="function")await window.ACS5_REFRESH_BRACKET_CHOICES();
   }
   function nodeLabel(node){
     const index=board.nodes.filter(n=>n.type!=="group").indexOf(node)+1;
@@ -342,7 +343,10 @@
       const target=document.elementFromPoint(ev.clientX,ev.clientY)?.closest("[data-connect-in]");
       if(target){
         pendingOutput={id:state.id,result:state.result};
-        if(connectOutputToSlot(target.dataset.nodeId,target.dataset.connectIn))suppressConnectorClick=true;
+        if(connectOutputToSlot(target.dataset.nodeId,target.dataset.connectIn)){
+          suppressConnectorClick=true;
+          setTimeout(()=>{suppressConnectorClick=false;},0);
+        }
       }else{
         pendingOutput={id:state.id,result:state.result};
         renderBoard();
@@ -365,6 +369,7 @@
       if(!state||!state.moved)return;
       if(state.kind==="team"){
         suppressTrayClick=true;
+        setTimeout(()=>{suppressTrayClick=false;},0);
         const target=document.elementFromPoint(ev.clientX,ev.clientY)?.closest("[data-team-slot]");
         if(!target){notify("Solte o time em uma vaga inicial A ou B, não no espaço vazio.");return;}
         setTeamInSlot(state.teamId,target.dataset.nodeId,target.dataset.teamSlot);
@@ -400,9 +405,11 @@
       const {data,error}=await supabaseClient.from("tournament_stages").insert({tournament_id:tid,stage_order:Number(last?.[0]?.stage_order||0)+1,name:"Quadro personalizado",format:"single_elimination",status:"draft",config:{editor:"custom_board",version:2}}).select("id").single();
       if(error)throw error;boardStageId=data.id;
     }
-    const {data:existingRows,error:existingError}=await supabaseClient.from("tournament_bracket_nodes").select("*").eq("stage_id",boardStageId).eq("bracket_side","main");
+    const {data:existingStageRows,error:existingError}=await supabaseClient.from("tournament_bracket_nodes").select("*").eq("stage_id",boardStageId);
     if(existingError)throw existingError;
-    bracketRows=existingRows||[];
+    const existingRows=(existingStageRows||[]).filter(row=>row.bracket_side==="main");
+    const existingGroupRows=(existingStageRows||[]).filter(row=>row.bracket_side==="groups");
+    bracketRows=existingRows;
     let mainNo=0;
     const rows=[];
     games.forEach(n=>{
@@ -439,9 +446,13 @@
     }));
     const currentBoardIds=new Set(games.map(n=>n.bracketId));
     const stale=(existingRows||[]).filter(row=>row.config?.board_node_id&&!currentBoardIds.has(row.id));
-    if(stale.some(row=>row.match_id||row.status==="completed"))throw new Error("Há partidas antigas com resultados. Não removi esses registros.");
-    if(stale.length){
-      const {error}=await supabaseClient.from("tournament_bracket_nodes").delete().in("id",stale.map(row=>row.id));
+    const currentGroupIds=new Set(groups.map(group=>group.id));
+    const staleGroups=(existingGroupRows||[]).filter(row=>row.config?.group_node_id&&!currentGroupIds.has(row.config.group_node_id));
+    if(stale.some(row=>row.match_id||row.status==="completed")||staleGroups.some(row=>row.match_id||row.status==="completed"))
+      throw new Error("Há partidas antigas com resultados. Não removi esses registros.");
+    const staleIds=[...stale,...staleGroups].map(row=>row.id);
+    if(staleIds.length){
+      const {error}=await supabaseClient.from("tournament_bracket_nodes").delete().in("id",staleIds);
       if(error)throw error;
     }
     if(rows.length){
@@ -487,6 +498,7 @@
       const {error}=await supabaseClient.from("tournament_board_documents").upsert({tournament_id:tid,board_json:board,updated_by:currentUser.id,updated_at:new Date().toISOString()},{onConflict:"tournament_id"});
       if(error)throw error;
       renderBoard();
+      if(typeof window.ACS5_REFRESH_BRACKET_CHOICES==="function")await window.ACS5_REFRESH_BRACKET_CHOICES();
       $("#boardSaveState").textContent="Organização salva · "+new Date().toLocaleTimeString("pt-BR");
     }catch(err){$("#boardSaveState").textContent="Falha ao salvar: "+(err?.message||"erro");}
     finally{boardBusy=false;$("#boardSaveButton").disabled=false;}
