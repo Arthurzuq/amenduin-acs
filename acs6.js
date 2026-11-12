@@ -55,10 +55,11 @@
       const logo=team.logo_url?'<img src="'+esc(team.logo_url)+'" alt="Logo '+esc(team.name)+'" loading="lazy">':'<span>'+esc((team.tag||team.name||"ACS").slice(0,3).toUpperCase())+'</span>';
       return '<article class="team-profile-card profile-'+esc(team.frame_color||"blue")+'" data-team-profile="'+esc(team.id)+'">'+
         '<div class="team-profile-logo">'+logo+'</div><div class="team-profile-copy"><small>'+esc(team.tag||"ACS TEAM")+'</small><h3 class="name-'+esc(team.name_color||"white")+'">'+esc(team.name)+'</h3><p>Equipe competitiva · '+members.length+' integrante(s)</p></div>'+
-        (captain?'<button class="btn btn-ghost btn-small" data-team-edit="'+esc(team.id)+'">Personalizar</button>':"")+
+        (captain?'<button class="btn btn-ghost btn-small" data-team-edit="'+esc(team.id)+'">Personalizar</button>':"")+(captain||isAdmin?'<button class="btn btn-danger btn-small" data-team-delete="'+esc(team.id)+'">Excluir</button>':"")+
       '</article>';
     }).join(""):'<div class="market-empty"><b>Nenhuma equipe cadastrada</b>As equipes aparecerão aqui depois de criadas.</div>';
-    $$("[data-team-edit]").forEach(btn=>btn.addEventListener("click",()=>openTeamEditor(btn.dataset.teamEdit)));
+    $("[data-team-edit]").forEach(btn=>btn.addEventListener("click",()=>openTeamEditor(btn.dataset.teamEdit)));
+    $("[data-team-delete]").forEach(btn=>btn.addEventListener("click",()=>deleteTeam(btn.dataset.teamDelete)));
     $$("[data-team-profile]").forEach(card=>card.addEventListener("click",e=>{
       if(e.target.closest("button"))return;
       openTeamProfile(card.dataset.teamProfile);
