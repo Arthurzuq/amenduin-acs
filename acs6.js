@@ -103,7 +103,7 @@
   }
 
   // Tournament bracket builder: create every match box first, connect result ports, then seed initial slots.
-  let board={version:2,nodes:[],edges:[]},approvedTeams=[],boardStageId=null,pendingOutput=null,selectedTeamId=null,saveTimer=null,boardBusy=false,suppressTrayClick=false,dragState=null,connectionDrag=null,suppressConnectorClick=false,bracketRows=[];
+  let board={version:3,nodes:[],edges:[]},approvedTeams=[],boardStageId=null,pendingOutput=null,selectedTeamId=null,saveTimer=null,boardBusy=false,suppressTrayClick=false,dragState=null,connectionDrag=null,suppressConnectorClick=false,bracketRows=[],groupStandings=new Map(),boardLoaded=false;
   const canvas=()=>$("#tournamentBoardCanvas");
   const nodeById=id=>board.nodes.find(n=>n.id===id);
   const teamById=id=>approvedTeams.find(t=>t.id===id)||cloudTeams.find(t=>t.id===id)||{id,name:"Equipe"};
@@ -112,22 +112,49 @@
     return bracketRows.find(r=>r.config?.board_node_id===id||r.id===node?.bracketId||r.id===id)||null;
   };
   const incomingFor=(nodeId,slot)=>board.edges.find(e=>e.to===nodeId&&e.slot===slot)||null;
+  const roundRobinPairs=ids=>{
+    const list=[...ids];if(list.length%2)list.push(null);
+    const fixtures=[],count=list.length;
+    for(let round=1;round<count;round++){
+      for(let i=0;i<count/2;i++){
+        const teamA=list[i],teamB=list[count-1-i];
+        if(teamA&&teamB)fixtures.push({teamA,teamB,round});
+      }
+      list.splice(1,0,list.pop());
+    }
+    return fixtures;
+  };
+  function rebuildGroupFixtures(group){
+    const previous=new Map((group.fixtures||[]).map(f=>[[f.teamA,f.teamB].sort().join(":"),f.id||f.bracketId]));
+    group.fixtures=roundRobinPairs(group.teamIds||[]).map(f=>{
+      const id=previous.get([f.teamA,f.teamB].sort().join(":"))||uuid();
+      return {...f,id,bracketId:id};
+    });
+  }
   function normalizeBoard(){
-    if(!board||typeof board!=="object")board={version:2,nodes:[],edges:[]};
+    if(!board||typeof board!=="object")board={version:3,nodes:[],edges:[]};
     if(!Array.isArray(board.nodes))board.nodes=[];
     if(!Array.isArray(board.edges))board.edges=[];
-    board.nodes=board.nodes.map((node,index)=>{
+    const originalNodes=board.nodes;
+    board.nodes=originalNodes.map((node,index)=>{
       const next={...node};
       if(next.type==="solo")next.type="match";
-      if(next.type!=="group")next.type="match";
-      next.slots=next.slots&&typeof next.slots==="object"
-        ?{A:next.slots.A||null,B:next.slots.B||null}
-        :{A:next.teamIds?.[0]||null,B:next.teamIds?.[1]||null};
+      if(next.type==="group"){
+        next.name=next.name||("Grupo "+String.fromCharCode(65+originalNodes.filter(n=>n.type==="group").indexOf(node)));
+        next.teamIds=Array.isArray(next.teamIds)?[...new Set(next.teamIds.filter(Boolean))]:[];
+        next.fixtures=Array.isArray(next.fixtures)?next.fixtures:[];
+        if(!next.fixtures.length&&next.teamIds.length>1)rebuildGroupFixtures(next);
+      }else{
+        next.type="match";
+        next.slots=next.slots&&typeof next.slots==="object"
+          ?{A:next.slots.A||null,B:next.slots.B||null}
+          :{A:next.teamIds?.[0]||null,B:next.teamIds?.[1]||null};
+      }
       next.x=Number.isFinite(Number(next.x))?Number(next.x):70+(index%4)*390;
-      next.y=Number.isFinite(Number(next.y))?Number(next.y):70+Math.floor(index/4)*230;
+      next.y=Number.isFinite(Number(next.y))?Number(next.y):70+Math.floor(index/4)*260;
       return next;
     });
-    board.version=2;
+    board.version=3;
   }
   async function loadBoard(){
     if(!supabaseClient)return;
@@ -136,22 +163,41 @@
       supabaseClient.from("tournament_registrations").select("team_id,teams(id,name,tag,logo_url,frame_color,name_color)").eq("tournament_id",tid).eq("status","approved"),
       supabaseClient.from("tournament_board_documents").select("board_json,updated_at").eq("tournament_id",tid).maybeSingle(),
       supabaseClient.from("tournament_stages").select("id,name,stage_order").eq("tournament_id",tid).eq("name","Quadro personalizado").maybeSingle(),
-      supabaseClient.from("tournament_bracket_nodes").select("*").eq("tournament_id",tid).eq("bracket_side","main")
+      supabaseClient.from("tournament_bracket_nodes").select("*").eq("tournament_id",tid)
     ]);
     if(teamsRes.error){$("#boardSaveState").textContent="Erro ao carregar equipes: "+teamsRes.error.message;return;}
     if(docRes.error){$("#boardSaveState").textContent="Erro ao carregar o quadro: "+docRes.error.message;return;}
     if(stageRes.error){$("#boardSaveState").textContent="Erro ao carregar a fase: "+stageRes.error.message;return;}
-    if(rowsRes.error){$("#boardSaveState").textContent="Erro ao carregar os resultados: "+rowsRes.error.message;return;}
+    if(rowsRes.error){$("#boardSaveState").textContent="Erro ao carregar resultados: "+rowsRes.error.message;return;}
     approvedTeams=(teamsRes.data||[]).map(r=>r.teams).filter(Boolean);
-    board=docRes.data?.board_json||{version:2,nodes:[],edges:[]};
+    board=docRes.data?.board_json||{version:3,nodes:[],edges:[]};
     normalizeBoard();
     boardStageId=stageRes.data?.id||null;
     bracketRows=(rowsRes.data||[]).filter(row=>!boardStageId||row.stage_id===boardStageId);
-    selectedTeamId=null;pendingOutput=null;
+    groupStandings=new Map();
+    if(boardStageId){
+      const [groupsRes,standingsRes]=await Promise.all([
+        supabaseClient.from("tournament_groups").select("*").eq("stage_id",boardStageId).order("sort_order"),
+        supabaseClient.from("tournament_standings").select("group_id,team_id,played,wins,draws,losses,points,maps_for,maps_against,rounds_for,rounds_against,rank").eq("stage_id",boardStageId).order("rank")
+      ]);
+      if(groupsRes.error){$("#boardSaveState").textContent="Erro ao carregar grupos: "+groupsRes.error.message;return;}
+      if(standingsRes.error){$("#boardSaveState").textContent="Erro ao carregar classificação: "+standingsRes.error.message;return;}
+      const savedGroups=new Map((groupsRes.data||[]).map(group=>[group.id,group]));
+      board.nodes.filter(node=>node.type==="group").forEach(group=>{
+        const saved=savedGroups.get(group.id);
+        if(saved)group.name=saved.name||group.name;
+        if(!group.fixtures.length&&group.teamIds.length>1)rebuildGroupFixtures(group);
+      });
+      (standingsRes.data||[]).forEach(row=>{
+        if(!groupStandings.has(row.group_id))groupStandings.set(row.group_id,[]);
+        groupStandings.get(row.group_id).push(row);
+      });
+    }
+    selectedTeamId=null;pendingOutput=null;boardLoaded=true;
     renderBoard();
     $("#boardSaveState").textContent=docRes.data?.updated_at
       ?"Última edição: "+new Date(docRes.data.updated_at).toLocaleString("pt-BR")
-      :"Crie as partidas e conecte os caminhos antes de posicionar as equipes.";
+      :"Crie grupos e partidas, conecte os caminhos e distribua as equipes.";
     if(typeof window.ACS5_REFRESH_BRACKET_CHOICES==="function")await window.ACS5_REFRESH_BRACKET_CHOICES();
   }
   function nodeLabel(node){
@@ -183,43 +229,93 @@
       (!edge&&team?'<button type="button" class="board-slot-clear" data-clear-team-slot="'+slot+'" data-node-id="'+esc(node.id)+'" title="Remover equipe desta vaga">×</button>':'')+
     '</div>';
   }
+  function groupRows(group){
+    return bracketRows.filter(row=>row.bracket_side==="groups"&&(row.group_id===group.id||row.config?.group_node_id===group.id));
+  }
+  function groupHasResults(group){
+    return groupRows(group).some(row=>row.match_id||row.status==="completed");
+  }
+  function groupIsComplete(group){
+    const fixtures=group.fixtures||[];
+    if(!fixtures.length)return false;
+    return fixtures.every(f=>{
+      const row=bracketRows.find(item=>item.id===(f.bracketId||f.id));
+      return row?.status==="completed"&&!!row.winner_team_id;
+    });
+  }
+  function groupPlacementTeam(group,position){
+    if(!groupIsComplete(group))return null;
+    return (groupStandings.get(group.id)||[]).find(row=>Number(row.rank)===Number(position))?.team_id||null;
+  }
+  function groupCardMarkup(group){
+    const standings=groupStandings.get(group.id)||[];
+    const fixtures=group.fixtures||[];
+    const teamRows=(group.teamIds||[]).map(id=>{
+      const team=teamById(id);
+      return '<div class="board-group-team"><span class="board-chip-logo">'+(team.logo_url?'<img src="'+esc(team.logo_url)+'" alt="">':esc((team.tag||team.name||"ACS").slice(0,2).toUpperCase()))+'</span>'+
+        '<b>'+esc(team.name)+'</b><button type="button" data-remove-group-team="'+esc(id)+'" data-group-id="'+esc(group.id)+'" title="Remover do grupo" '+(groupHasResults(group)?"disabled":"")+'>×</button></div>';
+    }).join("");
+    const fixtureRows=fixtures.map(fixture=>{
+      const row=bracketRows.find(item=>item.id===(fixture.bracketId||fixture.id));
+      const state=row?.status==="completed"?"Concluída":"Aguardando placar";
+      return '<div class="board-group-fixture"><span>R'+Number(fixture.round||1)+'</span><b>'+esc(teamById(fixture.teamA).name)+'</b><i>×</i><b>'+esc(teamById(fixture.teamB).name)+'</b><small class="'+(row?.status==="completed"?"done":"")+'">'+state+'</small></div>';
+    }).join("");
+    const table=standings.length
+      ?'<div class="board-group-table"><div class="board-group-head"><b>#</b><b>Equipe</b><b>J</b><b>V</b><b>D</b><b>Pts</b></div>'+
+        standings.map(row=>'<div><b>'+esc(row.rank??"—")+'</b><span>'+esc(teamById(row.team_id).name)+'</span><span>'+Number(row.played||0)+'</span><span>'+Number(row.wins||0)+'</span><span>'+Number(row.losses||0)+'</span><strong>'+Number(row.points||0)+'</strong></div>').join("")+'</div>'
+      :'<div class="board-group-empty">A classificação aparecerá conforme os placares forem registrados.</div>';
+    const complete=groupIsComplete(group);
+    const qualifierCount=Math.max(2,Math.min(8,group.teamIds.length||2));
+    const outputs=Array.from({length:qualifierCount},(_,i)=>{
+      const result="place_"+(i+1),teamId=groupPlacementTeam(group,i+1);
+      return '<button type="button" class="board-output board-group-output '+(pendingOutput?.id===group.id&&pendingOutput.result===result?"active":"")+'" data-connect-out="'+result+'" data-node-id="'+esc(group.id)+'" title="Conectar o '+(i+1)+'º colocado a uma vaga do mata-mata">'+
+        (i+1)+'º lugar'+(teamId?" · "+esc(teamById(teamId).name):"")+'</button>';
+    }).join("");
+    return '<article class="board-node board-node-group" data-board-node="'+esc(group.id)+'" style="left:'+group.x+'px;top:'+group.y+'px">'+
+      '<header data-board-drag-handle><span>'+esc(group.name||"Grupo")+'</span><span class="board-node-status '+(complete?"done":"")+'">'+(complete?"CONCLUÍDO":"FASE DE GRUPOS")+'</span><button type="button" data-delete-board-node="'+esc(group.id)+'" title="Remover grupo">×</button></header>'+
+      '<div class="board-group-content">'+
+        '<div class="board-group-teams">'+(teamRows||'<small class="board-group-empty">Nenhuma equipe neste grupo.</small>')+
+          '<button type="button" class="board-group-drop" data-group-drop="true" data-group-id="'+esc(group.id)+'" '+(groupHasResults(group)?"disabled":"")+'>'+
+            (selectedTeamId?"Adicionar "+esc(teamById(selectedTeamId).name)+" aqui":"＋ Arraste ou selecione equipes para este grupo")+'</button></div>'+
+        '<div class="board-group-section"><b>CONFRONTOS · TODOS CONTRA TODOS</b>'+
+          (fixtureRows||'<small class="board-group-empty">Adicione pelo menos duas equipes para gerar os confrontos.</small>')+'</div>'+
+        '<div class="board-group-section"><b>CLASSIFICAÇÃO</b>'+table+'</div>'+
+        '<div class="board-group-section"><b>AVANÇO PARA O MATA-MATA</b>'+
+          '<small class="board-group-advance-note">'+(complete?"Grupo concluído. Conecte as colocações às vagas iniciais das partidas.":"As colocações serão liberadas depois que todos os confrontos do grupo tiverem placar.")+'</small>'+
+          '<div class="board-connectors">'+outputs+'</div></div>'+
+      '</div></article>';
+  }
   function renderBoard(){
     const tray=$("#tournamentTeamTray"),count=$("#boardTeamCount"),nodes=$("#tournamentBoardNodes"),empty=$(".board-empty-hint");
     if(!tray||!nodes)return;
     const assigned=new Set();
-    board.nodes.filter(n=>n.type!=="group").forEach(n=>{
-      ["A","B"].forEach(slot=>{if(!incomingFor(n.id,slot)&&n.slots?.[slot])assigned.add(n.slots[slot]);});
+    board.nodes.filter(node=>node.type==="group").forEach(group=>(group.teamIds||[]).forEach(id=>assigned.add(id)));
+    board.nodes.filter(node=>node.type!=="group").forEach(node=>{
+      ["A","B"].forEach(slot=>{if(!incomingFor(node.id,slot)&&node.slots?.[slot])assigned.add(node.slots[slot]);});
     });
-    const available=approvedTeams.filter(t=>!assigned.has(t.id));
+    const available=approvedTeams.filter(team=>!assigned.has(team.id));
     count.textContent=approvedTeams.length+" equipe(s) aprovadas";
-    tray.innerHTML=available.length?available.map(t=>
-      '<button type="button" class="board-team-chip profile-'+esc(t.frame_color||"blue")+(selectedTeamId===t.id?" selected":"")+'" data-tray-team="'+esc(t.id)+'">'+
-        '<span class="board-chip-logo">'+(t.logo_url?'<img src="'+esc(t.logo_url)+'" alt="">':esc((t.tag||t.name).slice(0,2).toUpperCase()))+'</span>'+
-        '<b class="name-'+esc(t.name_color||"white")+'">'+esc(t.name)+'</b><small>'+(selectedTeamId===t.id?"Selecionado · clique numa vaga inicial":"Arraste ou selecione")+'</small></button>'
-    ).join(""):'<div class="market-empty">Todos os times aprovados já foram posicionados nas vagas iniciais.</div>';
-    nodes.innerHTML=board.nodes.map(n=>{
-      if(n.type==="group"){
-        const teamNames=(n.teamIds||[]).map(id=>teamById(id).name);
-        return '<article class="board-node board-node-group" data-board-node="'+esc(n.id)+'" style="left:'+n.x+'px;top:'+n.y+'px">'+
-          '<header data-board-drag-handle><span>FASE DE GRUPOS</span><button type="button" data-delete-board-node="'+esc(n.id)+'" title="Remover">×</button></header>'+
-          '<div class="board-node-teams"><p>'+esc(teamNames.join(" · ")||"Grupo legado")+'</p></div>'+
-          '<small class="board-legacy-note">Grupo criado na versão anterior do organizador.</small></article>';
-      }
-      const row=rowForNode(n.id);
+    tray.innerHTML=available.length?available.map(team=>
+      '<button type="button" class="board-team-chip profile-'+esc(team.frame_color||"blue")+(selectedTeamId===team.id?" selected":"")+'" data-tray-team="'+esc(team.id)+'">'+
+        '<span class="board-chip-logo">'+(team.logo_url?'<img src="'+esc(team.logo_url)+'" alt="">':esc((team.tag||team.name).slice(0,2).toUpperCase()))+'</span>'+
+        '<b class="name-'+esc(team.name_color||"white")+'">'+esc(team.name)+'</b><small>'+(selectedTeamId===team.id?"Selecionado · clique numa vaga inicial ou grupo":"Arraste ou selecione")+'</small></button>'
+    ).join(""):'<div class="market-empty">Todos os times aprovados já foram distribuídos.</div>';
+    nodes.innerHTML=board.nodes.map(node=>{
+      if(node.type==="group")return groupCardMarkup(node);
+      const row=rowForNode(node.id);
       const state=row?.status==="completed"?"CONCLUÍDA":row?.status==="ready"?"PRONTA PARA PLACAR":"AGUARDANDO TIMES";
       const winner=row?.winner_team_id?teamById(row.winner_team_id).name:null;
       const loser=row?.winner_team_id?teamById(row.winner_team_id===row.team_a_id?row.team_b_id:row.team_a_id).name:null;
-      const outgoing=board.edges.filter(e=>e.from===n.id);
-      const loserEdge=outgoing.find(e=>e.result==="loser");
+      const loserEdge=board.edges.find(edge=>edge.from===node.id&&edge.result==="loser");
       const resultSummary=row?.status==="completed"
         ?'<div class="board-match-result"><b>Vencedor: '+esc(winner||"—")+'</b><small>Perdedor: '+esc(loser||"—")+(loserEdge?" · encaminhado":" · eliminado")+'</small></div>'
         :'';
-      return '<article class="board-node board-node-match" data-board-node="'+esc(n.id)+'" style="left:'+n.x+'px;top:'+n.y+'px">'+
-        '<header data-board-drag-handle><span>'+esc(nodeLabel(n))+'</span><span class="board-node-status '+(row?.status==="completed"?"done":row?.status==="ready"?"ready":"")+'">'+state+'</span><button type="button" data-delete-board-node="'+esc(n.id)+'" title="Remover">×</button></header>'+
-        '<div class="board-node-slots">'+slotMarkup(n,"A")+slotMarkup(n,"B")+'</div>'+resultSummary+
+      return '<article class="board-node board-node-match" data-board-node="'+esc(node.id)+'" style="left:'+node.x+'px;top:'+node.y+'px">'+
+        '<header data-board-drag-handle><span>'+esc(nodeLabel(node))+'</span><span class="board-node-status '+(row?.status==="completed"?"done":row?.status==="ready"?"ready":"")+'">'+state+'</span><button type="button" data-delete-board-node="'+esc(node.id)+'" title="Remover">×</button></header>'+
+        '<div class="board-node-slots">'+slotMarkup(node,"A")+slotMarkup(node,"B")+'</div>'+resultSummary+
         '<div class="board-connectors">'+
-          '<button type="button" class="board-output '+(pendingOutput?.id===n.id&&pendingOutput.result==="winner"?"active":"")+'" data-connect-out="winner" data-node-id="'+esc(n.id)+'" title="Arraste até uma vaga de outra partida ou clique para selecionar">↗ Vencedor</button>'+
-          '<button type="button" class="board-output '+(pendingOutput?.id===n.id&&pendingOutput.result==="loser"?"active":"")+'" data-connect-out="loser" data-node-id="'+esc(n.id)+'" title="Arraste até uma vaga de outra partida ou clique para selecionar">↘ Perdedor</button>'+
+          '<button type="button" class="board-output '+(pendingOutput?.id===node.id&&pendingOutput.result==="winner"?"active":"")+'" data-connect-out="winner" data-node-id="'+esc(node.id)+'">↗ Vencedor</button>'+
+          '<button type="button" class="board-output '+(pendingOutput?.id===node.id&&pendingOutput.result==="loser"?"active":"")+'" data-connect-out="loser" data-node-id="'+esc(node.id)+'">↘ Perdedor</button>'+
         '</div></article>';
     }).join("");
     if(empty)empty.style.display=board.nodes.length?"none":"block";
