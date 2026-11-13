@@ -114,12 +114,14 @@ async function initCloudAuth(){
   await loadCloudPlayers();
   await loadTeamsData();
   await refreshAdminStatus();
+  if(document.querySelector("#page-economy.active")) window.ACS7EconomyLoad?.();
   supabaseClient.auth.onAuthStateChange(async (_event,session)=>{
     currentUser=session?.user||null;
     updateAuthButton();
     await loadCloudPlayers();
     await loadTeamsData();
     await refreshAdminStatus();
+    if(document.querySelector("#page-economy.active")) window.ACS7EconomyLoad?.();
     if(document.querySelector("#page-market.active")) await loadMarketData();
     if(document.querySelector("#page-teams.active")) await loadTeamsData();
   });
@@ -166,6 +168,7 @@ $("#authForm")?.addEventListener("submit",async e=>{
       currentUser=result.data.user;updateAuthButton();toast("Login realizado.");
       await loadCloudPlayers();
       await loadTeamsData();
+      if(document.querySelector("#page-economy.active")) window.ACS7EconomyLoad?.();
     }
     $("#authModal").classList.remove("open");
   }catch(err){toast(err.message||"Erro de autenticação.");}
