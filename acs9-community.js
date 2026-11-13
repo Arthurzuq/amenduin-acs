@@ -233,8 +233,63 @@
   }
   function appendCareerToProfile(p){
     const target=$("#detailContent");if(!target||target.querySelector(".acs-career-inline"))return;
-    const node=document.createElement("section");node.className="detail-section acs-career-inline";node.innerHTML='<h3>Carreira ACS</h3><p class="detail-bio">'+Number(p.matches||0)+' partidas · '+Number(p.kills||0)+' eliminações · '+Number(p.mvps||0)+' MVPs</p><button class="text-button" data-open-career>Ver conquistas e histórico →</button>';target.append(node);
-    node.querySelector("[data-open-career]").addEventListener("click",()=>{go("community");renderCareer();});
+    const node=document.createElement("section");node.className="detail-section acs-career-inline";
+    node.innerHTML='<h3>Conquistas</h3><p class="detail-bio">Confira as medalhas e os objetivos da carreira deste jogador.</p><button class="btn btn-ghost btn-small" data-open-achievements>Ver conquistas →</button>';
+    target.append(node);
+    node.querySelector("[data-open-achievements]").addEventListener("click",()=>openAchievementPage(p));
+  }
+  async function openAchievementPage(p){
+    const target=$("#detailContent");if(!target||!p)return;
+    let matches=Number(p.matches||0),kills=Number(p.kills||0),assists=Number(p.assists||0),mvps=Number(p.mvps||0);
+    if(supabaseClient){
+      const {data,error}=await supabaseClient.from("player_match_stats").select("kills,deaths,assists,mvps").eq("player_id",p.id).limit(1000);
+      if(!error&&data){
+        matches=Math.max(matches,data.length);
+        kills=Math.max(kills,data.reduce((n,r)=>n+Number(r.kills||0),0));
+        assists=Math.max(assists,data.reduce((n,r)=>n+Number(r.assists||0),0));
+        mvps=Math.max(mvps,data.reduce((n,r)=>n+Number(r.mvps||0),0));
+      }
+    }
+    const rating=Number(p.rating||0),win=Number(p.win||0),kd=Number(p.kd||0),adr=Number(p.adr||0),hs=Number(p.hs||0);
+    const items=[
+      ["🎯","1st KILL","Consiga sua primeira eliminação em uma partida oficial.",kills>=1],
+      ["🔫","Primeiros 10 abates","Registre 10 eliminações.",kills>=10],
+      ["💥","Aquecendo a mira","Registre 25 eliminações.",kills>=25],
+      ["☠️","Pequeno massacre","Registre 50 eliminações.",kills>=50],
+      ["🤝","Primeira assistência","Contribua com sua primeira assistência.",assists>=1],
+      ["🫱‍🫲","Bom companheiro","Registre 5 assistências.",assists>=5],
+      ["🛡️","Jogo coletivo","Registre 10 assistências.",assists>=10],
+      ["⭐","Suporte presente","Registre 25 assistências.",assists>=25],
+      ["🏅","Primeiro MVP","Conquiste seu primeiro MVP.",mvps>=1],
+      ["⚔️","Primeiro confronto","Dispute sua primeira partida oficial.",matches>=1],
+      ["🎯","Veterano","Alcance 10 partidas oficiais.",matches>=10],
+      ["💀","Centenário","Registre 100 eliminações.",kills>=100],
+      ["🏅","Jogador decisivo","Conquiste 5 MVPs.",mvps>=5],
+      ["🔥","Alta performance","Alcance 60% de win rate com pelo menos 5 partidas.",win>=60&&matches>=5],
+      ["👑","Elite ACS","Alcance Rating AM de 80.",rating>=80],
+      ["🧭","Rosto conhecido","Dispute 5 partidas oficiais.",matches>=5],
+      ["🛡️","Presença constante","Dispute 25 partidas oficiais.",matches>=25],
+      ["🏟️","Lenda dos servidores","Dispute 50 partidas oficiais.",matches>=50],
+      ["🎯","Caçador de eliminações","Registre 250 eliminações.",kills>=250],
+      ["💥","Máquina de abates","Registre 500 eliminações.",kills>=500],
+      ["☠️","Exterminador","Registre 1.000 eliminações.",kills>=1000],
+      ["🌋","Força imparável","Registre 2.500 eliminações.",kills>=2500],
+      ["🥉","Destaque da rodada","Conquiste 10 MVPs.",mvps>=10],
+      ["🥈","Protagonista","Conquiste 25 MVPs.",mvps>=25],
+      ["🥇","Rei dos MVPs","Conquiste 50 MVPs.",mvps>=50],
+      ["📈","Rating em ascensão","Alcance Rating AM de 90.",rating>=90],
+      ["🚀","Dominância","Alcance 70% de win rate com pelo menos 10 partidas.",win>=70&&matches>=10],
+      ["⚖️","Consistência positiva","Mantenha K/D de pelo menos 1,50.",kd>=1.5],
+      ["💎","Superioridade","Mantenha K/D de pelo menos 2,00.",kd>=2],
+      ["🔫","Dano consistente","Alcance 80 de ADR médio.",adr>=80],
+      ["💣","Alto impacto","Alcance 90 de ADR médio.",adr>=90],
+      ["🧨","Dano absurdo","Alcance 100 de ADR médio.",adr>=100],
+      ["🎯","Mira afiada","Alcance 50% de HS.",hs>=50],
+      ["🦅","Precisão cirúrgica","Alcance 65% de HS.",hs>=65]
+    ];
+    const unlocked=items.filter(x=>x[3]).length;
+    target.innerHTML='<div class="modal-head"><div><span class="eyebrow">PLAYER PROFILE / ACHIEVEMENTS</span><h2>Conquistas de '+esc(p.nickname)+'</h2><p class="detail-bio">'+unlocked+' de '+items.length+' conquistas desbloqueadas</p></div><button class="icon-button" id="backToPlayerProfile" aria-label="Voltar ao perfil">←</button></div><div class="achievement-grid">'+items.map(x=>achievementMarkup(x[0],x[1],x[2],x[3])).join("")+'</div>';
+    $("#backToPlayerProfile")?.addEventListener("click",()=>openDetail(p.id));
   }
   const oldGo=go;
   go=function(page){oldGo(page);if(page==="community")loadCommunity();};
