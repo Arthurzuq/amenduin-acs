@@ -471,7 +471,7 @@
           team_side:side,participation_status:"starter",
           kills:sum("kills"),deaths:sum("deaths"),assists:sum("assists"),
           adr:average("adr"),headshot_pct:average("headshot_pct"),mvps:sum("mvps"),
-          first_kills:0,first_deaths:0,clutches_won:0,map_stats:mapStats
+          map_stats:mapStats
         });
       });
     });
