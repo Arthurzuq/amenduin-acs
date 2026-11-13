@@ -89,7 +89,20 @@
 
   async function loadEconomy(){
     if(!supabaseClient){setNotice("A conexão com o sistema financeiro ainda não está disponível.");return;}
-    if(!currentUser){setNotice("Entre na sua conta para consultar a economia.");return;}
+
+    // Re-read the persisted Supabase session on demand. This also repairs
+    // the economy view when its first render happened before auth finished.
+    if(!currentUser){
+      const sessionResult=await supabaseClient.auth.getSession();
+      currentUser=sessionResult.data?.session?.user||null;
+      if(currentUser){
+        updateAuthButton();
+        await loadCloudPlayers();
+        await loadTeamsData();
+        await refreshAdminStatus();
+      }
+    }
+    if(!currentUser){setNotice("Sua sessão não foi recuperada. Entre novamente para consultar a economia.");return;}
     if(typeof loadTeamsData==="function")await loadTeamsData();
     const own=currentPlayerProfile();
     if(!own){

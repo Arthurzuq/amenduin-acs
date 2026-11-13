@@ -115,15 +115,23 @@ async function initCloudAuth(){
   await loadTeamsData();
   await refreshAdminStatus();
   if(document.querySelector("#page-economy.active")) window.ACS7EconomyLoad?.();
-  supabaseClient.auth.onAuthStateChange(async (_event,session)=>{
+  // Supabase auth callbacks run under an internal lock. Defer follow-up
+  // database requests until the callback has returned to avoid lock contention.
+  supabaseClient.auth.onAuthStateChange((_event,session)=>{
     currentUser=session?.user||null;
     updateAuthButton();
-    await loadCloudPlayers();
-    await loadTeamsData();
-    await refreshAdminStatus();
-    if(document.querySelector("#page-economy.active")) window.ACS7EconomyLoad?.();
-    if(document.querySelector("#page-market.active")) await loadMarketData();
-    if(document.querySelector("#page-teams.active")) await loadTeamsData();
+    setTimeout(async()=>{
+      try{
+        await loadCloudPlayers();
+        await loadTeamsData();
+        await refreshAdminStatus();
+        if(document.querySelector("#page-economy.active")) window.ACS7EconomyLoad?.();
+        if(document.querySelector("#page-market.active")) await loadMarketData();
+        if(document.querySelector("#page-teams.active")) await loadTeamsData();
+      }catch(error){
+        console.warn("ACS auth refresh:",error);
+      }
+    },0);
   });
 }
 function updateAuthButton(){
