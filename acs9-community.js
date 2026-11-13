@@ -110,13 +110,35 @@
     const mapTotals={};
     mapRows.forEach(r=>{const name=r.map_name||"Desconhecido";mapTotals[name]??={games:0,kills:0,deaths:0,adr:0,adrCount:0};const m=mapTotals[name];m.games++;m.kills+=Number(r.kills||0);m.deaths+=Number(r.deaths||0);if(r.adr!=null){m.adr+=Number(r.adr);m.adrCount++;}});
     const bestMaps=Object.entries(mapTotals).sort((a,b)=>(b[1].kills/Math.max(1,b[1].games))-(a[1].kills/Math.max(1,a[1].games))).slice(0,4);
+    const kd=Number(p.kd||0),adr=Number(p.adr||0),hs=Number(p.hs||0);
     const ach=[
       achievementMarkup("⚔️","Primeiro confronto","Dispute sua primeira partida oficial.",matchCount>=1),
       achievementMarkup("🎯","Veterano","Alcance 10 partidas oficiais.",matchCount>=10),
       achievementMarkup("💀","Centenário","Registre 100 eliminações.",kills>=100),
       achievementMarkup("🏅","Jogador decisivo","Conquiste 5 MVPs.",mvps>=5),
       achievementMarkup("🔥","Alta performance","Alcance 60% de win rate com pelo menos 5 partidas.",win>=60&&matchCount>=5),
-      achievementMarkup("👑","Elite ACS","Alcance Rating AM de 80.",rating>=80)
+      achievementMarkup("👑","Elite ACS","Alcance Rating AM de 80.",rating>=80),
+
+      // Conquistas adicionais: todas usam apenas estatísticas que já são registradas.
+      achievementMarkup("🧭","Rosto conhecido","Dispute 5 partidas oficiais.",matchCount>=5),
+      achievementMarkup("🛡️","Presença constante","Dispute 25 partidas oficiais.",matchCount>=25),
+      achievementMarkup("🏟️","Lenda dos servidores","Dispute 50 partidas oficiais.",matchCount>=50),
+      achievementMarkup("🎯","Caçador de eliminações","Registre 250 eliminações.",kills>=250),
+      achievementMarkup("💥","Máquina de abates","Registre 500 eliminações.",kills>=500),
+      achievementMarkup("☠️","Exterminador","Registre 1.000 eliminações.",kills>=1000),
+      achievementMarkup("🌋","Força imparável","Registre 2.500 eliminações.",kills>=2500),
+      achievementMarkup("🥉","Destaque da rodada","Conquiste 10 MVPs.",mvps>=10),
+      achievementMarkup("🥈","Protagonista","Conquiste 25 MVPs.",mvps>=25),
+      achievementMarkup("🥇","Rei dos MVPs","Conquiste 50 MVPs.",mvps>=50),
+      achievementMarkup("📈","Rating em ascensão","Alcance Rating AM de 90.",rating>=90),
+      achievementMarkup("🚀","Dominância","Alcance 70% de win rate com pelo menos 10 partidas.",win>=70&&matchCount>=10),
+      achievementMarkup("⚖️","Consistência positiva","Mantenha K/D de pelo menos 1,50.",kd>=1.5),
+      achievementMarkup("💎","Superioridade","Mantenha K/D de pelo menos 2,00.",kd>=2),
+      achievementMarkup("🔫","Dano consistente","Alcance 80 de ADR médio.",adr>=80),
+      achievementMarkup("💣","Alto impacto","Alcance 90 de ADR médio.",adr>=90),
+      achievementMarkup("🧨","Dano absurdo","Alcance 100 de ADR médio.",adr>=100),
+      achievementMarkup("🎯","Mira afiada","Alcance 50% de HS.",hs>=50),
+      achievementMarkup("🦅","Precisão cirúrgica","Alcance 65% de HS.",hs>=65)
     ];
     const values=ratingHistory.map(r=>Number(r.rating_am));
     const minRating=values.length?Math.min(...values):0,maxRating=values.length?Math.max(...values):100;
