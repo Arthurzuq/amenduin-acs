@@ -60,8 +60,10 @@
     }).join(""):'<div class="market-empty"><b>Nenhuma equipe cadastrada</b>As equipes aparecerão aqui depois de criadas.</div>';
     $$("[data-team-edit]").forEach(btn=>btn.addEventListener("click",()=>openTeamEditor(btn.dataset.teamEdit)));
     $$("[data-team-delete]").forEach(btn=>btn.addEventListener("click",()=>deleteTeam(btn.dataset.teamDelete)));
-    $$("[data-team-profile]").forEach(card=>card.addEventListener("click",e=>{
+    $("[data-team-profile]").forEach(card=>card.addEventListener("click",e=>{
       if(e.target.closest("button"))return;
+      const team=cloudTeams.find(item=>item.id===card.dataset.teamProfile);
+      if(window.ACS9Community?.openTeam&&team){window.ACS9Community.openTeam(team);return;}
       openTeamProfile(card.dataset.teamProfile);
     }));
   };
