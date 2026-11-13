@@ -60,7 +60,7 @@
       });
     });
     const cards=[...tournaments.values()].map(t=>{
-      const rank=[...t.players.values()].sort((a,b)=>b.score-a.score||b.kills-a.kills||a.deaths-b.deaths||a.name.localeCompare(b.name));
+      const rank=[...t.players.values()].sort((a,b)=>b.score-a.score||b.kills-a.kills||(b.adr/Math.max(1,b.adrN))-(a.adr/Math.max(1,a.adrN))||b.assists-a.assists||a.deaths-b.deaths||a.name.localeCompare(b.name));
       return {...t,winner:rank[0],second:rank[1]};
     }).filter(t=>t.winner);
     host.innerHTML=cards.length?cards.map(t=>'<article class="tournament-mvp-card"><div class="tournament-mvp-heading"><span>🏆 MVP DO CAMPEONATO</span><small>'+t.matches+' partidas analisadas</small></div><h4>'+esc(t.name)+'</h4><div class="tournament-mvp-winner"><b>🥇 '+esc(t.winner.name)+'</b><strong>'+t.winner.score.toFixed(1)+' pts</strong></div><div class="tournament-mvp-stats"><span>'+t.winner.kills+' K</span><span>'+t.winner.deaths+' D</span><span>'+t.winner.assists+' A</span><span>'+(t.winner.adrN?(t.winner.adr/t.winner.adrN).toFixed(1):"—")+' ADR</span><span>'+(t.winner.hsN?(t.winner.hs/t.winner.hsN).toFixed(1):"—")+'% HS</span><span>'+t.winner.clutches+' clutches</span></div>'+(t.second?'<small class="tournament-mvp-runner">2º '+esc(t.second.name)+' · '+t.second.score.toFixed(1)+' pts</small>':'')+'</article>').join(""):'<div class="community-empty">Ainda não há partidas concluídas vinculadas a campeonatos.</div>';
