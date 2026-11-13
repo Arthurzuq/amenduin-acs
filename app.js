@@ -108,18 +108,13 @@ if(supabaseReady()){
   initCloudAuth();
 }
 async function initCloudAuth(){
-  const {data:{session}} = await supabaseClient.auth.getSession();
-  currentUser = session?.user || null;
-  updateAuthButton();
-  await loadCloudPlayers();
-  await loadTeamsData();
-  await refreshAdminStatus();
-  if(document.querySelector("#page-economy.active")) window.ACS7EconomyLoad?.();
-  // Supabase auth callbacks run under an internal lock. Defer follow-up
-  // database requests until the callback has returned to avoid lock contention.
-  supabaseClient.auth.onAuthStateChange((_event,session)=>{
+  // Register the listener before the first async bootstrap so login, token refresh,
+  // and the initial session cannot be missed while the other modules are loading.
+  supabaseClient.auth.onAuthStateChange((event,session)=>{
     currentUser=session?.user||null;
     updateAuthButton();
+    if(event==="INITIAL_SESSION")return;
+    // Never call Supabase database APIs from inside onAuthStateChange.
     setTimeout(async()=>{
       try{
         await loadCloudPlayers();
@@ -133,6 +128,15 @@ async function initCloudAuth(){
       }
     },0);
   });
+
+  const {data,error}=await supabaseClient.auth.getSession();
+  if(error)console.warn("ACS initial session:",error.message);
+  currentUser=data?.session?.user||null;
+  updateAuthButton();
+  await loadCloudPlayers();
+  await loadTeamsData();
+  await refreshAdminStatus();
+  if(document.querySelector("#page-economy.active")) window.ACS7EconomyLoad?.();
 }
 function updateAuthButton(){
   const b=$("#authButton");
