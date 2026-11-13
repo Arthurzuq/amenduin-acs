@@ -246,6 +246,8 @@
     notify("Premiação creditada na tesouraria da equipe.");await loadEconomy();
   });
 
+  window.ACS7EconomyLoad = loadEconomy;
+
   const previousGo=go;
   go=function(page){
     previousGo(page);
