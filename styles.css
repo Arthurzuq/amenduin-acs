@@ -437,3 +437,23 @@
 .acs-schedule-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px;padding:13px;border:1px solid #30445b;border-radius:8px;background:#101a27}
 .acs-schedule-form h4{grid-column:1/-1;margin:0;color:#e2ebf5}.acs-schedule-form .field{min-width:0}.acs-schedule-form button{align-self:end}
 @media(max-width:600px){.acs-schedule-form{grid-template-columns:1fr}}
+
+
+/* ACS 10.1 — achievements and MVP awards */
+.achievement-progress{color:var(--accent,#8cc3ff);white-space:nowrap;font-size:.9rem}
+.tournament-mvp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.tournament-mvp-card{padding:16px;border:1px solid rgba(140,195,255,.2);border-radius:14px;background:linear-gradient(145deg,rgba(36,61,88,.35),rgba(16,25,38,.55));min-width:0}
+.tournament-mvp-heading{display:flex;justify-content:space-between;gap:8px;align-items:center;color:#f0c66a;font-size:.72rem;font-weight:800;letter-spacing:.06em}
+.tournament-mvp-heading small{color:var(--muted,#91a0b2);font-weight:500;letter-spacing:0}
+.tournament-mvp-card h4{margin:12px 0;font-size:1.05rem}
+.tournament-mvp-winner{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px;border-radius:10px;background:rgba(240,198,106,.09)}
+.tournament-mvp-winner strong{color:#f0c66a;white-space:nowrap}
+.tournament-mvp-stats{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+.tournament-mvp-stats span{padding:5px 8px;border-radius:7px;background:rgba(255,255,255,.055);font-size:.78rem}
+.tournament-mvp-runner{display:block;margin-top:12px;color:var(--muted,#91a0b2)}
+.match-mvp-banner{display:flex;flex-direction:column;gap:5px;margin:12px 0;padding:14px 16px;border:1px solid rgba(240,198,106,.35);border-radius:12px;background:rgba(240,198,106,.08)}
+.match-mvp-banner span{font-size:.72rem;letter-spacing:.08em;font-weight:800;color:#f0c66a}
+.match-mvp-banner b{font-size:1.15rem}
+.match-mvp-banner small{color:var(--muted,#91a0b2)}
+.match-card-mvp{padding:8px 12px;margin-top:10px;border-radius:8px;background:rgba(240,198,106,.08);color:#f0c66a;font-size:.85rem}
+@media(max-width:600px){.tournament-mvp-grid{grid-template-columns:1fr}.tournament-mvp-heading{align-items:flex-start;flex-direction:column}}
