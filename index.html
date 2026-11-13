@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=acs9.4-community-2">
+  <link rel="stylesheet" href="styles.css?v=acs10.1-achievements-mvp-1">
 </head>
 <body>
   <div class="app-shell">
@@ -106,6 +106,7 @@
           <section class="panel"><div class="panel-head"><div><span class="eyebrow">MATCH CALENDAR</span><h3>Agenda competitiva</h3></div><span class="muted small">Próximos confrontos</span></div><div id="acsCalendar" class="community-list"><div class="market-empty">Carregando agenda...</div></div><form id="acsScheduleForm" class="acs-schedule-form" hidden><h4>Agendar novo confronto</h4><label class="field">EQUIPE A<select id="acsScheduleTeamA" required><option value="">Selecione...</option></select></label><label class="field">EQUIPE B<select id="acsScheduleTeamB" required><option value="">Selecione...</option></select></label><label class="field">DATA E HORÁRIO<input id="acsScheduleDate" type="datetime-local" required></label><label class="field">FORMATO<select id="acsScheduleBo"><option value="1">MD1</option><option value="3">MD3</option><option value="5">MD5</option></select></label><button class="btn btn-primary" type="submit">Agendar partida</button></form></section>
           <section class="panel community-wide"><div class="panel-head"><div><span class="eyebrow">PLAYER CAREER</span><h3>Carreira e conquistas</h3></div><span class="muted small">Desbloqueios calculados por estatísticas oficiais</span></div><div id="acsCareer" class="achievement-grid"><div class="market-empty">Entre na conta e vincule seu perfil para acompanhar sua carreira.</div></div></section>
           <section class="panel community-wide"><div class="panel-head"><div><span class="eyebrow">HALL OF FAME</span><h3>Hall da Fama</h3></div><span class="muted small">Destaques oficiais</span></div><div id="acsHallOfFame" class="community-list"><div class="market-empty">Carregando recordes...</div></div></section>
+           <section class="panel community-wide"><div class="panel-head"><div><span class="eyebrow">TOURNAMENT AWARDS</span><h3>MVPs dos campeonatos</h3></div><span class="muted small">Desempenho acumulado nas partidas oficiais</span></div><div id="acsTournamentMvp" class="tournament-mvp-grid"><div class="market-empty">Calculando destaques...</div></div></section>
           <section class="panel community-wide" id="acsAdminActivityPanel" hidden><div class="panel-head"><div><span class="eyebrow">ADMIN AUDIT</span><h3>Registro de atividades administrativas</h3></div><span class="badge-admin">ADMINISTRADOR</span></div><div id="acsAdminActivity" class="community-list">Carregando...</div></section>
           <section class="panel community-wide"><div class="panel-head"><div><span class="eyebrow">TEAM DIRECTORY</span><h3>Equipes da Liga</h3></div><span class="muted small">Abra uma equipe para ver elenco e desempenho</span></div><div id="acsTeamDirectory" class="community-list">Carregando equipes...</div></section>
         </div>
@@ -410,6 +411,7 @@
   <script src="acs6.js?v=acs9.4-team-agenda-1"></script>
   <script src="acs7-economy.js?v=acs10-economy-core-1"></script>
   <script src="acs8-cosmetics.js?v=acs9.1"></script>
-  <script src="acs9-community.js?v=acs9.4-team-agenda-1"></script>
+  <script src="acs9-community.js?v=acs10.1-achievements-mvp-1"></script>
+  <script src="acs10-awards.js?v=acs10.1-achievements-mvp-1"></script>
 </body>
 </html>
