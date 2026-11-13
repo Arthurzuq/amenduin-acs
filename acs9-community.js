@@ -91,7 +91,7 @@
     const host=$("#acsCareer");if(!host)return;
     const p=ownProfile();
     if(!p){host.innerHTML='<div class="community-empty">Vincule um perfil de jogador à sua conta para visualizar sua carreira.</div>';return;}
-    let matchCount=Number(p.matches||0),kills=Number(p.kills||0),mvps=Number(p.mvps||0),rating=Number(p.rating||0),win=Number(p.win||0);
+    let matchCount=Number(p.matches||0),kills=Number(p.kills||0),assists=Number(p.assists||0),mvps=Number(p.mvps||0),rating=Number(p.rating||0),win=Number(p.win||0);
     let ratingHistory=[],mapRows=[],prizes=[];
     if(supabaseClient){
       const [matchRes,ratingRes,mapRes,teamRes]=await Promise.all([
@@ -105,13 +105,23 @@
         const awardRes=await supabaseClient.from("tournament_prize_awards").select("placement,tier,amount,awarded_at,tournaments(name)").eq("team_id",teamRes.data[0].team_id).order("awarded_at",{ascending:false}).limit(10);
         prizes=awardRes.data||[];
       }
-      if(careerRows.length){matchCount=Math.max(matchCount,careerRows.length);kills=Math.max(kills,careerRows.reduce((a,r)=>a+Number(r.kills||0),0));mvps=Math.max(mvps,careerRows.reduce((a,r)=>a+Number(r.mvps||0),0));}
+      if(careerRows.length){matchCount=Math.max(matchCount,careerRows.length);kills=Math.max(kills,careerRows.reduce((a,r)=>a+Number(r.kills||0),0));assists=Math.max(assists,careerRows.reduce((a,r)=>a+Number(r.assists||0),0));mvps=Math.max(mvps,careerRows.reduce((a,r)=>a+Number(r.mvps||0),0));}
     }
     const mapTotals={};
     mapRows.forEach(r=>{const name=r.map_name||"Desconhecido";mapTotals[name]??={games:0,kills:0,deaths:0,adr:0,adrCount:0};const m=mapTotals[name];m.games++;m.kills+=Number(r.kills||0);m.deaths+=Number(r.deaths||0);if(r.adr!=null){m.adr+=Number(r.adr);m.adrCount++;}});
     const bestMaps=Object.entries(mapTotals).sort((a,b)=>(b[1].kills/Math.max(1,b[1].games))-(a[1].kills/Math.max(1,a[1].games))).slice(0,4);
     const kd=Number(p.kd||0),adr=Number(p.adr||0),hs=Number(p.hs||0);
     const ach=[
+      // Primeiras conquistas: metas curtas para recompensar o início da carreira.
+      achievementMarkup("🎯","1st KILL","Consiga sua primeira eliminação em uma partida oficial.",kills>=1),
+      achievementMarkup("🔫","Primeiros 10 abates","Registre 10 eliminações.",kills>=10),
+      achievementMarkup("💥","Aquecendo a mira","Registre 25 eliminações.",kills>=25),
+      achievementMarkup("☠️","Pequeno massacre","Registre 50 eliminações.",kills>=50),
+      achievementMarkup("🤝","Primeira assistência","Contribua com sua primeira assistência.",assists>=1),
+      achievementMarkup("🫱‍🫲","Bom companheiro","Registre 5 assistências.",assists>=5),
+      achievementMarkup("🛡️","Jogo coletivo","Registre 10 assistências.",assists>=10),
+      achievementMarkup("⭐","Suporte presente","Registre 25 assistências.",assists>=25),
+      achievementMarkup("🏅","Primeiro MVP","Conquiste seu primeiro MVP.",mvps>=1),
       achievementMarkup("⚔️","Primeiro confronto","Dispute sua primeira partida oficial.",matchCount>=1),
       achievementMarkup("🎯","Veterano","Alcance 10 partidas oficiais.",matchCount>=10),
       achievementMarkup("💀","Centenário","Registre 100 eliminações.",kills>=100),
