@@ -352,7 +352,7 @@ async function loadTeamsData(){
   // Carregue primeiro a identidade mínima das equipes. Campos visuais opcionais
   // não devem impedir a seleção de uma equipe ao registrar uma partida.
   const teamsRes=await supabaseClient.from("teams")
-    .select("id,name,tag,captain_player_id,created_at")
+    .select("id,name,tag,created_at")
     .order("created_at",{ascending:false});
   if(teamsRes.error){
     console.warn("ACS match team options:",teamsRes.error.message);
