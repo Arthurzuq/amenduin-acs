@@ -223,10 +223,13 @@
     const identity=side=>teamId(side)==="custom"?teamName(side).trim().toLocaleLowerCase("pt-BR"):teamId(side);
     const nameReady=side=>teamId(side)!=="custom"||!!$("#customTeam"+side+"Name")?.value.trim();
     const hasTeams=!!teamId("A")&&!!teamId("B")&&nameReady("A")&&nameReady("B")&&!!teamName("A").trim()&&!!teamName("B").trim()&&identity("A")!==identity("B");
-    const vetoComplete=format>0&&hasTeams&&!readVeto().error;
+    // O veto é independente da seleção de equipes: o organizador pode
+    // configurar todos os picks/bans assim que escolher MD1, MD3 ou MD5.
+    // As equipes são validadas no envio, sem bloquear a montagem da série.
+    const vetoComplete=format>0&&!readVeto().error;
     const rosterComplete=selectedRoster("A").length>0&&selectedRoster("B").length>0;
     const visibility={
-      veto:format>0&&hasTeams,
+      veto:format>0,
       roster:vetoComplete,
       stats:vetoComplete&&rosterComplete
     };
