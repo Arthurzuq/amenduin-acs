@@ -20,7 +20,7 @@ const roleShort = r => r==="Entry-Fragger"?"ENTRY":r==="Support"?"SUPPORT":r==="
  function renderMapEditors(){window.ACS5_MATCH_ENTRY?.renderMapTables?.();}
 
 function toast(msg){const t=$("#toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2600)}
-function go(page){$$(".page").forEach(p=>p.classList.toggle("active",p.id===`page-${page}`));$$(".nav-link").forEach(a=>a.classList.toggle("active",a.dataset.page===page));$("#crumb").textContent=({home:"VISÃO GERAL",players:"JOGADORES",rankings:"RANKINGS",matches:"PARTIDAS",teams:"EQUIPES",economy:"ECONOMIA",market:"MERCADO"})[page]||page.toUpperCase();$(".sidebar").classList.remove("open");if(page==="players")renderPlayers();if(page==="rankings")renderRanking();if(page==="matches"){loadMatches();renderPublicStats();if(isAdmin){renderMatchPlayerRows();renderMapEditors();$("#matchesAdminPanel").style.display="block";loadTeamsData();}}if(page==="market")loadMarketData();if(page==="teams")loadTeamsData();window.scrollTo(0,0)}
+function go(page){$$(".page").forEach(p=>p.classList.toggle("active",p.id===`page-${page}`));$$(".nav-link").forEach(a=>a.classList.toggle("active",a.dataset.page===page));$("#crumb").textContent=({home:"VISÃO GERAL",players:"JOGADORES",rankings:"RANKINGS",matches:"PARTIDAS",teams:"EQUIPES",economy:"ECONOMIA",market:"MERCADO"})[page]||page.toUpperCase();$(".sidebar").classList.remove("open");if(page==="players")renderPlayers();if(page==="rankings")renderRanking();if(page==="matches"){loadMatches();renderPublicStats();loadTeamsData();if(isAdmin){renderMatchPlayerRows();renderMapEditors();$("#matchesAdminPanel").style.display="block";}}if(page==="market")loadMarketData();if(page==="teams")loadTeamsData();window.scrollTo(0,0)}
 $$("[data-page]").forEach(a=>a.addEventListener("click",e=>{e.preventDefault();go(a.dataset.page)}));
 $$("[data-goto]").forEach(b=>b.addEventListener("click",()=>go(b.dataset.goto)));
 $("#mobileMenu").addEventListener("click",()=>$(".sidebar").classList.toggle("open"));
@@ -349,22 +349,34 @@ async function loadTeamsData(){
     $("#teamIncomingInvites").innerHTML='<div class="market-empty">Os convites aparecerão aqui quando o Supabase estiver conectado.</div>';
     return;
   }
-  const requests=[
-    supabaseClient.from("teams").select("id,name,tag,captain_player_id,created_at,logo_url,frame_color,name_color").order("created_at",{ascending:false}),
+  // Carregue primeiro a identidade mínima das equipes. Campos visuais opcionais
+  // não devem impedir a seleção de uma equipe ao registrar uma partida.
+  const teamsRes=await supabaseClient.from("teams")
+    .select("id,name,tag,created_at")
+    .order("created_at",{ascending:false});
+  if(teamsRes.error){
+    console.warn("ACS match team options:",teamsRes.error.message);
+    renderMatchTeamSelectors([],teamsRes.error.message);
+    $("#teamsList").innerHTML=`<div class="market-empty"><b>Não foi possível carregar as equipes</b>${safe(teamsRes.error.message)}</div>`;
+    return;
+  }
+  cloudTeams=teamsRes.data||[];
+  $("#totalTeams").textContent=cloudTeams.length;
+  renderMatchTeamSelectors();
+
+  // Membros e convites são dados auxiliares: falhas neles não bloqueiam
+  // a lista de equipes usada pelo formulário de partidas.
+  const [membersRes,invitesRes]=await Promise.all([
     supabaseClient.from("team_members").select("team_id,player_id,role"),
     currentUser
       ? supabaseClient.from("team_invites").select("id,team_id,invited_player_id,invited_by_player_id,status,created_at").order("created_at",{ascending:false})
       : Promise.resolve({data:[],error:null})
-  ];
-  const [teamsRes,membersRes,invitesRes]=await Promise.all(requests);
-  if(teamsRes.error||membersRes.error||invitesRes.error){
-    const err=teamsRes.error||membersRes.error||invitesRes.error;
-    $("#teamsList").innerHTML=`<div class="market-empty"><b>Não foi possível carregar as equipes</b>${safe(err.message)}</div>`;
-    return;
-  }
-  cloudTeams=teamsRes.data||[];teamMembers=membersRes.data||[];teamInvites=invitesRes.data||[];
-  $("#totalTeams").textContent=cloudTeams.length;
-  renderTeams();renderMatchTeamSelectors();loadTeamRankings();
+  ]);
+  if(membersRes.error)console.warn("ACS team members:",membersRes.error.message);
+  if(invitesRes.error)console.warn("ACS team invites:",invitesRes.error.message);
+  teamMembers=membersRes.data||[];
+  teamInvites=invitesRes.data||[];
+  renderTeams();loadTeamRankings();
 }
 function renderTeams(){
   const own=currentPlayerProfile(), membership=myTeamMembership();
@@ -405,8 +417,17 @@ function renderTeams(){
     toast("Convite enviado!");await loadTeamsData();
   }));
 }
-function renderMatchTeamSelectors(){
-  ["#matchTeamA","#matchTeamB"].forEach((sel,index)=>{const el=$(sel);if(!el)return;const old=el.value;el.innerHTML='<option value="">Usar nome manual abaixo ou escolher equipe cadastrada...</option>'+cloudTeams.map(t=>`<option value="${safe(t.id)}">${safe(t.name)}${t.tag?" · "+safe(t.tag):""}</option>`).join("")+'<option value="custom">Equipe avulsa (nome manual)</option>';if(cloudTeams.some(t=>t.id===old)||old==="custom")el.value=old;});
+function renderMatchTeamSelectors(teams=cloudTeams,loadError=""){
+  ["#matchTeamA","#matchTeamB"].forEach(sel=>{
+    const el=$(sel);if(!el)return;
+    const old=el.value;
+    const options=(teams||[]).map(t=>`<option value="${safe(t.id)}">${safe(t.name)}${t.tag?" · "+safe(t.tag):""}</option>`).join("");
+    const status=loadError
+      ? `<option value="">Falha ao carregar equipes: ${safe(loadError)}</option>`
+      : '<option value="">Escolha uma equipe cadastrada...</option>';
+    el.innerHTML=status+options+'<option value="custom">Equipe avulsa (nome manual)</option>';
+    if((teams||[]).some(t=>t.id===old)||old==="custom")el.value=old;
+  });
 }
 async function loadTeamRankings(){
  const host=$("#teamRankingList");if(!host||!supabaseClient)return;
