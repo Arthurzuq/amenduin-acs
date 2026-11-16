@@ -49,3 +49,7 @@ comment on column public.players.steam_id64 is
   'SteamID64 verificado para vincular a conta ACS ao jogador dentro do servidor CS2.';
 comment on table public.acs_cs2_match_reports is
   'Relatórios brutos recebidos do servidor ACS CS2; permanecem pendentes até validação administrativa.';
+
+create index if not exists acs_cs2_match_reports_reviewed_by_idx
+  on public.acs_cs2_match_reports (reviewed_by)
+  where reviewed_by is not null;
