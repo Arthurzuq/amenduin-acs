@@ -155,7 +155,20 @@
     const points=values.map((v,i)=>{const x=24+(i/Math.max(1,values.length-1))*552;const y=130-((v-minRating)/Math.max(1,maxRating-minRating))*100;return x.toFixed(1)+","+y.toFixed(1);}).join(" ");
     const chart=values.length>1?'<svg class="career-chart" viewBox="0 0 600 155" role="img" aria-label="Evolução do Rating AM"><line x1="24" y1="130" x2="576" y2="130" stroke="#34465c"/><polyline points="'+points+'" fill="none" stroke="#77b8ed" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><text x="24" y="148" fill="#8ea0b5" font-size="10">'+esc(fmtDate(ratingHistory[0].recorded_at))+'</text><text x="576" y="148" text-anchor="end" fill="#8ea0b5" font-size="10">'+esc(fmtDate(ratingHistory[ratingHistory.length-1].recorded_at))+'</text></svg>':'<div class="community-empty">A evolução do Rating AM começará a aparecer após novas avaliações oficiais.</div>';
     const recent=careerRows.length?careerRows.slice(0,8).map(r=>{const m=r.matches||{};return '<article class="community-item"><div><b>'+esc(m.team_a_name||"Equipe A")+' vs '+esc(m.team_b_name||"Equipe B")+'</b><small>'+fmtDate(m.played_at)+' · '+Number(r.kills||0)+' / '+Number(r.deaths||0)+' / '+Number(r.assists||0)+'</small></div><span>'+(m.status==="completed"?"Concluída":"Registrada")+'</span></article>';}).join(""):'<div class="community-empty">O histórico detalhado aparecerá após suas próximas partidas oficiais.</div>';
-    host.innerHTML='<div class="community-item community-career-summary"><div><b>'+esc(p.nickname)+'</b><small>'+matchCount+' partidas · '+kills+' kills · '+mvps+' MVPs · '+prizes.length+' premiações da equipe atual</small></div><button data-career-profile>Ver perfil completo</button></div><div class="achievement-grid">'+ach.join("")+'</div><div class="detail-section"><h3>Evolução do Rating AM</h3>'+chart+'</div><div class="detail-section"><h3>Desempenho por mapa</h3><div class="community-list">'+(bestMaps.length?bestMaps.map(([name,m])=>'<article class="community-item"><div><b>'+esc(name)+'</b><small>'+m.games+' mapas disputados · '+(m.adrCount?(m.adr/m.adrCount).toFixed(1)+' ADR médio':'ADR não informado')+'</small></div><strong>'+(m.kills/Math.max(1,m.deaths)).toFixed(2)+' K/D</strong></article>').join(""):'<div class="community-empty">Sem estatísticas por mapa.</div>')+'</div></div><div class="detail-section"><h3>Partidas recentes</h3><div class="community-list">'+recent+'</div></div><div class="detail-section"><h3>Títulos e premiações</h3><div class="community-list">'+(prizes.length?prizes.map(a=>'<article class="community-item"><div><b>'+esc(a.tournaments?.name||"Campeonato")+' · '+a.placement+'º lugar</b><small>Tier '+esc(a.tier)+' · '+fmtDate(a.awarded_at)+'</small></div><strong>$'+Number(a.amount||0).toLocaleString("pt-BR")+'</strong></article>').join(""):'<div class="community-empty">Nenhuma premiação vinculada à equipe atual.</div>')+'</div></div>';
+    host.innerHTML=
+      '<div class="acs-career-layout">'+
+        '<div class="community-item community-career-summary"><div><b>'+esc(p.nickname)+'</b><small>'+matchCount+' partidas · '+kills+' kills · '+mvps+' MVPs · '+prizes.length+' premiações da equipe atual</small></div><button data-career-profile>Ver perfil completo</button></div>'+
+        '<section class="acs-career-achievements">'+
+          '<div class="acs-career-section-heading"><div><span class="eyebrow">PLAYER MEDALS</span><h3>Conquistas</h3><p>Uma coleção exclusiva para acompanhar os marcos da sua carreira.</p></div><span class="acs-career-achievement-count">'+ach.length+' MEDALHAS</span></div>'+
+          '<div class="acs-career-achievement-grid">'+ach.join("")+'</div>'+
+        '</section>'+
+        '<div class="acs-career-details">'+
+          '<section class="detail-section"><h3>Evolução do Rating AM</h3>'+chart+'</section>'+
+          '<section class="detail-section"><h3>Desempenho por mapa</h3><div class="community-list">'+(bestMaps.length?bestMaps.map(([name,m])=>'<article class="community-item"><div><b>'+esc(name)+'</b><small>'+m.games+' mapas disputados · '+(m.adrCount?(m.adr/m.adrCount).toFixed(1)+' ADR médio':'ADR não informado')+'</small></div><strong>'+(m.kills/Math.max(1,m.deaths)).toFixed(2)+' K/D</strong></article>').join(""):'<div class="community-empty">Sem estatísticas por mapa.</div>')+'</div></section>'+
+          '<section class="detail-section"><h3>Partidas recentes</h3><div class="community-list">'+recent+'</div></section>'+
+          '<section class="detail-section"><h3>Títulos e premiações</h3><div class="community-list">'+(prizes.length?prizes.map(a=>'<article class="community-item"><div><b>'+esc(a.tournaments?.name||"Campeonato")+' · '+a.placement+'º lugar</b><small>Tier '+esc(a.tier)+' · '+fmtDate(a.awarded_at)+'</small></div><strong>$'+Number(a.amount||0).toLocaleString("pt-BR")+'</strong></article>').join(""):'<div class="community-empty">Nenhuma premiação vinculada à equipe atual.</div>')+'</div></section>'+
+        '</div>'+
+      '</div>'
     host.querySelector("[data-career-profile]")?.addEventListener("click",()=>openDetail(p.id));
   }
   async function loadHallOfFame(){
@@ -229,7 +242,7 @@
   const oldOpenDetail=window.openDetail;
   if(typeof openDetail==="function"){
     const original=openDetail;
-    openDetail=function(id){original(id);const p=(players||[]).find(x=>x.id===id);if(p&&$("#detailContent"))appendCareerToProfile(p);};
+    openDetail=function(id){$("#detailModal .detail-modal")?.classList.remove("achievement-detail-modal");original(id);const p=(players||[]).find(x=>x.id===id);if(p&&$("#detailContent"))appendCareerToProfile(p);};
   }
   function appendCareerToProfile(p){
     const target=$("#detailContent");if(!target||target.querySelector(".acs-career-inline"))return;
@@ -240,6 +253,7 @@
   }
   async function openAchievementPage(p){
     const target=$("#detailContent");if(!target||!p)return;
+    $("#detailModal .detail-modal")?.classList.add("achievement-detail-modal");
     target.innerHTML='<div class="acs-achievement-loading"><span class="acs-achievement-loader"></span><b>Preparando sua sala de conquistas...</b></div>';
     let matches=Number(p.matches||0),kills=Number(p.kills||0),assists=Number(p.assists||0),mvps=Number(p.mvps||0);
     if(supabaseClient){
@@ -369,7 +383,7 @@
     const back=document.createElement("button");
     back.type="button";back.className="acs-achievement-back";back.id="backToPlayerProfile";back.textContent="← Voltar ao perfil";
     root.insertBefore(back,root.firstChild);
-    back.addEventListener("click",()=>openDetail(p.id));
+    back.addEventListener("click",()=>{ $("#detailModal .detail-modal")?.classList.remove("achievement-detail-modal");openDetail(p.id); });
   }
   const oldGo=go;
   go=function(page){oldGo(page);if(page==="community")loadCommunity();};
