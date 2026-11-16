@@ -240,6 +240,7 @@
   }
   async function openAchievementPage(p){
     const target=$("#detailContent");if(!target||!p)return;
+    target.innerHTML='<div class="acs-achievement-loading"><span class="acs-achievement-loader"></span><b>Preparando sua sala de conquistas...</b></div>';
     let matches=Number(p.matches||0),kills=Number(p.kills||0),assists=Number(p.assists||0),mvps=Number(p.mvps||0);
     if(supabaseClient){
       const {data,error}=await supabaseClient.from("player_match_stats").select("kills,deaths,assists,mvps").eq("player_id",p.id).limit(1000);
@@ -251,45 +252,124 @@
       }
     }
     const rating=Number(p.rating||0),win=Number(p.win||0),kd=Number(p.kd||0),adr=Number(p.adr||0),hs=Number(p.hs||0);
+    const fmt=(value,digits=0)=>Number(value||0).toLocaleString("pt-BR",{minimumFractionDigits:digits,maximumFractionDigits:digits});
+    const clamp=value=>Math.max(0,Math.min(100,Number(value)||0));
+    const direct=(group,icon,title,description,unlocked,current,target,unit)=>{
+      const progress=clamp((Number(current||0)/target)*100);
+      return {group,icon,title,description,unlocked,progress:unlocked?100:progress,
+        progressText:unlocked?"Objetivo concluído":fmt(current,unit==="K/D"?2:unit==="%"?1:0)+" / "+fmt(target,unit==="K/D"?2:0)+(unit?" "+unit:"")};
+    };
+    const combined=(group,icon,title,description,unlocked,progress,text)=>{
+      return {group,icon,title,description,unlocked,progress:unlocked?100:clamp(progress),progressText:unlocked?"Objetivo concluído":text};
+    };
     const items=[
-      ["🎯","1st KILL","Consiga sua primeira eliminação em uma partida oficial.",kills>=1],
-      ["🔫","Primeiros 10 abates","Registre 10 eliminações.",kills>=10],
-      ["💥","Aquecendo a mira","Registre 25 eliminações.",kills>=25],
-      ["☠️","Pequeno massacre","Registre 50 eliminações.",kills>=50],
-      ["🤝","Primeira assistência","Contribua com sua primeira assistência.",assists>=1],
-      ["🫱‍🫲","Bom companheiro","Registre 5 assistências.",assists>=5],
-      ["🛡️","Jogo coletivo","Registre 10 assistências.",assists>=10],
-      ["⭐","Suporte presente","Registre 25 assistências.",assists>=25],
-      ["🏅","Primeiro MVP","Conquiste seu primeiro MVP.",mvps>=1],
-      ["⚔️","Primeiro confronto","Dispute sua primeira partida oficial.",matches>=1],
-      ["🎯","Veterano","Alcance 10 partidas oficiais.",matches>=10],
-      ["💀","Centenário","Registre 100 eliminações.",kills>=100],
-      ["🏅","Jogador decisivo","Conquiste 5 MVPs.",mvps>=5],
-      ["🔥","Alta performance","Alcance 60% de win rate com pelo menos 5 partidas.",win>=60&&matches>=5],
-      ["👑","Elite ACS","Alcance Rating AM de 80.",rating>=80],
-      ["🧭","Rosto conhecido","Dispute 5 partidas oficiais.",matches>=5],
-      ["🛡️","Presença constante","Dispute 25 partidas oficiais.",matches>=25],
-      ["🏟️","Lenda dos servidores","Dispute 50 partidas oficiais.",matches>=50],
-      ["🎯","Caçador de eliminações","Registre 250 eliminações.",kills>=250],
-      ["💥","Máquina de abates","Registre 500 eliminações.",kills>=500],
-      ["☠️","Exterminador","Registre 1.000 eliminações.",kills>=1000],
-      ["🌋","Força imparável","Registre 2.500 eliminações.",kills>=2500],
-      ["🥉","Destaque da rodada","Conquiste 10 MVPs.",mvps>=10],
-      ["🥈","Protagonista","Conquiste 25 MVPs.",mvps>=25],
-      ["🥇","Rei dos MVPs","Conquiste 50 MVPs.",mvps>=50],
-      ["📈","Rating em ascensão","Alcance Rating AM de 90.",rating>=90],
-      ["🚀","Dominância","Alcance 70% de win rate com pelo menos 10 partidas.",win>=70&&matches>=10],
-      ["⚖️","Consistência positiva","Mantenha K/D de pelo menos 1,50.",kd>=1.5],
-      ["💎","Superioridade","Mantenha K/D de pelo menos 2,00.",kd>=2],
-      ["🔫","Dano consistente","Alcance 80 de ADR médio.",adr>=80],
-      ["💣","Alto impacto","Alcance 90 de ADR médio.",adr>=90],
-      ["🧨","Dano absurdo","Alcance 100 de ADR médio.",adr>=100],
-      ["🎯","Mira afiada","Alcance 50% de HS.",hs>=50],
-      ["🦅","Precisão cirúrgica","Alcance 65% de HS.",hs>=65]
+      direct("Eliminações","🎯","1st KILL","Consiga sua primeira eliminação em uma partida oficial.",kills>=1,kills,1,"kill"),
+      direct("Eliminações","🔫","Primeiros 10 abates","Registre 10 eliminações.",kills>=10,kills,10,"kills"),
+      direct("Eliminações","💥","Aquecendo a mira","Registre 25 eliminações.",kills>=25,kills,25,"kills"),
+      direct("Eliminações","☠️","Pequeno massacre","Registre 50 eliminações.",kills>=50,kills,50,"kills"),
+      direct("Eliminações","💀","Centenário","Registre 100 eliminações.",kills>=100,kills,100,"kills"),
+      direct("Eliminações","🎯","Caçador de eliminações","Registre 250 eliminações.",kills>=250,kills,250,"kills"),
+      direct("Eliminações","💥","Máquina de abates","Registre 500 eliminações.",kills>=500,kills,500,"kills"),
+      direct("Eliminações","☠️","Exterminador","Registre 1.000 eliminações.",kills>=1000,kills,1000,"kills"),
+      direct("Eliminações","🌋","Força imparável","Registre 2.500 eliminações.",kills>=2500,kills,2500,"kills"),
+      direct("Jogo em equipe","🤝","Primeira assistência","Contribua com sua primeira assistência.",assists>=1,assists,1,"assist."),
+      direct("Jogo em equipe","🫱‍🫲","Bom companheiro","Registre 5 assistências.",assists>=5,assists,5,"assist."),
+      direct("Jogo em equipe","🛡️","Jogo coletivo","Registre 10 assistências.",assists>=10,assists,10,"assist."),
+      direct("Jogo em equipe","⭐","Suporte presente","Registre 25 assistências.",assists>=25,assists,25,"assist."),
+      direct("Carreira","⚔️","Primeiro confronto","Dispute sua primeira partida oficial.",matches>=1,matches,1,"partida"),
+      direct("Carreira","🎯","Veterano","Alcance 10 partidas oficiais.",matches>=10,matches,10,"partidas"),
+      direct("Carreira","🧭","Rosto conhecido","Dispute 5 partidas oficiais.",matches>=5,matches,5,"partidas"),
+      direct("Carreira","🛡️","Presença constante","Dispute 25 partidas oficiais.",matches>=25,matches,25,"partidas"),
+      direct("Carreira","🏟️","Lenda dos servidores","Dispute 50 partidas oficiais.",matches>=50,matches,50,"partidas"),
+      direct("MVPs","🏅","Primeiro MVP","Conquiste seu primeiro MVP.",mvps>=1,mvps,1,"MVP"),
+      direct("MVPs","🏅","Jogador decisivo","Conquiste 5 MVPs.",mvps>=5,mvps,5,"MVPs"),
+      direct("MVPs","🥉","Destaque da rodada","Conquiste 10 MVPs.",mvps>=10,mvps,10,"MVPs"),
+      direct("MVPs","🥈","Protagonista","Conquiste 25 MVPs.",mvps>=25,mvps,25,"MVPs"),
+      direct("MVPs","🥇","Rei dos MVPs","Conquiste 50 MVPs.",mvps>=50,mvps,50,"MVPs"),
+      combined("Performance","🔥","Alta performance","Alcance 60% de win rate com pelo menos 5 partidas.",win>=60&&matches>=5,Math.min(win/60,matches/5)*100,fmt(win,1)+"% de 60% · "+matches+"/5 partidas"),
+      direct("Performance","👑","Elite ACS","Alcance Rating AM de 80.",rating>=80,rating,80,"Rating AM"),
+      direct("Performance","📈","Rating em ascensão","Alcance Rating AM de 90.",rating>=90,rating,90,"Rating AM"),
+      combined("Performance","🚀","Dominância","Alcance 70% de win rate com pelo menos 10 partidas.",win>=70&&matches>=10,Math.min(win/70,matches/10)*100,fmt(win,1)+"% de 70% · "+matches+"/10 partidas"),
+      direct("Performance","⚖️","Consistência positiva","Mantenha K/D de pelo menos 1,50.",kd>=1.5,kd,1.5,"K/D"),
+      direct("Performance","💎","Superioridade","Mantenha K/D de pelo menos 2,00.",kd>=2,kd,2,"K/D"),
+      direct("Performance","🔫","Dano consistente","Alcance 80 de ADR médio.",adr>=80,adr,80,"ADR"),
+      direct("Performance","💣","Alto impacto","Alcance 90 de ADR médio.",adr>=90,adr,90,"ADR"),
+      direct("Performance","🧨","Dano absurdo","Alcance 100 de ADR médio.",adr>=100,adr,100,"ADR"),
+      direct("Performance","🎯","Mira afiada","Alcance 50% de HS.",hs>=50,hs,50,"% HS"),
+      direct("Performance","🦅","Precisão cirúrgica","Alcance 65% de HS.",hs>=65,hs,65,"% HS")
     ];
-    const unlocked=items.filter(x=>x[3]).length;
-    target.innerHTML='<div class="modal-head"><div><span class="eyebrow">PLAYER PROFILE / ACHIEVEMENTS</span><h2>Conquistas de '+esc(p.nickname)+'</h2><p class="detail-bio">'+unlocked+' de '+items.length+' conquistas desbloqueadas</p></div><button class="icon-button" id="backToPlayerProfile" aria-label="Voltar ao perfil">←</button></div><div class="achievement-grid">'+items.map(x=>achievementMarkup(x[0],x[1],x[2],x[3])).join("")+'</div>';
-    $("#backToPlayerProfile")?.addEventListener("click",()=>openDetail(p.id));
+    const unlocked=items.filter(item=>item.unlocked).length;
+    const locked=items.length-unlocked;
+    const completion=Math.round(unlocked/items.length*100);
+    const groups=["Carreira","Eliminações","Jogo em equipe","MVPs","Performance"];
+    const groupCopy={
+      "Carreira":"Construa sua presença e acumule experiência competitiva.",
+      "Eliminações":"Marcos de abates que registram sua evolução como jogador.",
+      "Jogo em equipe":"Reconhecimento por leitura, cooperação e suporte.",
+      "MVPs":"Destaque individual e impacto nos resultados.",
+      "Performance":"Metas de consistência, rating, dano e precisão."
+    };
+    const cards=items.map((item,index)=>{
+      const state=item.unlocked?"unlocked":"locked";
+      return '<article class="acs-achievement-card '+state+'" data-achievement-card data-achievement-state="'+state+'">'+
+        '<div class="acs-achievement-card-top"><span class="acs-achievement-icon">'+item.icon+'</span><span class="acs-achievement-status '+state+'">'+(item.unlocked?"CONQUISTADA":"BLOQUEADA")+'</span></div>'+
+        '<div class="acs-achievement-card-copy"><h4>'+esc(item.title)+'</h4><p>'+esc(item.description)+'</p></div>'+
+        '<div class="acs-achievement-progress"><div><span>'+ (item.unlocked?"PROGRESSO":"PRÓXIMO OBJETIVO") +'</span><b>'+esc(item.progressText)+'</b></div><div class="acs-achievement-track"><i style="width:'+item.progress.toFixed(1)+'%"></i></div></div>'+
+      '</article>';
+    });
+    const groupMarkup=groups.map(group=>{
+      const groupItems=items.filter(item=>item.group===group);
+      const groupUnlocked=groupItems.filter(item=>item.unlocked).length;
+      const groupCards=items.map((item,index)=>item.group===group?cards[index]:"").join("");
+      return '<section class="acs-achievement-category" data-achievement-category><header><div><span class="eyebrow">CATEGORIA</span><h3>'+group+'</h3><p>'+groupCopy[group]+'</p></div><span class="acs-achievement-category-count">'+groupUnlocked+' / '+groupItems.length+'</span></header><div class="acs-achievement-grid">'+groupCards+'</div></section>';
+    }).join("");
+    target.innerHTML=
+      '<div class="acs-achievements-page">'+
+        '<header class="acs-achievements-hero">'+
+          '<div class="acs-achievements-heading"><span class="acs-achievements-kicker">ACS / PLAYER MEDAL ROOM</span><h2>CONQUISTAS</h2><p>Seus marcos, sua evolução e os próximos objetivos da carreira.</p></div>'+
+          '<div class="acs-achievements-player"><span class="acs-achievements-player-mark">'+esc((p.nickname||"?").slice(0,2).toUpperCase())+'</span><div><small>JOGADOR</small><b>'+esc(p.nickname)+'</b><span>'+matches+' partidas registradas</span></div></div>'+
+          '<div class="acs-achievements-total"><div class="acs-achievement-ring" style="--achievement-progress:'+completion+'%"><div><b>'+completion+'%</b><small>CONCLUÍDO</small></div></div><div><span>PROGRESSO GERAL</span><strong>'+unlocked+' <small>/ '+items.length+'</small></strong><p>conquistas desbloqueadas</p></div></div>'+
+        '</header>'+
+        '<div class="acs-achievements-stats">'+
+          '<article><span class="acs-achievement-stat-icon">✦</span><div><b>'+unlocked+'</b><small>CONQUISTADAS</small></div></article>'+
+          '<article><span class="acs-achievement-stat-icon muted">◈</span><div><b>'+locked+'</b><small>AINDA BLOQUEADAS</small></div></article>'+
+          '<article><span class="acs-achievement-stat-icon gold">★</span><div><b>'+fmt(kills)+'</b><small>ELIMINAÇÕES</small></div></article>'+
+          '<article><span class="acs-achievement-stat-icon gold">♛</span><div><b>'+fmt(mvps)+'</b><small>MVPs</small></div></article>'+
+        '</div>'+
+        '<div class="acs-achievement-toolbar"><div><span class="eyebrow">SUA COLEÇÃO</span><h3>Medalhas e objetivos</h3></div><div class="acs-achievement-filters" role="group" aria-label="Filtrar conquistas">'+
+          '<button type="button" class="active" data-achievement-filter="all" aria-pressed="true">Todas <span>'+items.length+'</span></button>'+
+          '<button type="button" data-achievement-filter="unlocked" aria-pressed="false">Conquistadas <span>'+unlocked+'</span></button>'+
+          '<button type="button" data-achievement-filter="locked" aria-pressed="false">Bloqueadas <span>'+locked+'</span></button>'+
+        '</div></div>'+
+        '<div class="acs-achievement-categories">'+groupMarkup+'</div>'+
+        '<div class="acs-achievement-empty" hidden>Nenhuma conquista nesta visualização.</div>'+
+      '</div>';
+    const root=target.querySelector(".acs-achievements-page");
+    root.querySelectorAll("[data-achievement-filter]").forEach(button=>button.addEventListener("click",()=>{
+      const filter=button.dataset.achievementFilter;
+      root.querySelectorAll("[data-achievement-filter]").forEach(control=>{
+        const active=control===button;
+        control.classList.toggle("active",active);
+        control.setAttribute("aria-pressed",String(active));
+      });
+      let visible=0;
+      root.querySelectorAll("[data-achievement-category]").forEach(category=>{
+        const cardsInCategory=[...category.querySelectorAll("[data-achievement-card]")];
+        let categoryVisible=0;
+        cardsInCategory.forEach(card=>{
+          const show=filter==="all"||card.dataset.achievementState===filter;
+          card.hidden=!show;
+          if(show){visible++;categoryVisible++;}
+        });
+        category.hidden=categoryVisible===0;
+      });
+      root.querySelector(".acs-achievement-empty").hidden=visible>0;
+    }));
+    $("#backToPlayerProfile")?.remove();
+    const back=document.createElement("button");
+    back.type="button";back.className="acs-achievement-back";back.id="backToPlayerProfile";back.textContent="← Voltar ao perfil";
+    root.insertBefore(back,root.firstChild);
+    back.addEventListener("click",()=>openDetail(p.id));
   }
   const oldGo=go;
   go=function(page){oldGo(page);if(page==="community")loadCommunity();};
