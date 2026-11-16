@@ -21,7 +21,7 @@ function isSteamId64(value: unknown): value is string {
 }
 
 function validCount(value: unknown, max = 5000): value is number {
-  return Number.isInteger(value) && Number(value) >= 0 && Number(value) <= max;
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= max;
 }
 
 async function sha256(value: string): Promise<string> {
