@@ -24,13 +24,13 @@ function go(page){$$(".page").forEach(p=>p.classList.toggle("active",p.id===`pag
 $$("[data-page]").forEach(a=>a.addEventListener("click",e=>{e.preventDefault();go(a.dataset.page)}));
 $$("[data-goto]").forEach(b=>b.addEventListener("click",()=>go(b.dataset.goto)));
 $("#mobileMenu").addEventListener("click",()=>$(".sidebar").classList.toggle("open"));
-function openForm(p=null){$("#playerForm").reset();$("#editId").value=p?.id||"";$("#modalTitle").textContent=p?"EDITAR PERFIL":"CRIAR PERFIL";if(p){$("#nickname").value=p.nickname;$("#steam").value=p.steam||"";$("#country").value=p.country||"Brasil";$("#mainRole").value=p.mainRole;$("#secondaryRole").value=p.secondaryRole||"";$("#marketStatus").value=p.marketStatus||"Disponível";$("#bio").value=p.bio||"";}$("#profileModal").classList.add("open")}
+function openForm(p=null){$("#playerForm").reset();$("#editId").value=p?.id||"";$("#modalTitle").textContent=p?"EDITAR PERFIL":"CRIAR PERFIL";if(p){$("#nickname").value=p.nickname;$("#steam").value=p.steam||"";$("#steamId64").value=p.steamId64||"";$("#country").value=p.country||"Brasil";$("#mainRole").value=p.mainRole;$("#secondaryRole").value=p.secondaryRole||"";$("#marketStatus").value=p.marketStatus||"Disponível";$("#bio").value=p.bio||"";}$("#profileModal").classList.add("open")}
 function closeForm(){$("#profileModal").classList.remove("open")}
 ["#newPlayerTop","#createFromHero","#createFromPanel","#newPlayerList"].forEach(s=>$(s)?.addEventListener("click",()=>openForm()));
 $("#closeModal").addEventListener("click",closeForm);$("#cancelModal").addEventListener("click",closeForm);
 $("#profileModal").addEventListener("click",e=>{if(e.target.id==="profileModal")closeForm()});
-$("#playerForm").addEventListener("submit",e=>{e.preventDefault();const editId=$("#editId").value;const nickname=$("#nickname").value.trim();if(!nickname)return;const duplicate=players.find(p=>p.nickname.toLowerCase()===nickname.toLowerCase()&&p.id!==editId);if(duplicate){toast("Esse nickname já está cadastrado.");return}
-const existing=players.find(p=>p.id===editId);const p={...(existing||{}),id:editId||`p-${Date.now()}`,nickname,steam:$("#steam").value.trim(),country:$("#country").value,mainRole:$("#mainRole").value,secondaryRole:$("#secondaryRole").value,team:existing?.team||"Sem equipe",marketStatus:$("#marketStatus").value,bio:$("#bio").value.trim(),rating:existing?.rating??null,kd:existing?.kd??null,adr:existing?.adr??null,hs:existing?.hs??null,win:existing?.win??null,matches:existing?.matches??0,mvps:existing?.mvps??0,kills:existing?.kills??0,deaths:existing?.deaths??0,teamHistory:existing?.teamHistory||[],demo:false};
+$("#playerForm").addEventListener("submit",e=>{e.preventDefault();const editId=$("#editId").value;const nickname=$("#nickname").value.trim();if(!nickname)return;const steamId64=$("#steamId64").value.trim();if(steamId64&&!/^[0-9]{17}$/.test(steamId64)){toast("O SteamID64 deve conter exatamente 17 números.");return}const duplicate=players.find(p=>p.nickname.toLowerCase()===nickname.toLowerCase()&&p.id!==editId);if(duplicate){toast("Esse nickname já está cadastrado.");return}
+const existing=players.find(p=>p.id===editId);const p={...(existing||{}),id:editId||`p-${Date.now()}`,nickname,steam:$("#steam").value.trim(),steamId64:$("#steamId64").value.trim(),country:$("#country").value,mainRole:$("#mainRole").value,secondaryRole:$("#secondaryRole").value,team:existing?.team||"Sem equipe",marketStatus:$("#marketStatus").value,bio:$("#bio").value.trim(),rating:existing?.rating??null,kd:existing?.kd??null,adr:existing?.adr??null,hs:existing?.hs??null,win:existing?.win??null,matches:existing?.matches??0,mvps:existing?.mvps??0,kills:existing?.kills??0,deaths:existing?.deaths??0,teamHistory:existing?.teamHistory||[],demo:false};
 if(existing){players=players.map(x=>x.id===editId?p:x)}else players.unshift(p);savePlayers();closeForm();renderAll();window.ACS9Community?.refreshProfile?.();toast(existing?"Perfil atualizado.":"Perfil criado com sucesso!")});
 function playerCard(p){const cx=window.ACS8Cosmetics;return `<article class="player-card profile-${safe(p.profileFrameColor||"blue")} bg-${safe(p.profileBackground||"blue")} ${cx?.classFor(p.profileBackgroundStyle)||""}" data-open="${safe(p.id)}"><div class="card-top"><div class="avatar ${cx?.classFor(p.profileFrameStyle)||""}">${safe(initials(p.nickname))}</div><div class="card-identity"><b class="name-${safe(p.profileNameColor||"white")} ${cx?.classFor(p.profileNameStyle)||""}">${safe(p.nickname)}</b><small>${safe(p.team||"Sem equipe")} · ${safe(p.country||"")}</small></div><span class="rating-mini">${p.rating??"—"}<small>RATING AM</small></span></div><span class="role-tag">${safe(roleShort(p.mainRole))}</span><div class="card-stats"><div><strong>${p.kd??"N/A"}</strong><small>K/D</small></div><div><strong>${p.adr??"N/A"}</strong><small>ADR</small></div><div><strong>${p.win==null?"N/A":p.win+"%"}</strong><small>WIN RATE</small></div></div></article>`}
 function bindPlayerCards(){ $$("[data-open]").forEach(el=>el.addEventListener("click",()=>openDetail(el.dataset.open)))}
@@ -191,7 +191,7 @@ async function loadCloudPlayers(){
   const {data,error}=await supabaseClient.from("players").select("*").order("nickname");
   if(error){toast("Erro ao carregar perfis online.");return;}
   const cloud=(data||[]).map(p=>({
-    id:p.id,nickname:p.nickname,steam:p.steam_url||"",country:p.country,mainRole:p.main_role,
+    id:p.id,nickname:p.nickname,steam:p.steam_url||"",steamId64:p.steam_id64||"",country:p.country,mainRole:p.main_role,
     secondaryRole:p.secondary_role||"",team:p.team_name,marketStatus:p.market_status,bio:p.bio||"",userId:p.user_id,avatarUrl:p.avatar_url||null,profileFrameColor:p.profile_frame_color||"blue",profileBackground:p.profile_background||"blue",profileNameColor:p.profile_name_color||"white",profileNameStyle:p.profile_name_style||"default",profileFrameStyle:p.profile_frame_style||"default",profileBackgroundStyle:p.profile_background_style||"default",
     rating:null,kd:null,adr:null,hs:null,win:null,matches:0,mvps:0,kills:0,deaths:0,
     teamHistory:[],demo:false
@@ -221,6 +221,7 @@ $("#playerForm").addEventListener("submit",async()=>{
   }
   const payload={
     user_id:currentUser.id,nickname,steam_url:$("#steam").value.trim()||null,
+    steam_id64:$("#steamId64").value.trim()||null,
     country:$("#country").value,main_role:$("#mainRole").value,
     secondary_role:$("#secondaryRole").value||null,
     market_status:$("#marketStatus").value,bio:$("#bio").value.trim()||null,
