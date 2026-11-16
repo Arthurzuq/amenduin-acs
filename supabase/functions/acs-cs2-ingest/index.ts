@@ -43,13 +43,7 @@ Deno.serve(async (req: Request) => {
   }
 
   const suppliedToken = req.headers.get("x-acs-server-token") ?? "";
-  if (suppliedToken.length !== expectedToken.length ||
-      !crypto.subtle.timingSafeEqual) {
-    // Deno Web Crypto does not expose timingSafeEqual in all supported runtimes.
-    if (suppliedToken !== expectedToken) return reply(401, { error: "unauthorized" });
-  } else if (suppliedToken !== expectedToken) {
-    return reply(401, { error: "unauthorized" });
-  }
+  if (suppliedToken !== expectedToken) return reply(401, { error: "unauthorized" });
 
   const raw = await req.text();
   if (raw.length > 1_000_000) return reply(413, { error: "payload_too_large" });
