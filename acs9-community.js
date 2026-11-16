@@ -257,7 +257,7 @@
     const direct=(group,icon,title,description,unlocked,current,target,unit)=>{
       const progress=clamp((Number(current||0)/target)*100);
       return {group,icon,title,description,unlocked,progress:unlocked?100:progress,
-        progressText:unlocked?"Objetivo concluído":fmt(current,unit==="%"?1:0)+" / "+fmt(target)+(unit?" "+unit:"")};
+        progressText:unlocked?"Objetivo concluído":fmt(current,unit==="K/D"?2:unit==="%"?1:0)+" / "+fmt(target,unit==="K/D"?2:0)+(unit?" "+unit:"")};
     };
     const combined=(group,icon,title,description,unlocked,progress,text)=>{
       return {group,icon,title,description,unlocked,progress:unlocked?100:clamp(progress),progressText:unlocked?"Objetivo concluído":text};
