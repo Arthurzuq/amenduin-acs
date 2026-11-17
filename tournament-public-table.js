@@ -91,7 +91,7 @@
         const date = new Date(schedule.startsAt);
         return Number.isNaN(date.getTime())
           ? "Data e horário inválidos"
-          : date.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: schedule.timeZone || "America/Sao_Paulo", timeZoneName: "short" });
+          : date.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: schedule.timeZone || "America/Sao_Paulo", timeZoneName: "short" });
       }
       if (schedule?.mode === "after") {
         if (!schedule.afterMatchId) return "Dependência ainda não escolhida";
