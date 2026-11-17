@@ -836,6 +836,16 @@
         usedSlots.add(targetKey);sourcePorts.add(sourceKey);
         if(!validateConnection(edge.from,edge.result,edge.to,edge.slot,true))throw new Error("Revise as conexões do chaveamento.");
       }
+      for(const entry of boardMatchEntries()){
+        const schedule=entry.item.schedule||{};
+        if(schedule.mode==="fixed"&&schedule.startsAt&&Number.isNaN(new Date(schedule.startsAt).getTime())){
+          throw new Error("Data ou horário inválido em "+entry.label+".");
+        }
+        if(schedule.mode==="after"&&schedule.afterMatchId){
+          if(!findBoardMatchEntry(schedule.afterMatchId))throw new Error("A partida anterior selecionada não existe mais em "+entry.label+".");
+          if(scheduleWouldCycle(entry.id,schedule.afterMatchId))throw new Error("A dependência de "+entry.label+" criaria um ciclo.");
+        }
+      }
       const assigned=[];
       for(const group of board.nodes.filter(item=>item.type==="group")){
         for(const id of group.teamIds||[]){
