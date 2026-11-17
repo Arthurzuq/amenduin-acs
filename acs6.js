@@ -333,10 +333,12 @@
       return '<div class="board-group-team"><span class="board-chip-logo">'+(team.logo_url?'<img src="'+esc(team.logo_url)+'" alt="">':esc((team.tag||team.name||"ACS").slice(0,2).toUpperCase()))+'</span>'+
         '<b>'+esc(team.name)+'</b><button type="button" data-remove-group-team="'+esc(id)+'" data-group-id="'+esc(group.id)+'" title="Remover do grupo" '+(groupHasResults(group)?"disabled":"")+'>×</button></div>';
     }).join("");
-    const fixtureRows=fixtures.map(fixture=>{
-      const row=bracketRows.find(item=>item.id===(fixture.bracketId||fixture.id));
+    const fixtureRows=fixtures.map((fixture,index)=>{
+      const fixtureId=fixture.bracketId||fixture.id;
+      const row=bracketRows.find(item=>item.id===fixtureId);
       const state=row?.status==="completed"?"Concluída":"Aguardando placar";
-      return '<div class="board-group-fixture"><span>R'+Number(fixture.round||1)+'</span><b>'+esc(teamById(fixture.teamA).name)+'</b><i>×</i><b>'+esc(teamById(fixture.teamB).name)+'</b><small class="'+(row?.status==="completed"?"done":"")+'">'+state+'</small></div>';
+      return '<div class="board-group-fixture"><div class="board-group-fixture-summary"><span>R'+Number(fixture.round||1)+'</span><b>'+esc(teamById(fixture.teamA).name)+'</b><i>×</i><b>'+esc(teamById(fixture.teamB).name)+'</b><small class="'+(row?.status==="completed"?"done":"")+'">'+state+'</small></div>'+
+        scheduleControlsMarkup(fixture,fixtureId,true)+'</div>';
     }).join("");
     const table=standings.length
       ?'<div class="board-group-table"><div class="board-group-head"><b>#</b><b>Equipe</b><b>J</b><b>V</b><b>D</b><b>Pts</b></div>'+
@@ -391,6 +393,7 @@
       return '<article class="board-node board-node-match" data-board-node="'+esc(node.id)+'" style="left:'+node.x+'px;top:'+node.y+'px">'+
         '<header data-board-drag-handle><span>'+esc(nodeLabel(node))+'</span><span class="board-node-status '+(row?.status==="completed"?"done":row?.status==="ready"?"ready":"")+'">'+state+'</span><button type="button" data-delete-board-node="'+esc(node.id)+'" title="Remover">×</button></header>'+
         '<div class="board-node-slots">'+slotMarkup(node,"A")+slotMarkup(node,"B")+'</div>'+resultSummary+
+        scheduleControlsMarkup(node,node.id)+
         '<div class="board-connectors">'+
           '<button type="button" class="board-output '+(pendingOutput?.id===node.id&&pendingOutput.result==="winner"?"active":"")+'" data-connect-out="winner" data-node-id="'+esc(node.id)+'">↗ Vencedor</button>'+
           '<button type="button" class="board-output '+(pendingOutput?.id===node.id&&pendingOutput.result==="loser"?"active":"")+'" data-connect-out="loser" data-node-id="'+esc(node.id)+'">↘ Perdedor</button>'+
@@ -476,7 +479,33 @@
       group.teamIds=group.teamIds.filter(id=>id!==btn.dataset.removeGroupTeam);
       rebuildGroupFixtures(group);queueSave();
     }));
-    $$("[data-board-drag-handle]").forEach(handle=>handle.addEventListener("pointerdown",e=>{
+    $("[data-schedule-mode]").forEach(select=>select.addEventListener("change",()=>{
+      const entry=findBoardMatchEntry(select.dataset.scheduleMatchId);
+      if(!entry)return;
+      const mode=select.value;
+      if(mode==="fixed")entry.item.schedule={mode:"fixed",startsAt:entry.item.schedule?.startsAt||""};
+      else if(mode==="after")entry.item.schedule={mode:"after",afterMatchId:entry.item.schedule?.afterMatchId||""};
+      else entry.item.schedule={mode:"none"};
+      queueSave();
+    }));
+    $("[data-schedule-time]").forEach(input=>input.addEventListener("change",()=>{
+      const entry=findBoardMatchEntry(input.dataset.scheduleMatchId);
+      if(!entry)return;
+      entry.item.schedule={mode:"fixed",startsAt:input.value||""};
+      queueSave();
+    }));
+    $("[data-schedule-after]").forEach(select=>select.addEventListener("change",()=>{
+      const entry=findBoardMatchEntry(select.dataset.scheduleMatchId);
+      if(!entry)return;
+      if(select.value&&scheduleWouldCycle(entry.id,select.value)){
+        notify("Essa dependência criaria um ciclo entre partidas.");
+        renderBoard();
+        return;
+      }
+      entry.item.schedule={mode:"after",afterMatchId:select.value||""};
+      queueSave();
+    }));
+    $("[data-board-drag-handle]").forEach(handle=>handle.addEventListener("pointerdown",e=>{
       if(e.target.closest("button"))return;
       startBoardDrag(e,{kind:"node",nodeId:handle.closest("[data-board-node]")?.dataset.boardNode});
     }));
@@ -486,6 +515,8 @@
         notify("Não é possível remover uma partida ou grupo que já possui resultados registrados.");return;
       }
       if(!confirm(node?.type==="group"?"Remover este grupo e seus confrontos ainda não disputados?":"Remover esta partida e as conexões ligadas a ela?"))return;
+      const removedMatchIds=node?.type==="group"?(node.fixtures||[]).map(f=>f.bracketId||f.id):[id];
+      clearScheduleReferences(removedMatchIds);
       board.nodes=board.nodes.filter(n=>n.id!==id);
       board.edges=board.edges.filter(e=>e.from!==id&&e.to!==id);
       pendingOutput=null;queueSave();
