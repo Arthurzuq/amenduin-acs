@@ -53,7 +53,7 @@
     return (edge.result === "loser" ? "Perdedor" : "Vencedor") + " de " + nodeTitle(source, row, allMatchNodes);
   }
 
-  function renderTable(board, rows, groups, stages, registrations) {
+  function renderTable(board, rows, stages, registrations) {
     const nodes = Array.isArray(board?.nodes) ? board.nodes : [];
     const edges = Array.isArray(board?.edges) ? board.edges : [];
     const matchNodes = nodes.filter((node) => node.type !== "group");
@@ -62,7 +62,6 @@
       if (row.config?.board_node_id) rowsById.set(row.config.board_node_id, row);
     });
     const stagesById = new Map(stages.map((stage) => [stage.id, stage.name]));
-    const groupsById = new Map(groups.map((group) => [group.id, group.name]));
     const teams = new Map();
     registrations.forEach((registration) => {
       const team = registration.teams;
@@ -97,7 +96,7 @@
     const htmlRows = [];
     nodes.filter((node) => node.type === "group").forEach((group) => {
       const fixtures = (group.fixtures || []).slice().sort((a, b) => Number(a.round || 1) - Number(b.round || 1));
-      const groupName = group.name || groupsById.get(group.id) || "Grupo";
+      const groupName = group.name || "Grupo";
       const groupEdges = edges.filter((edge) => edge.from === group.id && /^place_[1-8]$/.test(edge.result || ""))
         .sort((a, b) => Number(a.result.slice(6)) - Number(b.result.slice(6)));
       const advancement = groupEdges.length
@@ -162,15 +161,14 @@
     }
     host.innerHTML = '<div class="market-empty">Carregando tabela de jogos...</div>';
     try {
-      const [documentResult, nodesResult, groupsResult, stagesResult, registrationsResult] = await Promise.all([
+      const [documentResult, nodesResult, stagesResult, registrationsResult] = await Promise.all([
         supabaseClient.from("tournament_board_documents").select("board_json,updated_at").eq("tournament_id", tournamentId).maybeSingle(),
         supabaseClient.from("tournament_bracket_nodes").select("*").eq("tournament_id", tournamentId),
-        supabaseClient.from("tournament_groups").select("id,stage_id,name,sort_order").order("sort_order"),
         supabaseClient.from("tournament_stages").select("id,name,stage_order").eq("tournament_id", tournamentId).order("stage_order"),
         supabaseClient.from("tournament_registrations").select("team_id,teams(id,name,tag,logo_url)").eq("tournament_id", tournamentId).eq("status", "approved")
       ]);
       if (version !== requestVersion) return;
-      const failed = [documentResult, nodesResult, groupsResult, stagesResult, registrationsResult].find((result) => result.error);
+      const failed = [documentResult, nodesResult, stagesResult, registrationsResult].find((result) => result.error);
       if (failed) throw failed.error;
       const board = documentResult.data?.board_json || { nodes: [], edges: [] };
       const nodes = Array.isArray(board.nodes) ? board.nodes : [];
@@ -181,7 +179,7 @@
       }
       panel.hidden = false;
       $(".tournament-bracket-panel")?.classList.add("acs-public-table-replaced");
-      renderTable(board, nodesResult.data || [], groupsResult.data || [], stagesResult.data || [], registrationsResult.data || []);
+      renderTable(board, nodesResult.data || [], stagesResult.data || [], registrationsResult.data || []);
       const updated = documentResult.data?.updated_at
         ? new Date(documentResult.data.updated_at).toLocaleString("pt-BR")
         : "sem horário registrado";
