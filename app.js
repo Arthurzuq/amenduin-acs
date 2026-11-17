@@ -71,6 +71,7 @@ async function refreshAdminStatus(){
   const adminNav=document.querySelector('[data-page="admin"]');
   if(adminNav)adminNav.style.display=currentUser?"flex":"none";
   if(isAdmin)renderAdminPanel();
+  window.dispatchEvent(new Event("acs:auth-state-changed"));
 }
 function renderAdminPanel(){
   const select=$("#adminPlayerSelect");if(!select)return;
