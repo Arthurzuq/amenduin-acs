@@ -39,7 +39,7 @@
     if (!target) return "Destino não encontrado";
     if (target.type === "group") return (target.name || "Fase de grupos") + " · classificação";
     const targetRow = rowsById.get(target.bracketId || target.id);
-    const stageName = stagesById.get(targetRow?.stage_id) || "Mata-mata";
+    const stageName = targetRow?.bracket_side === "main" ? "Mata-mata" : (stagesById.get(targetRow?.stage_id) || "Mata-mata");
     const round = targetRow?.round_number ? " · Rodada " + targetRow.round_number : "";
     const match = nodeTitle(target, targetRow, allMatchNodes);
     return stageName + round + " · " + match + " · vaga " + edge.slot;
@@ -50,7 +50,8 @@
     if (!source) return "resultado de outra fase";
     if (source.type === "group") return ordinal(edge.result) + " do " + (source.name || "grupo");
     const row = rowsById.get(source.bracketId || source.id);
-    return (edge.result === "loser" ? "Perdedor" : "Vencedor") + " de " + nodeTitle(source, row, allMatchNodes);
+    const round = row?.round_number ? " da Rodada " + row.round_number : "";
+    return (edge.result === "loser" ? "Perdedor" : "Vencedor") + " de " + nodeTitle(source, row, allMatchNodes) + round;
   }
 
   function renderTable(board, rows, stages, registrations) {
@@ -128,7 +129,7 @@
       .sort((a, b) => Number(a.row?.round_number || 1) - Number(b.row?.round_number || 1) ||
         Number(a.row?.match_number || 0) - Number(b.row?.match_number || 0))
       .forEach(({ node, row }, index) => {
-        const stageName = stagesById.get(row?.stage_id) || "Mata-mata";
+        const stageName = row?.bracket_side === "main" ? "Mata-mata" : (stagesById.get(row?.stage_id) || "Mata-mata");
         const teamA = slotName(node, row, "A") || "A definir";
         const teamB = slotName(node, row, "B") || "A definir";
         const winner = row?.winner_team_id ? teamFromId(row.winner_team_id) : null;
