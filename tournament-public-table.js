@@ -151,7 +151,7 @@
           '<td><span class="acs-public-status ' + (row?.status === "completed" ? "done" : "") + '">' + escapeHtml(statusFor(row, teamA, teamB)) + '</span></td>' +
         '</tr>');
       });
-      if (!fixtures.length) htmlRows.push('<tr><td colspan="6" class="acs-public-table-empty">Ainda não há confrontos neste grupo.</td></tr>');
+      if (!fixtures.length) htmlRows.push('<tr><td colspan="7" class="acs-public-table-empty">Ainda não há confrontos neste grupo.</td></tr>');
     });
 
     matchNodes.map((node) => ({ node, row: rowForNode(node) }))
