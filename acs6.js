@@ -249,12 +249,42 @@
     }
     return false;
   }
-  function dateTimeLocalValue(value){
+  function currentScheduleTimeZone(){
+    try{return Intl.DateTimeFormat().resolvedOptions().timeZone||"America/Sao_Paulo";}
+    catch{return "America/Sao_Paulo";}
+  }
+  function dateTimeLocalValue(value,timeZone){
     if(!value)return "";
     const date=new Date(value);
     if(Number.isNaN(date.getTime()))return String(value).slice(0,16);
-    const pad=number=>String(number).padStart(2,"0");
-    return date.getFullYear()+"-"+pad(date.getMonth()+1)+"-"+pad(date.getDate())+"T"+pad(date.getHours())+":"+pad(date.getMinutes());
+    try{
+      const parts=Object.fromEntries(new Intl.DateTimeFormat("en-CA",{
+        timeZone:timeZone||"America/Sao_Paulo",year:"numeric",month:"2-digit",day:"2-digit",
+        hour:"2-digit",minute:"2-digit",hourCycle:"h23"
+      }).formatToParts(date).map(part=>[part.type,part.value]));
+      return parts.year+"-"+parts.month+"-"+parts.day+"T"+parts.hour+":"+parts.minute;
+    }catch{
+      const pad=number=>String(number).padStart(2,"0");
+      return date.getFullYear()+"-"+pad(date.getMonth()+1)+"-"+pad(date.getDate())+"T"+pad(date.getHours())+":"+pad(date.getMinutes());
+    }
+  }
+  function scheduleDateTimeToISO(value,timeZone){
+    if(!value)return "";
+    const [datePart,timePart]=value.split("T");
+    const [year,month,day]=datePart.split("-").map(Number);
+    const [hour,minute]=timePart.split(":").map(Number);
+    const utcGuess=Date.UTC(year,month-1,day,hour,minute,0);
+    const zone=timeZone||currentScheduleTimeZone();
+    const offsetAt=instant=>{
+      const parts=Object.fromEntries(new Intl.DateTimeFormat("en-CA",{
+        timeZone:zone,year:"numeric",month:"2-digit",day:"2-digit",
+        hour:"2-digit",minute:"2-digit",second:"2-digit",hourCycle:"h23"
+      }).formatToParts(new Date(instant)).map(part=>[part.type,part.value]));
+      return Date.UTC(Number(parts.year),Number(parts.month)-1,Number(parts.day),Number(parts.hour),Number(parts.minute),Number(parts.second))-instant;
+    };
+    const first=utcGuess-offsetAt(utcGuess);
+    const corrected=utcGuess-offsetAt(first);
+    return new Date(corrected).toISOString();
   }
   function scheduleControlsMarkup(item,matchId,compact=false){
     const schedule=item.schedule||{mode:"none"};
@@ -265,7 +295,7 @@
     const afterSelect='<label class="board-schedule-after"><span>PARTIDA ANTERIOR</span><select data-schedule-after data-schedule-match-id="'+esc(matchId)+'"><option value="">Selecione a partida...</option>'+
       (!hasCurrent&&schedule.afterMatchId?'<option value="'+esc(schedule.afterMatchId)+'" selected>Partida anterior indisponível</option>':"")+afterOptions+
       '</select></label>';
-    const fixedInput='<label class="board-schedule-date"><span>DATA E HORÁRIO</span><input type="datetime-local" value="'+esc(dateTimeLocalValue(schedule.startsAt))+'" data-schedule-time data-schedule-match-id="'+esc(matchId)+'"></label>';
+    const fixedInput='<label class="board-schedule-date"><span>DATA E HORÁRIO</span><input type="datetime-local" value="'+esc(dateTimeLocalValue(schedule.startsAt,schedule.timeZone))+'" data-schedule-time data-schedule-match-id="'+esc(matchId)+'"></label>';
     return '<div class="board-match-schedule'+(compact?" compact":"")+'">'+
       '<label class="board-schedule-mode"><span>AGENDAMENTO</span><select data-schedule-mode data-schedule-match-id="'+esc(matchId)+'">'+
         '<option value="none" '+(mode==="none"?"selected":"")+'>Sem horário definido</option>'+
@@ -483,7 +513,7 @@
       const entry=findBoardMatchEntry(select.dataset.scheduleMatchId);
       if(!entry)return;
       const mode=select.value;
-      if(mode==="fixed")entry.item.schedule={mode:"fixed",startsAt:entry.item.schedule?.startsAt||""};
+      if(mode==="fixed")entry.item.schedule={mode:"fixed",startsAt:entry.item.schedule?.startsAt||"",timeZone:entry.item.schedule?.timeZone||currentScheduleTimeZone()};
       else if(mode==="after")entry.item.schedule={mode:"after",afterMatchId:entry.item.schedule?.afterMatchId||""};
       else entry.item.schedule={mode:"none"};
       queueSave();
@@ -491,7 +521,11 @@
     $("[data-schedule-time]").forEach(input=>input.addEventListener("change",()=>{
       const entry=findBoardMatchEntry(input.dataset.scheduleMatchId);
       if(!entry)return;
-      entry.item.schedule={mode:"fixed",startsAt:input.value||""};
+      const timeZone=entry.item.schedule?.timeZone||currentScheduleTimeZone();
+      let startsAt="";
+      try{startsAt=scheduleDateTimeToISO(input.value,timeZone);}
+      catch{notify("Não foi possível interpretar a data no fuso horário da organização.");return;}
+      entry.item.schedule={mode:"fixed",startsAt,timeZone};
       queueSave();
     }));
     $("[data-schedule-after]").forEach(select=>select.addEventListener("change",()=>{
