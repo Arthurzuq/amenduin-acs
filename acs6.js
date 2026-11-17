@@ -217,102 +217,21 @@
     return result==="winner"?"Vencedor":result==="loser"?"Perdedor":String(result||"").replace("place_","")+"º lugar";
   }
 
-  function boardMatchEntries(){
-    const entries=[];
-    board.nodes.filter(node=>node.type==="group").forEach(group=>{
-      (group.fixtures||[]).forEach((fixture,index)=>{
-        const id=fixture.bracketId||fixture.id;
-        entries.push({
-          id,
-          label:(group.name||"Grupo")+" · Rodada "+Number(fixture.round||1)+" · Jogo "+(index+1),
-          item:fixture
-        });
-      });
-    });
-    board.nodes.filter(node=>node.type!=="group").forEach(node=>{
-      entries.push({id:node.id,label:nodeLabel(node),item:node});
-    });
-    return entries.filter(entry=>entry.id);
-  }
-  function findBoardMatchEntry(id){
-    return boardMatchEntries().find(entry=>entry.id===id)||null;
-  }
-  function scheduleWouldCycle(matchId,afterId){
-    let current=afterId;
-    const seen=new Set();
-    const entries=boardMatchEntries();
-    while(current){
-      if(current===matchId||seen.has(current))return true;
-      seen.add(current);
-      const source=entries.find(entry=>entry.id===current);
-      current=source?.item?.schedule?.mode==="after"?source.item.schedule.afterMatchId:null;
-    }
-    return false;
-  }
-  function currentScheduleTimeZone(){
-    try{return Intl.DateTimeFormat().resolvedOptions().timeZone||"America/Sao_Paulo";}
-    catch{return "America/Sao_Paulo";}
-  }
-  function dateTimeLocalValue(value,timeZone){
-    if(!value)return "";
-    const date=new Date(value);
-    if(Number.isNaN(date.getTime()))return String(value).slice(0,16);
-    try{
-      const parts=Object.fromEntries(new Intl.DateTimeFormat("en-CA",{
-        timeZone:timeZone||"America/Sao_Paulo",year:"numeric",month:"2-digit",day:"2-digit",
-        hour:"2-digit",minute:"2-digit",hourCycle:"h23"
-      }).formatToParts(date).map(part=>[part.type,part.value]));
-      return parts.year+"-"+parts.month+"-"+parts.day+"T"+parts.hour+":"+parts.minute;
-    }catch{
-      const pad=number=>String(number).padStart(2,"0");
-      return date.getFullYear()+"-"+pad(date.getMonth()+1)+"-"+pad(date.getDate())+"T"+pad(date.getHours())+":"+pad(date.getMinutes());
-    }
-  }
-  function scheduleDateTimeToISO(value,timeZone){
-    if(!value)return "";
-    const [datePart,timePart]=value.split("T");
-    const [year,month,day]=datePart.split("-").map(Number);
-    const [hour,minute]=timePart.split(":").map(Number);
-    const utcGuess=Date.UTC(year,month-1,day,hour,minute,0);
-    const zone=timeZone||currentScheduleTimeZone();
-    const offsetAt=instant=>{
-      const parts=Object.fromEntries(new Intl.DateTimeFormat("en-CA",{
-        timeZone:zone,year:"numeric",month:"2-digit",day:"2-digit",
-        hour:"2-digit",minute:"2-digit",second:"2-digit",hourCycle:"h23"
-      }).formatToParts(new Date(instant)).map(part=>[part.type,part.value]));
-      return Date.UTC(Number(parts.year),Number(parts.month)-1,Number(parts.day),Number(parts.hour),Number(parts.minute),Number(parts.second))-instant;
-    };
-    const first=utcGuess-offsetAt(utcGuess);
-    const corrected=utcGuess-offsetAt(first);
-    return new Date(corrected).toISOString();
-  }
-  function scheduleControlsMarkup(item,matchId,compact=false){
-    const schedule=item.schedule||{mode:"none"};
-    const mode=["fixed","after"].includes(schedule.mode)?schedule.mode:"none";
-    const available=boardMatchEntries().filter(entry=>entry.id!==matchId&&!scheduleWouldCycle(matchId,entry.id));
-    const hasCurrent=available.some(entry=>entry.id===schedule.afterMatchId);
-    const afterOptions=available.map(entry=>'<option value="'+esc(entry.id)+'" '+(schedule.afterMatchId===entry.id?"selected":"")+'>'+esc(entry.label)+'</option>').join("");
-    const afterSelect='<label class="board-schedule-after"><span>PARTIDA ANTERIOR</span><select data-schedule-after data-schedule-match-id="'+esc(matchId)+'"><option value="">Selecione a partida...</option>'+
-      (!hasCurrent&&schedule.afterMatchId?'<option value="'+esc(schedule.afterMatchId)+'" selected>Partida anterior indisponível</option>':"")+afterOptions+
-      '</select></label>';
-    const fixedInput='<label class="board-schedule-date"><span>DATA E HORÁRIO</span><input type="datetime-local" value="'+esc(dateTimeLocalValue(schedule.startsAt,schedule.timeZone))+'" data-schedule-time data-schedule-match-id="'+esc(matchId)+'"></label>';
-    return '<div class="board-match-schedule'+(compact?" compact":"")+'">'+
-      '<label class="board-schedule-mode"><span>AGENDAMENTO</span><select data-schedule-mode data-schedule-match-id="'+esc(matchId)+'">'+
-        '<option value="none" '+(mode==="none"?"selected":"")+'>Sem horário definido</option>'+
-        '<option value="fixed" '+(mode==="fixed"?"selected":"")+'>Data e horário</option>'+
-        '<option value="after" '+(mode==="after"?"selected":"")+'>Logo após outra partida</option>'+
-      '</select></label>'+
-      (mode==="fixed"?fixedInput:mode==="after"?afterSelect:"")+
-      (mode==="after"?'<small class="board-schedule-help">O início fica condicionado à partida escolhida. A relação é definida manualmente por você.</small>':"")+
-    '</div>';
-  }
   function clearScheduleReferences(matchIds){
     const removed=new Set(matchIds||[]);
     if(!removed.size)return;
     board.nodes.forEach(node=>{
       const matches=node.type==="group"?(node.fixtures||[]):[node];
       matches.forEach(item=>{
-        if(item.schedule?.mode==="after"&&removed.has(item.schedule.afterMatchId))item.schedule={mode:"none"};
+        const schedule=item.schedule;
+        if(schedule?.mode!=="after")return;
+        const dependencies=Array.isArray(schedule.afterMatchIds)
+          ?schedule.afterMatchIds
+          :(schedule.afterMatchId?[schedule.afterMatchId]:[]);
+        const kept=dependencies.filter(id=>!removed.has(id));
+        if(kept.length!==dependencies.length){
+          item.schedule=kept.length?{mode:"after",afterMatchIds:kept}:{mode:"none"};
+        }
       });
     });
   }
@@ -368,7 +287,7 @@
       const row=bracketRows.find(item=>item.id===fixtureId);
       const state=row?.status==="completed"?"Concluída":"Aguardando placar";
       return '<div class="board-group-fixture"><div class="board-group-fixture-summary"><span>R'+Number(fixture.round||1)+'</span><b>'+esc(teamById(fixture.teamA).name)+'</b><i>×</i><b>'+esc(teamById(fixture.teamB).name)+'</b><small class="'+(row?.status==="completed"?"done":"")+'">'+state+'</small></div>'+
-        scheduleControlsMarkup(fixture,fixtureId,true)+'</div>';
+        '</div>';
     }).join("");
     const table=standings.length
       ?'<div class="board-group-table"><div class="board-group-head"><b>#</b><b>Equipe</b><b>J</b><b>V</b><b>D</b><b>Pts</b></div>'+
@@ -423,7 +342,6 @@
       return '<article class="board-node board-node-match" data-board-node="'+esc(node.id)+'" style="left:'+node.x+'px;top:'+node.y+'px">'+
         '<header data-board-drag-handle><span>'+esc(nodeLabel(node))+'</span><span class="board-node-status '+(row?.status==="completed"?"done":row?.status==="ready"?"ready":"")+'">'+state+'</span><button type="button" data-delete-board-node="'+esc(node.id)+'" title="Remover">×</button></header>'+
         '<div class="board-node-slots">'+slotMarkup(node,"A")+slotMarkup(node,"B")+'</div>'+resultSummary+
-        scheduleControlsMarkup(node,node.id)+
         '<div class="board-connectors">'+
           '<button type="button" class="board-output '+(pendingOutput?.id===node.id&&pendingOutput.result==="winner"?"active":"")+'" data-connect-out="winner" data-node-id="'+esc(node.id)+'">↗ Vencedor</button>'+
           '<button type="button" class="board-output '+(pendingOutput?.id===node.id&&pendingOutput.result==="loser"?"active":"")+'" data-connect-out="loser" data-node-id="'+esc(node.id)+'">↘ Perdedor</button>'+
@@ -508,36 +426,6 @@
       if(!group||groupHasResults(group)){notify("Não é possível alterar equipes depois que o grupo já tem resultados.");return;}
       group.teamIds=group.teamIds.filter(id=>id!==btn.dataset.removeGroupTeam);
       rebuildGroupFixtures(group);queueSave();
-    }));
-    $("[data-schedule-mode]").forEach(select=>select.addEventListener("change",()=>{
-      const entry=findBoardMatchEntry(select.dataset.scheduleMatchId);
-      if(!entry)return;
-      const mode=select.value;
-      if(mode==="fixed")entry.item.schedule={mode:"fixed",startsAt:entry.item.schedule?.startsAt||"",timeZone:entry.item.schedule?.timeZone||currentScheduleTimeZone()};
-      else if(mode==="after")entry.item.schedule={mode:"after",afterMatchId:entry.item.schedule?.afterMatchId||""};
-      else entry.item.schedule={mode:"none"};
-      queueSave();
-    }));
-    $("[data-schedule-time]").forEach(input=>input.addEventListener("change",()=>{
-      const entry=findBoardMatchEntry(input.dataset.scheduleMatchId);
-      if(!entry)return;
-      const timeZone=entry.item.schedule?.timeZone||currentScheduleTimeZone();
-      let startsAt="";
-      try{startsAt=scheduleDateTimeToISO(input.value,timeZone);}
-      catch{notify("Não foi possível interpretar a data no fuso horário da organização.");return;}
-      entry.item.schedule={mode:"fixed",startsAt,timeZone};
-      queueSave();
-    }));
-    $("[data-schedule-after]").forEach(select=>select.addEventListener("change",()=>{
-      const entry=findBoardMatchEntry(select.dataset.scheduleMatchId);
-      if(!entry)return;
-      if(select.value&&scheduleWouldCycle(entry.id,select.value)){
-        notify("Essa dependência criaria um ciclo entre partidas.");
-        renderBoard();
-        return;
-      }
-      entry.item.schedule={mode:"after",afterMatchId:select.value||""};
-      queueSave();
     }));
     $("[data-board-drag-handle]").forEach(handle=>handle.addEventListener("pointerdown",e=>{
       if(e.target.closest("button"))return;
@@ -869,16 +757,6 @@
         if(usedSlots.has(targetKey)||sourcePorts.has(sourceKey))throw new Error("Cada entrada e cada saída só podem ter uma conexão.");
         usedSlots.add(targetKey);sourcePorts.add(sourceKey);
         if(!validateConnection(edge.from,edge.result,edge.to,edge.slot,true))throw new Error("Revise as conexões do chaveamento.");
-      }
-      for(const entry of boardMatchEntries()){
-        const schedule=entry.item.schedule||{};
-        if(schedule.mode==="fixed"&&schedule.startsAt&&Number.isNaN(new Date(schedule.startsAt).getTime())){
-          throw new Error("Data ou horário inválido em "+entry.label+".");
-        }
-        if(schedule.mode==="after"&&schedule.afterMatchId){
-          if(!findBoardMatchEntry(schedule.afterMatchId))throw new Error("A partida anterior selecionada não existe mais em "+entry.label+".");
-          if(scheduleWouldCycle(entry.id,schedule.afterMatchId))throw new Error("A dependência de "+entry.label+" criaria um ciclo.");
-        }
       }
       const assigned=[];
       for(const group of board.nodes.filter(item=>item.type==="group")){
