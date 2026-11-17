@@ -610,3 +610,27 @@
   .tournament-public-schedule-panel>.panel-head>button{flex:none}
   .acs-public-schedule-table{min-width:880px}
 }
+
+
+/* ACS tournament match scheduling controls — organizer-only whiteboard UI. */
+.board-match-schedule{display:grid;grid-template-columns:1fr;gap:7px;margin:0 9px 9px;padding:9px;border:1px solid #d8e1eb;border-radius:7px;background:#f4f7fa}
+.board-match-schedule.compact{margin:6px 0 2px;padding:7px;gap:6px}
+.board-match-schedule label{display:grid;gap:4px;min-width:0}
+.board-match-schedule label>span{color:#718196;font:800 7px Inter,sans-serif;letter-spacing:.08em}
+.board-match-schedule select,.board-match-schedule input{width:100%;min-width:0;height:30px;padding:5px 7px;border:1px solid #c7d3df;border-radius:5px;background:#fff;color:#26384c;font:600 9px Inter,sans-serif}
+.board-match-schedule select:focus,.board-match-schedule input:focus{outline:2px solid rgba(83,139,194,.25);border-color:#6b9dca}
+.board-schedule-help{color:#718196;font:600 8px/1.45 Inter,sans-serif}
+.board-group-fixture{padding:5px 4px;border-bottom:1px solid #e7ebf0}
+.board-group-fixture-summary{display:flex;align-items:center;flex-wrap:wrap;gap:4px;color:#415166;font-size:9px}
+.board-group-fixture-summary span{color:#8995a3;margin:0 4px}
+.board-group-fixture-summary b{font-size:9px;color:#415166}
+.board-group-fixture-summary small{margin-left:auto}
+.board-group-fixture .board-match-schedule{margin:6px 0 1px}
+.acs-public-schedule-table{min-width:1080px}
+.acs-public-schedule-table td:nth-child(3){min-width:155px;color:#aec3d9;white-space:nowrap}
+.acs-public-schedule-value{display:inline-block;max-width:230px;padding:6px 8px;border:1px solid #35485d;border-radius:6px;background:#152234;color:#bdd0e3;font-size:9px;line-height:1.45;white-space:normal}
+@media(max-width:680px){
+  .board-match-schedule{margin-left:7px;margin-right:7px}
+  .board-match-schedule.compact{margin-left:0;margin-right:0}
+  .acs-public-schedule-table{min-width:1080px}
+}
