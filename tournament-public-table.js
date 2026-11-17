@@ -72,6 +72,34 @@
     const rowForNode = (node) => rowsById.get(node.bracketId || node.id) || rows.find((row) => row.config?.board_node_id === node.id) || null;
     const incomingFor = (nodeId, slot) => edges.find((edge) => edge.to === nodeId && edge.slot === slot) || null;
     const outgoingFor = (nodeId, result) => edges.find((edge) => edge.from === nodeId && edge.result === result) || null;
+    const matchLabels = new Map();
+    nodes.filter((node) => node.type === "group").forEach((group) => {
+      (group.fixtures || []).forEach((fixture, index) => {
+        const id = fixture.bracketId || fixture.id;
+        if (id) matchLabels.set(id, (group.name || "Grupo") + " · R" + Number(fixture.round || 1) + " · J" + (index + 1));
+      });
+    });
+    matchNodes.forEach((node) => {
+      const row = rowForNode(node);
+      const label = nodeTitle(node, row, matchNodes);
+      matchLabels.set(node.id, label);
+      if (node.bracketId) matchLabels.set(node.bracketId, label);
+    });
+    const scheduleSummary = (schedule) => {
+      if (schedule?.mode === "fixed") {
+        if (!schedule.startsAt) return "Data e horário a definir";
+        const date = new Date(schedule.startsAt);
+        return Number.isNaN(date.getTime())
+          ? "Data e horário inválidos"
+          : date.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+      }
+      if (schedule?.mode === "after") {
+        if (!schedule.afterMatchId) return "Dependência ainda não escolhida";
+        const previous = matchLabels.get(schedule.afterMatchId);
+        return previous ? "Logo após " + previous : "Após uma partida não encontrada";
+      }
+      return "A definir";
+    };
 
     const totalTerminalWinners = matchNodes.filter((node) => !outgoingFor(node.id, "winner")).length;
     const isFinalMatch = (node, row) => {
@@ -103,7 +131,7 @@
       const advancement = groupEdges.length
         ? groupEdges.map((edge) => ordinal(edge.result) + " → " + targetDescription(edge, nodes, rowsById, stagesById, matchNodes)).join(" · ")
         : "O avanço para a próxima fase ainda não foi conectado.";
-      htmlRows.push('<tr class="acs-public-table-section"><th colspan="6">' + escapeHtml("Fase de grupos · " + groupName) +
+      htmlRows.push('<tr class="acs-public-table-section"><th colspan="7">' + escapeHtml("Fase de grupos · " + groupName) +
         '<small>Avanço por classificação: ' + escapeHtml(advancement) + '</small></th></tr>');
 
       fixtures.forEach((fixture, index) => {
@@ -116,6 +144,7 @@
         htmlRows.push('<tr>' +
           '<td>Grupo ' + escapeHtml(groupName.replace(/^Grupo\s*/i, "")) + ' · R' + Number(fixture.round || 1) + '</td>' +
           '<td>Jogo ' + String(index + 1).padStart(2, "0") + '</td>' +
+          '<td><span class="acs-public-schedule-value">' + escapeHtml(scheduleSummary(fixture.schedule)) + '</span></td>' +
           '<td><b>' + escapeHtml(teamA) + '</b><span class="acs-public-vs"> × </span><b>' + escapeHtml(teamB) + '</b></td>' +
           '<td><span class="acs-public-outcome">Resultado contabilizado na classificação</span></td>' +
           '<td><span class="acs-public-outcome muted">Segue no grupo e disputa os jogos restantes</span></td>' +
@@ -136,6 +165,7 @@
         htmlRows.push('<tr>' +
           '<td>' + escapeHtml(stageName) + ' · R' + Number(row?.round_number || 1) + '</td>' +
           '<td>' + escapeHtml(nodeTitle(node, row, matchNodes)) + '</td>' +
+          '<td><span class="acs-public-schedule-value">' + escapeHtml(scheduleSummary(node.schedule)) + '</span></td>' +
           '<td><b class="' + (winner && row?.winner_team_id === row?.team_a_id ? "acs-public-winner" : "") + '">' + escapeHtml(teamA) + '</b>' +
             '<span class="acs-public-vs"> × </span><b class="' + (winner && row?.winner_team_id === row?.team_b_id ? "acs-public-winner" : "") + '">' + escapeHtml(teamB) + '</b>' +
             (winner ? '<small class="acs-public-result-note">Vencedor: ' + escapeHtml(winner) + '</small>' : '') + '</td>' +
@@ -148,7 +178,7 @@
 
     host.innerHTML = htmlRows.length
       ? '<div class="acs-public-table-scroll"><table class="acs-public-schedule-table"><thead><tr>' +
-        '<th>Fase / rodada</th><th>Partida</th><th>Confronto</th><th>Se vencer</th><th>Se perder</th><th>Status</th>' +
+        '<th>Fase / rodada</th><th>Partida</th><th>Data / horário</th><th>Confronto</th><th>Se vencer</th><th>Se perder</th><th>Status</th>' +
         '</tr></thead><tbody>' + htmlRows.join("") + '</tbody></table></div>' +
         '<p class="acs-public-table-footnote">Os caminhos de vitória e derrota seguem as conexões definidas pela organização no quadro do campeonato.</p>'
       : '<div class="market-empty">A organização ainda não adicionou jogos ao quadro.</div>';
