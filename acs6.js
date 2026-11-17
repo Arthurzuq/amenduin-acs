@@ -127,11 +127,17 @@
     return fixtures;
   };
   function rebuildGroupFixtures(group){
-    const previous=new Map((group.fixtures||[]).map(f=>[[f.teamA,f.teamB].sort().join(":"),f.id||f.bracketId]));
+    const oldFixtures=group.fixtures||[];
+    const previous=new Map(oldFixtures.map(f=>[[f.teamA,f.teamB].sort().join(":"),f]));
+    const kept=new Set();
     group.fixtures=roundRobinPairs(group.teamIds||[]).map(f=>{
-      const id=previous.get([f.teamA,f.teamB].sort().join(":"))||uuid();
-      return {...f,id,bracketId:id};
+      const old=previous.get([f.teamA,f.teamB].sort().join(":"));
+      const id=old?.id||old?.bracketId||uuid();
+      const bracketId=old?.bracketId||id;
+      kept.add(bracketId);
+      return {...old,...f,id,bracketId,schedule:old?.schedule||f.schedule};
     });
+    clearScheduleReferences(oldFixtures.map(f=>f.bracketId||f.id).filter(id=>id&&!kept.has(id)));
   }
   function normalizeBoard(){
     if(!board||typeof board!=="object")board={version:3,nodes:[],edges:[]};
@@ -209,6 +215,76 @@
   }
   function resultLabel(result){
     return result==="winner"?"Vencedor":result==="loser"?"Perdedor":String(result||"").replace("place_","")+"º lugar";
+  }
+
+  function boardMatchEntries(){
+    const entries=[];
+    board.nodes.filter(node=>node.type==="group").forEach(group=>{
+      (group.fixtures||[]).forEach((fixture,index)=>{
+        const id=fixture.bracketId||fixture.id;
+        entries.push({
+          id,
+          label:(group.name||"Grupo")+" · Rodada "+Number(fixture.round||1)+" · Jogo "+(index+1),
+          item:fixture
+        });
+      });
+    });
+    board.nodes.filter(node=>node.type!=="group").forEach(node=>{
+      entries.push({id:node.id,label:nodeLabel(node),item:node});
+    });
+    return entries.filter(entry=>entry.id);
+  }
+  function findBoardMatchEntry(id){
+    return boardMatchEntries().find(entry=>entry.id===id)||null;
+  }
+  function scheduleWouldCycle(matchId,afterId){
+    let current=afterId;
+    const seen=new Set();
+    const entries=boardMatchEntries();
+    while(current){
+      if(current===matchId||seen.has(current))return true;
+      seen.add(current);
+      const source=entries.find(entry=>entry.id===current);
+      current=source?.item?.schedule?.mode==="after"?source.item.schedule.afterMatchId:null;
+    }
+    return false;
+  }
+  function dateTimeLocalValue(value){
+    if(!value)return "";
+    const date=new Date(value);
+    if(Number.isNaN(date.getTime()))return String(value).slice(0,16);
+    const pad=number=>String(number).padStart(2,"0");
+    return date.getFullYear()+"-"+pad(date.getMonth()+1)+"-"+pad(date.getDate())+"T"+pad(date.getHours())+":"+pad(date.getMinutes());
+  }
+  function scheduleControlsMarkup(item,matchId,compact=false){
+    const schedule=item.schedule||{mode:"none"};
+    const mode=["fixed","after"].includes(schedule.mode)?schedule.mode:"none";
+    const available=boardMatchEntries().filter(entry=>entry.id!==matchId&&!scheduleWouldCycle(matchId,entry.id));
+    const hasCurrent=available.some(entry=>entry.id===schedule.afterMatchId);
+    const afterOptions=available.map(entry=>'<option value="'+esc(entry.id)+'" '+(schedule.afterMatchId===entry.id?"selected":"")+'>'+esc(entry.label)+'</option>').join("");
+    const afterSelect='<label class="board-schedule-after"><span>PARTIDA ANTERIOR</span><select data-schedule-after data-schedule-match-id="'+esc(matchId)+'"><option value="">Selecione a partida...</option>'+
+      (!hasCurrent&&schedule.afterMatchId?'<option value="'+esc(schedule.afterMatchId)+'" selected>Partida anterior indisponível</option>':"")+afterOptions+
+      '</select></label>';
+    const fixedInput='<label class="board-schedule-date"><span>DATA E HORÁRIO</span><input type="datetime-local" value="'+esc(dateTimeLocalValue(schedule.startsAt))+'" data-schedule-time data-schedule-match-id="'+esc(matchId)+'"></label>';
+    return '<div class="board-match-schedule'+(compact?" compact":"")+'">'+
+      '<label class="board-schedule-mode"><span>AGENDAMENTO</span><select data-schedule-mode data-schedule-match-id="'+esc(matchId)+'">'+
+        '<option value="none" '+(mode==="none"?"selected":"")+'>Sem horário definido</option>'+
+        '<option value="fixed" '+(mode==="fixed"?"selected":"")+'>Data e horário</option>'+
+        '<option value="after" '+(mode==="after"?"selected":"")+'>Logo após outra partida</option>'+
+      '</select></label>'+
+      (mode==="fixed"?fixedInput:mode==="after"?afterSelect:"")+
+      (mode==="after"?'<small class="board-schedule-help">O início fica condicionado à partida escolhida. A relação é definida manualmente por você.</small>':"")+
+    '</div>';
+  }
+  function clearScheduleReferences(matchIds){
+    const removed=new Set(matchIds||[]);
+    if(!removed.size)return;
+    board.nodes.forEach(node=>{
+      const matches=node.type==="group"?(node.fixtures||[]):[node];
+      matches.forEach(item=>{
+        if(item.schedule?.mode==="after"&&removed.has(item.schedule.afterMatchId))item.schedule={mode:"none"};
+      });
+    });
   }
   function slotMarkup(node,slot){
     const edge=incomingFor(node.id,slot);
