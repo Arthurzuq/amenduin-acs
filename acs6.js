@@ -747,6 +747,7 @@
       const {error}=await supabaseClient.from("tournament_board_documents").upsert({tournament_id:tid,board_json:board,updated_by:currentUser.id,updated_at:new Date().toISOString()},{onConflict:"tournament_id"});
       if(error)throw error;
       renderBoard();
+      window.dispatchEvent(new Event("acs:tournament-board-updated"));
       if(typeof window.ACS5_REFRESH_BRACKET_CHOICES==="function")await window.ACS5_REFRESH_BRACKET_CHOICES();
       $("#boardSaveState").textContent="Organização salva · "+new Date().toLocaleTimeString("pt-BR");
     }catch(err){$("#boardSaveState").textContent="Falha ao salvar: "+(err?.message||"erro");}
