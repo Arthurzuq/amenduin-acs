@@ -63,7 +63,8 @@
     const entries = [];
 
     nodes.filter((node) => node.type === "group").forEach((group) => {
-      (group.fixtures || []).forEach((fixture, index) => {
+      (group.fixtures || []).slice().sort((a, b) => Number(a.round || 1) - Number(b.round || 1))
+        .forEach((fixture, index) => {
         const id = fixture.bracketId || fixture.id;
         if (!id) return;
         entries.push({
@@ -377,7 +378,9 @@
   }
 
   function rerender() {
-    if (tableData) renderTable(tableData.board, tableData.rows, tableData.stages, tableData.registrations);
+    if (!tableData) return;
+    renderTable(tableData.board, tableData.rows, tableData.stages, tableData.registrations);
+    updateEditorVisibility(host.querySelector("[data-schedule-editor]"));
   }
 
   function updateEditorVisibility(form) {
