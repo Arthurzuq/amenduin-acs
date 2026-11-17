@@ -98,7 +98,7 @@
     nodes.filter((node) => node.type === "group").forEach((group) => {
       const fixtures = (group.fixtures || []).slice().sort((a, b) => Number(a.round || 1) - Number(b.round || 1));
       const groupName = group.name || groupsById.get(group.id) || "Grupo";
-      const groupEdges = edges.filter((edge) => edge.from === group.id && /^place_[1-8]$/.test(edge.result || ""));
+      const groupEdges = edges.filter((edge) => edge.from === group.id && /^place_[1-8]$/.test(edge.result || ""))
         .sort((a, b) => Number(a.result.slice(6)) - Number(b.result.slice(6)));
       const advancement = groupEdges.length
         ? groupEdges.map((edge) => ordinal(edge.result) + " → " + targetDescription(edge, nodes, rowsById, stagesById, matchNodes)).join(" · ")
