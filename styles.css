@@ -574,3 +574,39 @@
   .acs-career-achievement-grid .achievement b{font-size:10px}
   .acs-career-achievement-grid .achievement small{font-size:8px}
 }
+
+
+/* ACS public tournament schedule: read-only match and progression table. */
+.tournament-public-schedule-panel{margin-top:18px}
+.tournament-public-schedule-panel[hidden]{display:none!important}
+.tournament-bracket-panel.acs-public-table-replaced{display:none!important}
+.acs-public-table-scroll{width:100%;overflow-x:auto;border:1px solid #2b3d52;border-radius:9px;background:#0f1722;overscroll-behavior-inline:contain}
+.acs-public-schedule-table{width:100%;min-width:920px;border-collapse:separate;border-spacing:0;color:#dce7f4;font-size:11px}
+.acs-public-schedule-table th{padding:12px 11px;background:#182638;color:#9db3ca;text-align:left;font-size:9px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;border-bottom:1px solid #30445b;white-space:nowrap}
+.acs-public-schedule-table td{padding:12px 11px;border-bottom:1px solid rgba(105,132,161,.15);vertical-align:middle;line-height:1.5}
+.acs-public-schedule-table tbody tr:last-child td{border-bottom:0}
+.acs-public-schedule-table tbody tr:not(.acs-public-table-section):hover{background:rgba(112,157,203,.055)}
+.acs-public-schedule-table td:first-child{color:#a8bbcf;white-space:nowrap;font-weight:700}
+.acs-public-schedule-table td:nth-child(2){color:#8fa6bf;white-space:nowrap}
+.acs-public-schedule-table td:nth-child(3){min-width:190px}
+.acs-public-vs{color:#71849a;padding:0 5px}
+.acs-public-result-note{display:block;margin-top:4px;color:#d8ba79;font-size:9px}
+.acs-public-winner{color:#e9c77d}
+.acs-public-outcome{display:inline-block;max-width:245px;padding:6px 8px;border:1px solid #34475d;border-radius:6px;background:#152234;color:#b9cde1;font-size:9px;line-height:1.45}
+.acs-public-outcome.win{border-color:rgba(87,156,128,.35);background:rgba(45,112,83,.12);color:#a6d7bc}
+.acs-public-outcome.lose{border-color:rgba(180,98,104,.3);background:rgba(126,51,59,.13);color:#e0a5a9}
+.acs-public-outcome.muted{color:#9eafc2;background:#141e2b}
+.acs-public-status{display:inline-block;padding:5px 7px;border-radius:5px;border:1px solid #35465a;background:#172334;color:#a9bad0;font-size:8px;font-weight:800;white-space:nowrap}
+.acs-public-status.done{border-color:rgba(93,161,129,.35);color:#9ed2b6;background:rgba(45,112,83,.12)}
+.acs-public-status.live{border-color:rgba(216,173,92,.4);color:#e7c47c;background:rgba(139,99,35,.14)}
+.acs-public-table-section th{padding:13px 12px;background:#1a2b40;color:#e2edf8;font-size:10px;letter-spacing:.06em}
+.acs-public-table-section small{display:block;margin-top:5px;color:#9db4cb;font-size:9px;font-weight:500;letter-spacing:0;text-transform:none;white-space:normal}
+.acs-public-table-empty{color:#91a3b7;text-align:center;padding:18px!important}
+.acs-public-table-footnote{margin:9px 2px 0;color:#7f93aa;font-size:9px;line-height:1.6}
+.acs-public-table-updated{display:block;margin-top:9px;color:#788ca3;font-size:9px}
+@media(max-width:680px){
+  .tournament-public-schedule-panel{padding:13px}
+  .tournament-public-schedule-panel>.panel-head{align-items:flex-start}
+  .tournament-public-schedule-panel>.panel-head>button{flex:none}
+  .acs-public-schedule-table{min-width:880px}
+}
