@@ -233,6 +233,15 @@
           <p class="form-note">Aprove as inscrições e organize as fases quando o período de registro terminar.</p>
           <div class="admin-save-row"><button class="btn btn-primary" id="organizeTournamentButton">Organizar campeonato ↗</button></div>
         </section>
+        <section class="panel tournament-public-schedule-panel" id="tournamentPublicSchedulePanel" hidden>
+          <div class="panel-head">
+            <div><span class="eyebrow">ACOMPANHAMENTO PÚBLICO</span><h3>Tabela de jogos e caminhos</h3></div>
+            <button class="btn btn-ghost btn-small" id="refreshTournamentPublicSchedule" type="button">↻ Atualizar tabela</button>
+          </div>
+          <p class="form-note">Veja os confrontos de cada fase e para onde cada equipe segue quando vence ou perde. A tabela é somente para consulta.</p>
+          <div id="tournamentPublicSchedule"><div class="market-empty">Carregando tabela de jogos...</div></div>
+          <small class="acs-public-table-updated" id="tournamentPublicScheduleUpdated"></small>
+        </section>
         <section class="panel tournament-bracket-panel">
           <div class="panel-head"><div><span class="eyebrow">COMPETIÇÃO</span><h3>Fases e chaveamento</h3></div><span class="tournament-step-chip">03 / DISPUTA</span></div>
           <div id="tournamentBracket" class="tournament-bracket"><div class="market-empty">O chaveamento será exibido após a organização.</div></div>
@@ -411,5 +420,6 @@
   <script src="acs8-cosmetics.js?v=acs9.1"></script>
   <script src="acs9-community.js?v=acs10.7-career-achievement-layout-1"></script>
   <script src="acs10-awards.js?v=acs10.2-simplified-stats-1"></script>
+  <script src="tournament-public-table.js?v=acs-public-table-1"></script>
 </body>
 </html>
